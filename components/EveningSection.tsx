@@ -26,9 +26,9 @@ export default function EveningSection({
         4 hrs after morning · 15 min between foods · 1 hr rest after
       </p>
       <div className="divide-y divide-gray-100">
-        {treatmentItems.map(({ food, weekEntry, isContinuing }, i) => (
+        {treatmentItems.map(({ food, weekEntry, isContinuing }) => (
           <FoodItem
-            key={`evening-${i}`}
+            key={`evening-${food.name}`}
             name={food.name}
             dose={weekEntry.dose}
             unit={weekEntry.unit}
@@ -36,8 +36,8 @@ export default function EveningSection({
             capped={false}
             isWeekly={false}
             isContinuing={isContinuing}
-            checked={!!checkedFoods[`evening-${i}`]}
-            onChange={(val) => onCheck(`evening-${i}`, val)}
+            checked={!!checkedFoods[`evening-${food.name}`]}
+            onChange={(val) => onCheck(`evening-${food.name}`, val)}
           />
         ))}
       </div>

@@ -21,9 +21,14 @@ export default function DailyPage() {
     setDoseState(getDoseState())
   }, [router])
 
+  useEffect(() => {
+    if (doseState) {
+      saveDoseState(doseState)
+    }
+  }, [doseState])
+
   function handleStateChange(state: DoseState) {
     setDoseState(state)
-    saveDoseState(state)
   }
 
   if (!schedule || !doseState) return null

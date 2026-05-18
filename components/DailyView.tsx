@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ParsedSchedule, DoseState } from "@/lib/types"
+import { getTreatmentFoodsForWeek } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -14,8 +15,14 @@ interface DailyViewProps {
 
 export default function DailyView({ schedule, doseState, onStateChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
+  const [eveningError, setEveningError] = useState(false)
 
   const { currentWeek, currentDay, checkedFoods } = doseState
+
+  const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
+  const allEveningChecked = eveningItems.every(
+    ({ food }) => !!checkedFoods[`evening-${food.name}`]
+  )
 
   function handleCheck(key: string, val: boolean) {
     onStateChange({
@@ -115,10 +122,32 @@ export default function DailyView({ schedule, doseState, onStateChange }: DailyV
       <div className="mt-auto pt-4">
         <button
           className="bg-slate-900 text-white w-full py-4 text-lg font-semibold rounded-xl"
-          onClick={() => setConfirmingComplete(true)}
+          onClick={() => {
+            if (!allEveningChecked) {
+              setEveningError(true)
+              setConfirmingComplete(false)
+            } else {
+              setEveningError(false)
+              setConfirmingComplete(true)
+            }
+          }}
         >
           Complete Day
         </button>
+
+        {eveningError && (
+          <div className="mt-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
+            <p className="text-sm text-amber-900 font-medium">
+              Please verify all evening treatment foods were given. If any dose was missed, give the same amounts again the next day — do not advance until all evening foods are completed.
+            </p>
+            <button
+              className="mt-2 text-xs text-amber-700 underline"
+              onClick={() => setEveningError(false)}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {confirmingComplete && (
           <div className="flex items-center justify-between mt-3 px-2 py-2 bg-gray-100 rounded-xl">
