@@ -10,7 +10,9 @@ export default function DailyPage() {
   const router = useRouter()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [doseState, setDoseState] = useState<DoseState | null>(null)
+  const [hydrated, setHydrated] = useState(false)
 
+  // Load once on mount — empty deps so router ref changes never re-trigger
   useEffect(() => {
     const s = getSchedule()
     if (!s) {
@@ -19,13 +21,15 @@ export default function DailyPage() {
     }
     setSchedule(s)
     setDoseState(getDoseState())
-  }, [router])
+    setHydrated(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
+  // Save only after hydration so initial mount never writes defaults over real data
   useEffect(() => {
-    if (doseState) {
-      saveDoseState(doseState)
-    }
-  }, [doseState])
+    if (!hydrated || !doseState) return
+    saveDoseState(doseState)
+  }, [doseState, hydrated])
 
   function handleStateChange(state: DoseState) {
     setDoseState(state)
