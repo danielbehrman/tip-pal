@@ -8,7 +8,7 @@ Phase: Phase 1 — Demo
 Mode: Active Build
 Last Updated: 2026-05-17
 Blocker: None
-Next Action: Dan to review UI (setup flow + daily dose view) and confirm Phase 1 complete
+Next Action: Dan to confirm Phase 1 close and decide next mode
 
 ---
 
@@ -31,11 +31,10 @@ Next Action: Dan to review UI (setup flow + daily dose view) and confirm Phase 1
 ---
 
 ## Carry Forward
-> None — Phase 1 is the initial build.
 
 | Item | Severity | Source Phase | Priority |
 |---|---|---|---|
-| — | — | — | — |
+| localStorage state not persisting across page reloads — checkedFoods, week, and day reset on every refresh. Root cause unresolved after multiple fix attempts (hydration flag, direct save, name-based keys). Phase 2 moves to Supabase which eliminates localStorage entirely, but this must be fixed or replaced before the app is usable in production. | High | Phase 1 | P0 |
 
 ---
 
@@ -103,16 +102,21 @@ Next Action: Dan to review UI (setup flow + daily dose view) and confirm Phase 1
 ---
 
 ## Phase 1 — Completion Record
-> Populated at phase close. Required before Phase 2 begins.
 
 | Feature | Result | Notes |
 |---|---|---|
-| Schedule Parsing | — | — |
-| Daily Dose View | — | — |
+| Schedule Parsing | ✅ Pass | Parsing, review, inline edit, confirm, and re-parse all working. Deployed to Vercel. |
+| Daily Dose View | ⚠️ Partial | UI complete — week/day controls, morning/evening sections, CAPPED badges, prep notes, Complete Day gate on evening foods all working. localStorage state does not persist across page reloads. |
 
-**Deferred items:** —
-**Known regressions:** —
-**Decisions made during build:** —
+**Deferred items:**
+- localStorage persistence — High severity — carried forward as P0 to Phase 2. See Carry Forward table.
+
+**Known regressions:** None.
+
+**Decisions made during build:**
+- API key configured in Vercel only (no local .env.local) — local dev requires `vercel dev`
+- Checkbox keys are name-based (`morning-{food.name}`) not index-based — prevents stale key mismatches after re-parse
+- Complete Day blocked if any evening foods unchecked — inline error with live reactive dismissal
 
 ---
 
