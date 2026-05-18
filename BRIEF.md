@@ -5,10 +5,10 @@ Joshy's TIP Dosing Assistant — paste a dosing schedule, see exactly what to gi
 
 ## Current Phase
 Phase: Phase 1 — Demo
-Mode: Active Build
+Mode: Dogfooding
 Last Updated: 2026-05-17
 Blocker: None
-Next Action: Dan to confirm Phase 1 close and decide next mode
+Next Action: Use the app, gather feedback, open a new session to kick off Phase 2 when ready
 
 ---
 
