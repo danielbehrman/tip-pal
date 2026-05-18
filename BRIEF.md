@@ -8,7 +8,7 @@ Phase: Phase 1 — Demo
 Mode: Active Build
 Last Updated: 2026-05-17
 Blocker: None
-Next Action: Dan to commit BRIEF.md to GitHub and open a Claude Code session
+Next Action: Dan to review UI (setup flow + daily dose view) and confirm Phase 1 complete
 
 ---
 
