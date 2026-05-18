@@ -15,7 +15,7 @@ interface DailyViewProps {
 
 export default function DailyView({ schedule, doseState, onStateChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
-  const [eveningError, setEveningError] = useState(false)
+  const [completionAttempted, setCompletionAttempted] = useState(false)
 
   const { currentWeek, currentDay, checkedFoods } = doseState
 
@@ -23,6 +23,7 @@ export default function DailyView({ schedule, doseState, onStateChange }: DailyV
   const allEveningChecked = eveningItems.every(
     ({ food }) => !!checkedFoods[`evening-${food.name}`]
   )
+  const showEveningError = completionAttempted && !allEveningChecked
 
   function handleCheck(key: string, val: boolean) {
     onStateChange({
@@ -45,6 +46,7 @@ export default function DailyView({ schedule, doseState, onStateChange }: DailyV
 
   function handleCompleteDay() {
     setConfirmingComplete(false)
+    setCompletionAttempted(false)
     let nextDay = currentDay
     let nextWeek = currentWeek
     if (currentDay < 7) {
@@ -123,29 +125,22 @@ export default function DailyView({ schedule, doseState, onStateChange }: DailyV
         <button
           className="bg-slate-900 text-white w-full py-4 text-lg font-semibold rounded-xl"
           onClick={() => {
-            if (!allEveningChecked) {
-              setEveningError(true)
-              setConfirmingComplete(false)
-            } else {
-              setEveningError(false)
+            setCompletionAttempted(true)
+            if (allEveningChecked) {
               setConfirmingComplete(true)
+            } else {
+              setConfirmingComplete(false)
             }
           }}
         >
           Complete Day
         </button>
 
-        {eveningError && (
+        {showEveningError && (
           <div className="mt-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
             <p className="text-sm text-amber-900 font-medium">
               Please verify all evening treatment foods were given. If any dose was missed, give the same amounts again the next day — do not advance until all evening foods are completed.
             </p>
-            <button
-              className="mt-2 text-xs text-amber-700 underline"
-              onClick={() => setEveningError(false)}
-            >
-              Dismiss
-            </button>
           </div>
         )}
 
