@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import PasteInput from "@/components/PasteInput"
 import ScheduleReview from "@/components/ScheduleReview"
 import { ParsedSchedule } from "@/lib/types"
-import { saveSchedule, saveDoseState } from "@/lib/storage"
+import { saveSchedule, saveDoseState } from "@/lib/supabase"
 
 type View = "paste" | "loading" | "review" | "error"
 
@@ -38,11 +38,16 @@ export default function SetupPage() {
     }
   }
 
-  function handleConfirm() {
+  async function handleConfirm() {
     if (!parsedSchedule) return
-    saveSchedule(parsedSchedule)
-    saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })
-    router.push("/daily")
+    try {
+      await saveSchedule(parsedSchedule)
+      await saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })
+      router.push("/daily")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save schedule. Please try again.")
+      setView("error")
+    }
   }
 
   return (

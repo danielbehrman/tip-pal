@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { getSchedule, getDoseState, saveDoseState } from "@/lib/storage"
+import { fetchSchedule, fetchDoseState, saveDoseState } from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -12,24 +12,34 @@ export default function DailyPage() {
   const [doseState, setDoseState] = useState<DoseState | null>(null)
   const [hydrated, setHydrated] = useState(false)
 
-  // Load once on mount — empty deps prevents router ref changes from re-triggering
   useEffect(() => {
-    const s = getSchedule()
-    if (!s) {
-      router.replace("/setup")
-      return
+    async function load() {
+      try {
+        const s = await fetchSchedule()
+        if (!s) {
+          router.replace("/setup")
+          return
+        }
+        const ds = await fetchDoseState()
+        setSchedule(s)
+        setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
+        setHydrated(true)
+      } catch {
+        router.replace("/setup")
+      }
     }
-    setSchedule(s)
-    setDoseState(getDoseState())
-    setHydrated(true)
+    load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Save synchronously with the new state — no effect dependency chain, no timing ambiguity
-  function handleStateChange(state: DoseState) {
+  async function handleStateChange(state: DoseState) {
     if (!hydrated) return
     setDoseState(state)
-    saveDoseState(state)
+    try {
+      await saveDoseState(state)
+    } catch {
+      // Save failed — local state already updated. Server state wins on next refresh.
+    }
   }
 
   if (!schedule || !doseState) return null
