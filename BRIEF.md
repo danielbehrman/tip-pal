@@ -7,8 +7,8 @@ Joshy's TIP Dosing Assistant — paste a dosing schedule, see exactly what to gi
 Phase: Phase 2 — Production
 Mode: Active Build
 Last Updated: 2026-05-22
-Blocker: None
-Next Action: PM Agent tickets Phase 2 features — Supabase foundation first
+Blocker: Supabase project not yet created — Dan must provision and add env vars before F1 can be tested
+Next Action: Dan creates Supabase project, runs schema SQL, adds env vars to Vercel, deploys F1
 
 ---
 
@@ -174,7 +174,7 @@ Next Action: PM Agent tickets Phase 2 features — Supabase foundation first
 - Do not insert dose log rows in F1 — that belongs to F4/F5
 - `ParsedSchedule` and `DoseState` TypeScript types must not change shape
 
-**Status:** Not Started
+**Status:** ✅ Code complete — awaiting Supabase project + env vars to test
 
 ---
 
