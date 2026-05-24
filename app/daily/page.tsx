@@ -24,12 +24,21 @@ export default function DailyPage() {
 
   useEffect(() => {
     async function load() {
+      // Auth check — only this warrants a /login redirect
+      let session
       try {
-        const session = await getSession()
-        if (!session) {
-          router.replace("/login")
-          return
-        }
+        session = await getSession()
+      } catch {
+        router.replace("/login")
+        return
+      }
+      if (!session) {
+        router.replace("/login")
+        return
+      }
+
+      // Data fetching — errors here are not auth failures, never redirect to /login
+      try {
         const s = await fetchSchedule()
         if (!s) {
           router.replace("/setup")
@@ -37,8 +46,8 @@ export default function DailyPage() {
         }
         const [ds, apptDate, anchorTs] = await Promise.all([
           fetchDoseState(),
-          fetchAppointmentDate(),
-          fetchLastDay7Completion(),
+          fetchAppointmentDate().catch(() => null),
+          fetchLastDay7Completion().catch(() => null),
         ])
         setSchedule(s)
         setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
@@ -46,7 +55,7 @@ export default function DailyPage() {
         setAnchorTimestamp(anchorTs)
         setHydrated(true)
       } catch {
-        router.replace("/login")
+        router.replace("/setup")
       }
     }
     load()
