@@ -1,11 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import PasteInput from "@/components/PasteInput"
 import ScheduleReview from "@/components/ScheduleReview"
 import { ParsedSchedule } from "@/lib/types"
-import { saveSchedule, saveDoseState } from "@/lib/supabase"
+import { saveSchedule, saveDoseState, getSession } from "@/lib/supabase"
 
 type View = "paste" | "loading" | "review" | "error"
 
@@ -15,6 +15,12 @@ export default function SetupPage() {
   const [rawText, setRawText] = useState("")
   const [parsedSchedule, setParsedSchedule] = useState<ParsedSchedule | null>(null)
   const [error, setError] = useState("")
+
+  useEffect(() => {
+    getSession().then((session) => {
+      if (!session) router.replace("/login")
+    })
+  }, [router])
 
   async function handleSubmit() {
     setView("loading")

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { fetchSchedule } from "@/lib/supabase"
+import { fetchSchedule, getSession } from "@/lib/supabase"
 
 export default function RootPage() {
   const router = useRouter()
@@ -10,6 +10,11 @@ export default function RootPage() {
   useEffect(() => {
     async function checkSchedule() {
       try {
+        const session = await getSession()
+        if (!session) {
+          router.replace("/login")
+          return
+        }
         const schedule = await fetchSchedule()
         if (schedule) {
           router.replace("/daily")
@@ -17,7 +22,7 @@ export default function RootPage() {
           router.replace("/setup")
         }
       } catch {
-        router.replace("/setup")
+        router.replace("/login")
       }
     }
     checkSchedule()

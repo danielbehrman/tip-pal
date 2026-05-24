@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { fetchSchedule, fetchDoseState, saveDoseState } from "@/lib/supabase"
+import { fetchSchedule, fetchDoseState, saveDoseState, getSession, signOut } from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -15,6 +15,11 @@ export default function DailyPage() {
   useEffect(() => {
     async function load() {
       try {
+        const session = await getSession()
+        if (!session) {
+          router.replace("/login")
+          return
+        }
         const s = await fetchSchedule()
         if (!s) {
           router.replace("/setup")
@@ -25,7 +30,7 @@ export default function DailyPage() {
         setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
         setHydrated(true)
       } catch {
-        router.replace("/setup")
+        router.replace("/login")
       }
     }
     load()
@@ -42,6 +47,14 @@ export default function DailyPage() {
     }
   }
 
+  async function handleSignOut() {
+    try {
+      await signOut()
+    } finally {
+      router.replace("/login")
+    }
+  }
+
   if (!schedule || !doseState) return null
 
   return (
@@ -49,6 +62,7 @@ export default function DailyPage() {
       schedule={schedule}
       doseState={doseState}
       onStateChange={handleStateChange}
+      onSignOut={handleSignOut}
     />
   )
 }

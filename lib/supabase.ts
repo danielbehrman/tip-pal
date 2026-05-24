@@ -1,9 +1,9 @@
-import { createClient, SupabaseClient } from "@supabase/supabase-js"
+import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
 import { ParsedSchedule, DoseState } from "./types"
 
 let _client: SupabaseClient | null = null
 
-function getClient(): SupabaseClient {
+export function getClient(): SupabaseClient {
   if (!_client) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -13,14 +13,30 @@ function getClient(): SupabaseClient {
   return _client
 }
 
-export function getMvpFamilyId(): string {
-  const id = process.env.NEXT_PUBLIC_MVP_FAMILY_ID
-  if (!id) throw new Error("NEXT_PUBLIC_MVP_FAMILY_ID is not set")
-  return id
+export async function getSession(): Promise<Session | null> {
+  const { data: { session } } = await getClient().auth.getSession()
+  return session
+}
+
+export async function signOut(): Promise<void> {
+  const { error } = await getClient().auth.signOut()
+  if (error) throw error
+}
+
+async function getFamilyId(): Promise<string> {
+  const { data: { session }, error: sessionError } = await getClient().auth.getSession()
+  if (sessionError || !session) throw new Error("Not authenticated")
+  const { data, error } = await getClient()
+    .from("profiles")
+    .select("family_id")
+    .eq("id", session.user.id)
+    .single()
+  if (error || !data) throw new Error("Profile not found for authenticated user")
+  return data.family_id as string
 }
 
 export async function fetchSchedule(): Promise<ParsedSchedule | null> {
-  const familyId = getMvpFamilyId()
+  const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("schedules")
     .select("parsed_data")
@@ -32,7 +48,7 @@ export async function fetchSchedule(): Promise<ParsedSchedule | null> {
 }
 
 export async function saveSchedule(schedule: ParsedSchedule): Promise<void> {
-  const familyId = getMvpFamilyId()
+  const familyId = await getFamilyId()
   const { error } = await getClient()
     .from("schedules")
     .upsert(
@@ -43,7 +59,7 @@ export async function saveSchedule(schedule: ParsedSchedule): Promise<void> {
 }
 
 export async function fetchDoseState(): Promise<DoseState | null> {
-  const familyId = getMvpFamilyId()
+  const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_state")
     .select("current_week, current_day, checked_foods")
@@ -59,7 +75,7 @@ export async function fetchDoseState(): Promise<DoseState | null> {
 }
 
 export async function saveDoseState(state: DoseState): Promise<void> {
-  const familyId = getMvpFamilyId()
+  const familyId = await getFamilyId()
   const { error } = await getClient()
     .from("dose_state")
     .upsert(
