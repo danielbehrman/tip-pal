@@ -69,7 +69,8 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
         ...(prev.completedDays ?? {}),
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
       }
-      return { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: {}, completedDays }
+      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
+      return { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
     })
   }
 
