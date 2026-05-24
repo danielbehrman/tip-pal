@@ -11,10 +11,9 @@ interface DailyViewProps {
   schedule: ParsedSchedule
   doseState: DoseState
   onStateChange: (state: DoseState) => void
-  onSignOut: () => void
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onSignOut }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
@@ -165,16 +164,10 @@ export default function DailyView({ schedule, doseState, onStateChange, onSignOu
           </div>
         )}
 
-        <div className="text-center mt-4 pb-4 flex flex-col gap-2">
+        <div className="text-center mt-4 pb-4">
           <Link href="/setup" className="text-sm text-gray-400 underline">
             Re-parse schedule
           </Link>
-          <button
-            onClick={onSignOut}
-            className="text-sm text-gray-400 underline bg-transparent border-none cursor-pointer"
-          >
-            Sign out
-          </button>
         </div>
       </div>
     </div>

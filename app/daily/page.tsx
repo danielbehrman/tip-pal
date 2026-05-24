@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { fetchSchedule, fetchDoseState, saveDoseState, getSession, signOut } from "@/lib/supabase"
+import { fetchSchedule, fetchDoseState, saveDoseState, getSession } from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -47,14 +47,6 @@ export default function DailyPage() {
     }
   }
 
-  async function handleSignOut() {
-    try {
-      await signOut()
-    } finally {
-      router.replace("/login")
-    }
-  }
-
   if (!schedule || !doseState) return null
 
   return (
@@ -62,7 +54,6 @@ export default function DailyPage() {
       schedule={schedule}
       doseState={doseState}
       onStateChange={handleStateChange}
-      onSignOut={handleSignOut}
     />
   )
 }
