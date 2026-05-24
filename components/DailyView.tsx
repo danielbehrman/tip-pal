@@ -39,17 +39,23 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
   function handleWeekChange(delta: number) {
     const nextWeek = currentWeek + delta
     if (nextWeek < 1) return
-    const key = `${nextWeek}-${currentDay}`
-    const restored = doseState.completedDays?.[key] ?? {}
-    onStateChange({ ...doseState, currentWeek: nextWeek, checkedFoods: restored })
+    const completedDays = {
+      ...(doseState.completedDays ?? {}),
+      [`${currentWeek}-${currentDay}`]: checkedFoods,
+    }
+    const restored = completedDays[`${nextWeek}-${currentDay}`] ?? {}
+    onStateChange({ ...doseState, currentWeek: nextWeek, checkedFoods: restored, completedDays })
   }
 
   function handleDayChange(delta: number) {
     const nextDay = currentDay + delta
     if (nextDay < 1 || nextDay > 7) return
-    const key = `${currentWeek}-${nextDay}`
-    const restored = doseState.completedDays?.[key] ?? {}
-    onStateChange({ ...doseState, currentDay: nextDay, checkedFoods: restored })
+    const completedDays = {
+      ...(doseState.completedDays ?? {}),
+      [`${currentWeek}-${currentDay}`]: checkedFoods,
+    }
+    const restored = completedDays[`${currentWeek}-${nextDay}`] ?? {}
+    onStateChange({ ...doseState, currentDay: nextDay, checkedFoods: restored, completedDays })
   }
 
   function handleCompleteDay() {
