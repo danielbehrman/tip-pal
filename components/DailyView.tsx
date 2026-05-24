@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { getTreatmentFoodsForWeek } from "@/lib/schedule"
+import { getTreatmentFoodsForWeek, calculateBuffer } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -11,14 +11,18 @@ interface DailyViewProps {
   schedule: ParsedSchedule
   doseState: DoseState
   onStateChange: (state: DoseState) => void
+  appointmentDate: string | null
+  anchorTimestamp: string | null
+  onAppointmentChange: (value: string) => void
 }
 
-export default function DailyView({ schedule, doseState, onStateChange }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
   const { currentWeek, currentDay, checkedFoods } = doseState
 
+  const bufferResult = calculateBuffer(appointmentDate, anchorTimestamp)
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
   const allEveningChecked = eveningItems.every(
     ({ food }) => !!checkedFoods[`evening-${food.name}`]
@@ -105,6 +109,29 @@ export default function DailyView({ schedule, doseState, onStateChange }: DailyV
             </button>
           </div>
         </div>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm text-gray-500 mb-1" htmlFor="next-appointment">
+          Next appointment
+        </label>
+        <input
+          id="next-appointment"
+          type="date"
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full"
+          value={appointmentDate ?? ""}
+          onChange={(e) => onAppointmentChange(e.target.value)}
+        />
+        {bufferResult.kind === "days" && (
+          <p className="mt-2 text-sm text-gray-600">
+            {bufferResult.count} buffer day{bufferResult.count !== 1 ? "s" : ""} before appointment
+          </p>
+        )}
+        {bufferResult.kind === "past" && (
+          <p className="mt-2 text-sm text-amber-700 font-medium">
+            Appointment date has passed — please update
+          </p>
+        )}
       </div>
 
       <MorningSection

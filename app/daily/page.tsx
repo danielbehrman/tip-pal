@@ -1,9 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { fetchSchedule, fetchDoseState, saveDoseState, getSession } from "@/lib/supabase"
+import {
+  fetchSchedule,
+  fetchDoseState,
+  saveDoseState,
+  fetchAppointmentDate,
+  saveAppointmentDate,
+  fetchLastDay7Completion,
+  getSession,
+} from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -11,6 +19,8 @@ export default function DailyPage() {
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [doseState, setDoseState] = useState<DoseState | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
+  const [anchorTimestamp, setAnchorTimestamp] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -25,9 +35,15 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const ds = await fetchDoseState()
+        const [ds, apptDate, anchorTs] = await Promise.all([
+          fetchDoseState(),
+          fetchAppointmentDate(),
+          fetchLastDay7Completion(),
+        ])
         setSchedule(s)
         setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
+        setAppointmentDate(apptDate)
+        setAnchorTimestamp(anchorTs)
         setHydrated(true)
       } catch {
         router.replace("/login")
@@ -47,6 +63,21 @@ export default function DailyPage() {
     }
   }
 
+  const appointmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleAppointmentChange(value: string) {
+    const normalized = value.trim() === "" ? null : value
+    setAppointmentDate(normalized)
+    if (appointmentDebounceRef.current) clearTimeout(appointmentDebounceRef.current)
+    appointmentDebounceRef.current = setTimeout(async () => {
+      try {
+        await saveAppointmentDate(normalized)
+      } catch {
+        // Save failed silently — server state wins on next refresh.
+      }
+    }, 300)
+  }
+
   if (!schedule || !doseState) return null
 
   return (
@@ -54,6 +85,9 @@ export default function DailyPage() {
       schedule={schedule}
       doseState={doseState}
       onStateChange={handleStateChange}
+      appointmentDate={appointmentDate}
+      anchorTimestamp={anchorTimestamp}
+      onAppointmentChange={handleAppointmentChange}
     />
   )
 }

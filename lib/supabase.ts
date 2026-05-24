@@ -74,6 +74,42 @@ export async function fetchDoseState(): Promise<DoseState | null> {
   }
 }
 
+export async function fetchAppointmentDate(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("next_appointment_date")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return data.next_appointment_date as string | null
+}
+
+export async function saveAppointmentDate(date: string | null): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ next_appointment_date: date })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function fetchLastDay7Completion(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("completed_at")
+    .eq("family_id", familyId)
+    .eq("day", 7)
+    .eq("is_skipped", false)
+    .order("completed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return null
+  return data.completed_at as string
+}
+
 export async function saveDoseState(state: DoseState): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()

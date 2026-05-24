@@ -8,7 +8,7 @@ Phase: Phase 2 — Production
 Mode: Active Build
 Last Updated: 2026-05-23
 Blocker: None
-Next Action: F2 — Supabase Auth (email/password, two accounts)
+Next Action: F3 — Appointment date + buffer day display
 
 ---
 
@@ -200,7 +200,7 @@ Next Action: F2 — Supabase Auth (email/password, two accounts)
 - No self-registration, no password reset, no social login
 - Sessions always persisted — no "remember me" toggle
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed and verified 2026-05-24
 
 ---
 
