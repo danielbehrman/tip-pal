@@ -62,14 +62,21 @@ export default function DailyPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  async function handleStateChange(state: DoseState) {
+  const doseStateRef = useRef<DoseState | null>(null)
+  const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  function handleStateChange(updater: (prev: DoseState) => DoseState) {
     if (!hydrated) return
-    setDoseState(state)
-    try {
-      await saveDoseState(state)
-    } catch {
-      // Save failed — local state already updated. Server state wins on next refresh.
-    }
+    setDoseState(prev => {
+      if (!prev) return prev
+      const next = updater(prev)
+      doseStateRef.current = next
+      if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
+      saveDebounceRef.current = setTimeout(() => {
+        if (doseStateRef.current) saveDoseState(doseStateRef.current).catch(() => {})
+      }, 150)
+      return next
+    })
   }
 
   const appointmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)

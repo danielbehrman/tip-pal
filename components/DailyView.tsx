@@ -10,7 +10,7 @@ import Link from "next/link"
 interface DailyViewProps {
   schedule: ParsedSchedule
   doseState: DoseState
-  onStateChange: (state: DoseState) => void
+  onStateChange: (updater: (prev: DoseState) => DoseState) => void
   appointmentDate: string | null
   anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
@@ -30,51 +30,47 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
   const showEveningError = completionAttempted && !allEveningChecked
 
   function handleCheck(key: string, val: boolean) {
-    onStateChange({
-      ...doseState,
-      checkedFoods: { ...checkedFoods, [key]: val },
-    })
+    onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
   }
 
   function handleWeekChange(delta: number) {
-    const nextWeek = currentWeek + delta
-    if (nextWeek < 1) return
-    const completedDays = {
-      ...(doseState.completedDays ?? {}),
-      [`${currentWeek}-${currentDay}`]: checkedFoods,
-    }
-    const restored = completedDays[`${nextWeek}-${currentDay}`] ?? {}
-    onStateChange({ ...doseState, currentWeek: nextWeek, checkedFoods: restored, completedDays })
+    onStateChange(prev => {
+      const nextWeek = prev.currentWeek + delta
+      if (nextWeek < 1) return prev
+      const completedDays = {
+        ...(prev.completedDays ?? {}),
+        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+      }
+      const restored = completedDays[`${nextWeek}-${prev.currentDay}`] ?? {}
+      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays }
+    })
   }
 
   function handleDayChange(delta: number) {
-    const nextDay = currentDay + delta
-    if (nextDay < 1 || nextDay > 7) return
-    const completedDays = {
-      ...(doseState.completedDays ?? {}),
-      [`${currentWeek}-${currentDay}`]: checkedFoods,
-    }
-    const restored = completedDays[`${currentWeek}-${nextDay}`] ?? {}
-    onStateChange({ ...doseState, currentDay: nextDay, checkedFoods: restored, completedDays })
+    onStateChange(prev => {
+      const nextDay = prev.currentDay + delta
+      if (nextDay < 1 || nextDay > 7) return prev
+      const completedDays = {
+        ...(prev.completedDays ?? {}),
+        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+      }
+      const restored = completedDays[`${prev.currentWeek}-${nextDay}`] ?? {}
+      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays }
+    })
   }
 
   function handleCompleteDay() {
     setConfirmingComplete(false)
     setCompletionAttempted(false)
-    let nextDay = currentDay
-    let nextWeek = currentWeek
-    if (currentDay < 7) {
-      nextDay = currentDay + 1
-    } else {
-      nextDay = 1
-      nextWeek = currentWeek + 1
-    }
-    // Snapshot current checkboxes before clearing so back-navigation can restore them
-    const completedDays = {
-      ...(doseState.completedDays ?? {}),
-      [`${currentWeek}-${currentDay}`]: checkedFoods,
-    }
-    onStateChange({ currentWeek: nextWeek, currentDay: nextDay, checkedFoods: {}, completedDays })
+    onStateChange(prev => {
+      const nextDay = prev.currentDay < 7 ? prev.currentDay + 1 : 1
+      const nextWeek = prev.currentDay < 7 ? prev.currentWeek : prev.currentWeek + 1
+      const completedDays = {
+        ...(prev.completedDays ?? {}),
+        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+      }
+      return { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: {}, completedDays }
+    })
   }
 
   return (
