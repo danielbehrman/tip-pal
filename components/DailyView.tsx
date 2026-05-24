@@ -37,15 +37,19 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
   }
 
   function handleWeekChange(delta: number) {
-    const next = currentWeek + delta
-    if (next < 1) return
-    onStateChange({ ...doseState, currentWeek: next })
+    const nextWeek = currentWeek + delta
+    if (nextWeek < 1) return
+    const key = `${nextWeek}-${currentDay}`
+    const restored = doseState.completedDays?.[key] ?? {}
+    onStateChange({ ...doseState, currentWeek: nextWeek, checkedFoods: restored })
   }
 
   function handleDayChange(delta: number) {
-    const next = currentDay + delta
-    if (next < 1 || next > 7) return
-    onStateChange({ ...doseState, currentDay: next })
+    const nextDay = currentDay + delta
+    if (nextDay < 1 || nextDay > 7) return
+    const key = `${currentWeek}-${nextDay}`
+    const restored = doseState.completedDays?.[key] ?? {}
+    onStateChange({ ...doseState, currentDay: nextDay, checkedFoods: restored })
   }
 
   function handleCompleteDay() {
@@ -59,7 +63,12 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
       nextDay = 1
       nextWeek = currentWeek + 1
     }
-    onStateChange({ currentWeek: nextWeek, currentDay: nextDay, checkedFoods: {} })
+    // Snapshot current checkboxes before clearing so back-navigation can restore them
+    const completedDays = {
+      ...(doseState.completedDays ?? {}),
+      [`${currentWeek}-${currentDay}`]: checkedFoods,
+    }
+    onStateChange({ currentWeek: nextWeek, currentDay: nextDay, checkedFoods: {}, completedDays })
   }
 
   return (

@@ -35,4 +35,7 @@ export interface DoseState {
   currentWeek: number
   currentDay: number
   checkedFoods: Record<string, boolean>
+  // Snapshot of checkedFoods per completed day, keyed as "week-day".
+  // Populated by Complete Day; used to restore state when navigating back.
+  completedDays?: Record<string, Record<string, boolean>>
 }
