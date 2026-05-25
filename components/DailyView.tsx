@@ -202,7 +202,10 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
           </div>
         )}
 
-        <div className="text-center mt-4 pb-4">
+        <div className="flex justify-center gap-6 mt-4 pb-4">
+          <Link href="/history" className="text-sm text-gray-400 underline">
+            Edit recent days
+          </Link>
           <Link href="/setup" className="text-sm text-gray-400 underline">
             Re-parse schedule
           </Link>

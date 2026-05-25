@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay } from "./types"
 
 let _client: SupabaseClient | null = null
 
@@ -164,6 +164,46 @@ export async function countCompletedDaysInWeek(week: number): Promise<number> {
     .eq("is_skipped", false)
   if (error) throw error
   return count ?? 0
+}
+
+export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("id, week, day, session, checked_foods, completed_at, is_skipped")
+    .eq("family_id", familyId)
+    .order("completed_at", { ascending: false })
+    .limit(50)
+  if (error) throw error
+  if (!data) return []
+  const completedDayRows = data.filter(r => r.session === "day" && !r.is_skipped)
+  const topThree = completedDayRows.slice(0, 3)
+  return topThree.map(dayRow => ({
+    id: dayRow.id as string,
+    week: dayRow.week as number,
+    day: dayRow.day as number,
+    completedAt: dayRow.completed_at as string,
+    checkedFoods: (dayRow.checked_foods ?? {}) as Record<string, boolean>,
+    morningSkipped: data.some(
+      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "morning" && r.is_skipped
+    ),
+    eveningSkipped: data.some(
+      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "evening" && r.is_skipped
+    ),
+  }))
+}
+
+export async function updateDoseLogCheckedFoods(
+  id: string,
+  checkedFoods: Record<string, boolean>
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .update({ checked_foods: checkedFoods })
+    .eq("id", id)
+    .eq("family_id", familyId)
+  if (error) throw error
 }
 
 export async function saveDoseState(state: DoseState): Promise<void> {

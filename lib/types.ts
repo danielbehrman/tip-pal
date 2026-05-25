@@ -31,6 +31,16 @@ export interface ParsedSchedule {
   treatmentFoods: TreatmentFood[]
 }
 
+export interface DoseLogDay {
+  id: string
+  week: number
+  day: number
+  completedAt: string
+  checkedFoods: Record<string, boolean>
+  morningSkipped: boolean
+  eveningSkipped: boolean
+}
+
 export interface DoseState {
   currentWeek: number
   currentDay: number
