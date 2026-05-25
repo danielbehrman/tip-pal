@@ -8,6 +8,7 @@ import {
   fetchDoseState,
   saveDoseState,
   saveDoseLog,
+  saveSkipLog,
   countCompletedDaysInWeek,
   fetchAppointmentDate,
   saveAppointmentDate,
@@ -115,7 +116,37 @@ export default function DailyPage() {
         : prev.currentWeek + 1
       const nextDay = weekAdvance ? 1 : prev.currentDay < 7 ? prev.currentDay + 1 : 1
       const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
-      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
+      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
+      doseStateRef.current = next
+      saveDoseState(next).catch(() => {})
+      return next
+    })
+  }
+
+  async function handleSkipMorning() {
+    const current = doseStateRef.current
+    if (!current || !hydrated) return
+    try {
+      await saveSkipLog(current.currentWeek, current.currentDay, "morning")
+    } catch {}
+    setDoseState(prev => {
+      if (!prev) return prev
+      const next = { ...prev, morningSkipped: true }
+      doseStateRef.current = next
+      saveDoseState(next).catch(() => {})
+      return next
+    })
+  }
+
+  async function handleSkipEvening() {
+    const current = doseStateRef.current
+    if (!current || !hydrated) return
+    try {
+      await saveSkipLog(current.currentWeek, current.currentDay, "evening")
+    } catch {}
+    setDoseState(prev => {
+      if (!prev) return prev
+      const next = { ...prev, eveningSkipped: true }
       doseStateRef.current = next
       saveDoseState(next).catch(() => {})
       return next
@@ -145,6 +176,8 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
+      onSkipMorning={handleSkipMorning}
+      onSkipEvening={handleSkipEvening}
       appointmentDate={appointmentDate}
       anchorTimestamp={anchorTimestamp}
       onAppointmentChange={handleAppointmentChange}

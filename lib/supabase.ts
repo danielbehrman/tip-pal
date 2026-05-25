@@ -62,7 +62,7 @@ export async function fetchDoseState(): Promise<DoseState | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_state")
-    .select("current_week, current_day, checked_foods, completed_days")
+    .select("current_week, current_day, checked_foods, completed_days, morning_skipped, evening_skipped")
     .eq("family_id", familyId)
     .maybeSingle()
   if (error) throw error
@@ -72,6 +72,8 @@ export async function fetchDoseState(): Promise<DoseState | null> {
     currentDay: data.current_day,
     checkedFoods: data.checked_foods as Record<string, boolean>,
     completedDays: (data.completed_days ?? {}) as Record<string, Record<string, boolean>>,
+    morningSkipped: data.morning_skipped ?? false,
+    eveningSkipped: data.evening_skipped ?? false,
   }
 }
 
@@ -109,6 +111,26 @@ export async function fetchLastDay7Completion(): Promise<string | null> {
   if (error) throw error
   if (!data) return null
   return data.completed_at as string
+}
+
+export async function saveSkipLog(
+  week: number,
+  day: number,
+  session: "morning" | "evening"
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .insert({
+      family_id: familyId,
+      week,
+      day,
+      session,
+      checked_foods: {},
+      completed_at: new Date().toISOString(),
+      is_skipped: true,
+    })
+  if (error) throw error
 }
 
 export async function saveDoseLog(
@@ -155,6 +177,8 @@ export async function saveDoseState(state: DoseState): Promise<void> {
         current_day: state.currentDay,
         checked_foods: state.checkedFoods,
         completed_days: state.completedDays ?? {},
+        morning_skipped: state.morningSkipped ?? false,
+        evening_skipped: state.eveningSkipped ?? false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "family_id" }

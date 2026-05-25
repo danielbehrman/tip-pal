@@ -12,23 +12,24 @@ interface DailyViewProps {
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCompleteDay: () => void
+  onSkipMorning: () => void
+  onSkipEvening: () => void
   appointmentDate: string | null
   anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
-  const { currentWeek, currentDay, checkedFoods } = doseState
+  const { currentWeek, currentDay, checkedFoods, morningSkipped, eveningSkipped } = doseState
 
   const bufferResult = calculateBuffer(appointmentDate, anchorTimestamp)
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
-  const allEveningChecked = eveningItems.every(
-    ({ food }) => !!checkedFoods[`evening-${food.name}`]
-  )
-  const showEveningError = completionAttempted && !allEveningChecked
+  const eveningGateSatisfied =
+    !!eveningSkipped || eveningItems.every(({ food }) => !!checkedFoods[`evening-${food.name}`])
+  const showEveningError = completionAttempted && !eveningGateSatisfied
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
@@ -43,7 +44,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
       }
       const restored = completedDays[`${nextWeek}-${prev.currentDay}`] ?? {}
-      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays }
+      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
     })
   }
 
@@ -56,7 +57,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
       }
       const restored = completedDays[`${prev.currentWeek}-${nextDay}`] ?? {}
-      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays }
+      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
     })
   }
 
@@ -143,6 +144,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         currentDay={currentDay}
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
+        skipped={!!morningSkipped}
+        onSkip={onSkipMorning}
       />
 
       <EveningSection
@@ -150,6 +153,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         currentWeek={currentWeek}
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
+        skipped={!!eveningSkipped}
+        onSkip={onSkipEvening}
       />
 
       <div className="mt-auto pt-4">
@@ -157,7 +162,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
           className="bg-slate-900 text-white w-full py-4 text-lg font-semibold rounded-xl"
           onClick={() => {
             setCompletionAttempted(true)
-            if (allEveningChecked) {
+            if (eveningGateSatisfied) {
               setConfirmingComplete(true)
             } else {
               setConfirmingComplete(false)
