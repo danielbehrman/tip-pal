@@ -11,12 +11,13 @@ interface DailyViewProps {
   schedule: ParsedSchedule
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
+  onCompleteDay: () => void
   appointmentDate: string | null
   anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
@@ -62,16 +63,7 @@ export default function DailyView({ schedule, doseState, onStateChange, appointm
   function handleCompleteDay() {
     setConfirmingComplete(false)
     setCompletionAttempted(false)
-    onStateChange(prev => {
-      const nextDay = prev.currentDay < 7 ? prev.currentDay + 1 : 1
-      const nextWeek = prev.currentDay < 7 ? prev.currentWeek : prev.currentWeek + 1
-      const completedDays = {
-        ...(prev.completedDays ?? {}),
-        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
-      }
-      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
-      return { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
-    })
+    onCompleteDay()
   }
 
   return (

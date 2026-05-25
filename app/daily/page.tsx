@@ -7,6 +7,8 @@ import {
   fetchSchedule,
   fetchDoseState,
   saveDoseState,
+  saveDoseLog,
+  countCompletedDaysInWeek,
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchLastDay7Completion,
@@ -79,6 +81,47 @@ export default function DailyPage() {
     })
   }
 
+  async function handleCompleteDay() {
+    const current = doseStateRef.current
+    if (!current || !hydrated) return
+
+    const { currentWeek, currentDay, checkedFoods } = current
+    const completedAt = new Date().toISOString()
+
+    let completedCount = 0
+    try {
+      await saveDoseLog(currentWeek, currentDay, checkedFoods, completedAt)
+      completedCount = await countCompletedDaysInWeek(currentWeek)
+    } catch {
+      // Log failed — proceed with normal day advance
+    }
+
+    if (currentDay === 7) {
+      setAnchorTimestamp(completedAt)
+    }
+
+    const weekAdvance = completedCount >= 7
+
+    setDoseState(prev => {
+      if (!prev) return prev
+      const completedDays = {
+        ...(prev.completedDays ?? {}),
+        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+      }
+      const nextWeek = weekAdvance
+        ? prev.currentWeek + 1
+        : prev.currentDay < 7
+        ? prev.currentWeek
+        : prev.currentWeek + 1
+      const nextDay = weekAdvance ? 1 : prev.currentDay < 7 ? prev.currentDay + 1 : 1
+      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
+      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
+      doseStateRef.current = next
+      saveDoseState(next).catch(() => {})
+      return next
+    })
+  }
+
   const appointmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function handleAppointmentChange(value: string) {
@@ -101,6 +144,7 @@ export default function DailyPage() {
       schedule={schedule}
       doseState={doseState}
       onStateChange={handleStateChange}
+      onCompleteDay={handleCompleteDay}
       appointmentDate={appointmentDate}
       anchorTimestamp={anchorTimestamp}
       onAppointmentChange={handleAppointmentChange}
