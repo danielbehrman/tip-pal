@@ -51,7 +51,13 @@ export default function SetupPage() {
       await saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })
       router.push("/daily")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save schedule. Please try again.")
+      const msg =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" && err !== null && "message" in err
+          ? String((err as { message: unknown }).message)
+          : "Failed to save schedule. Please try again."
+      setError(msg)
       setView("error")
     }
   }
