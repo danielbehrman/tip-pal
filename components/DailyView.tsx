@@ -27,9 +27,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
 
   const bufferResult = calculateBuffer(appointmentDate, anchorTimestamp)
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
-  const eveningGateSatisfied =
-    !!eveningSkipped || eveningItems.every(({ food }) => !!checkedFoods[`evening-${food.name}`])
-  const showEveningError = completionAttempted && !eveningGateSatisfied
+  const allEveningChecked = eveningItems.every(({ food }) => !!checkedFoods[`evening-${food.name}`])
+  const showEveningError = completionAttempted && !allEveningChecked
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
@@ -108,7 +107,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <button
               onClick={() => handleDayChange(1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay >= 7}
+              disabled={currentDay >= 7 || !doseState.completedDays?.[`${currentWeek}-${currentDay}`]}
             >
               +
             </button>
@@ -162,7 +161,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
           className="bg-slate-900 text-white w-full py-4 text-lg font-semibold rounded-xl"
           onClick={() => {
             setCompletionAttempted(true)
-            if (eveningGateSatisfied) {
+            if (allEveningChecked) {
               setConfirmingComplete(true)
             } else {
               setConfirmingComplete(false)
@@ -175,7 +174,9 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         {showEveningError && (
           <div className="mt-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
             <p className="text-sm text-amber-900 font-medium">
-              Please verify all evening treatment foods were given. If any dose was missed, give the same amounts again the next day — do not advance until all evening foods are completed.
+              {eveningSkipped
+                ? "Evening session was skipped — give the same evening treatment foods again before advancing to the next day."
+                : "Please verify all evening treatment foods were given. If any dose was missed, give the same amounts again the next day — do not advance until all evening foods are completed."}
             </p>
           </div>
         )}
