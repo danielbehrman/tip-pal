@@ -88,7 +88,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <span className="text-lg font-semibold w-6 text-center">{currentWeek}</span>
             <button
               onClick={() => handleWeekChange(1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold"
+              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
+              disabled={!!eveningSkipped}
             >
               +
             </button>
@@ -107,7 +108,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <button
               onClick={() => handleDayChange(1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay >= 7 || !doseState.completedDays?.[`${currentWeek}-${currentDay}`]}
+              disabled={currentDay >= 7 || !!eveningSkipped}
             >
               +
             </button>
