@@ -13,6 +13,7 @@ import {
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchLastDay7Completion,
+  fetchFamilyName,
   getSession,
 } from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
@@ -24,6 +25,7 @@ export default function DailyPage() {
   const [hydrated, setHydrated] = useState(false)
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
   const [anchorTimestamp, setAnchorTimestamp] = useState<string | null>(null)
+  const [familyName, setFamilyName] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -47,15 +49,21 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, anchorTs] = await Promise.all([
+        const [ds, apptDate, anchorTs, name] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchLastDay7Completion().catch(() => null),
+          fetchFamilyName().catch(() => null),
         ])
+        if (!name) {
+          router.replace("/onboarding")
+          return
+        }
         setSchedule(s)
         setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
         setAppointmentDate(apptDate)
         setAnchorTimestamp(anchorTs)
+        setFamilyName(name)
         setHydrated(true)
       } catch {
         router.replace("/setup")
@@ -181,6 +189,7 @@ export default function DailyPage() {
       appointmentDate={appointmentDate}
       anchorTimestamp={anchorTimestamp}
       onAppointmentChange={handleAppointmentChange}
+      familyName={familyName}
     />
   )
 }

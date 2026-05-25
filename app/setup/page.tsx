@@ -49,7 +49,7 @@ export default function SetupPage() {
     try {
       await saveSchedule(parsedSchedule)
       await saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })
-      router.push("/daily")
+      router.push("/onboarding")
     } catch (err) {
       const msg =
         err instanceof Error

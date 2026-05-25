@@ -77,6 +77,52 @@ export async function fetchDoseState(): Promise<DoseState | null> {
   }
 }
 
+export async function fetchFamilyName(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("name")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return (data.name as string | null) || null
+}
+
+export async function saveFamilyConfig(
+  name: string,
+  appointmentDate: string | null
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ name, next_appointment_date: appointmentDate })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function saveBulkCatchUpLog(toWeek: number, toDay: number): Promise<void> {
+  const familyId = await getFamilyId()
+  const now = new Date().toISOString()
+  const rows: object[] = []
+  for (let w = 1; w <= toWeek; w++) {
+    const maxDay = w === toWeek ? toDay - 1 : 7
+    for (let d = 1; d <= maxDay; d++) {
+      rows.push({
+        family_id: familyId,
+        week: w,
+        day: d,
+        session: "day",
+        checked_foods: {},
+        completed_at: now,
+        is_skipped: false,
+      })
+    }
+  }
+  if (rows.length === 0) return
+  const { error } = await getClient().from("dose_log").insert(rows)
+  if (error) throw error
+}
+
 export async function fetchAppointmentDate(): Promise<string | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()

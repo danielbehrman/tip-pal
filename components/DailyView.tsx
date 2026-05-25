@@ -17,9 +17,10 @@ interface DailyViewProps {
   appointmentDate: string | null
   anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
+  familyName: string | null
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange, familyName }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
@@ -70,9 +71,14 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
     <div className="max-w-lg mx-auto px-4 py-6 min-h-screen flex flex-col">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold">
-            Week {currentWeek}, Day {currentDay}
-          </h1>
+          <div>
+            {familyName && (
+              <p className="text-sm text-gray-500 mb-0.5">{familyName}&apos;s TIP Pal</p>
+            )}
+            <h1 className="text-2xl font-bold">
+              Week {currentWeek}, Day {currentDay}
+            </h1>
+          </div>
         </div>
 
         <div className="flex gap-6">
