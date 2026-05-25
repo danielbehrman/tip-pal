@@ -4,8 +4,13 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ParsedSchedule, DoseLogDay } from "@/lib/types"
-import { getSession, fetchSchedule, fetchAllDoseLogDays } from "@/lib/supabase"
-import DoseHistoryLog from "@/components/DoseHistoryLog"
+import {
+  getSession,
+  fetchSchedule,
+  fetchRecentCompletedDays,
+  updateDoseLogCheckedFoods,
+} from "@/lib/supabase"
+import RecentDaysEditor from "@/components/RecentDaysEditor"
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -27,13 +32,16 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, allDays] = await Promise.all([fetchSchedule(), fetchAllDoseLogDays()])
+        const [s, recentDays] = await Promise.all([
+          fetchSchedule(),
+          fetchRecentCompletedDays(),
+        ])
         if (!s) {
           router.replace("/setup")
           return
         }
         setSchedule(s)
-        setDays(allDays)
+        setDays(recentDays)
       } catch {
         router.replace("/daily")
       } finally {
@@ -44,20 +52,33 @@ export default function HistoryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  function handleToggle(
+    id: string,
+    key: string,
+    val: boolean,
+    current: Record<string, boolean>
+  ) {
+    const updated = { ...current, [key]: val }
+    setDays(prev =>
+      prev.map(d => (d.id === id ? { ...d, checkedFoods: updated } : d))
+    )
+    updateDoseLogCheckedFoods(id, updated).catch(() => {})
+  }
+
   if (loading || !schedule) return null
 
   return (
     <main className="max-w-lg mx-auto px-4 py-6 min-h-screen">
-      <div className="flex items-center gap-3 mb-2">
-        <Link href="/daily" className="text-gray-500 text-sm underline">
+      <div className="flex items-center gap-3 mb-6">
+        <Link href="/history" className="text-gray-500 text-sm underline">
           ← Back
         </Link>
-        <h1 className="text-2xl font-bold">Dose History</h1>
+        <h1 className="text-2xl font-bold">Edit Recent Days</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        {days.length > 0 ? `${days.length} completed day${days.length !== 1 ? "s" : ""} logged` : ""}
+        Showing the 3 most recently completed days. Toggle any checkbox to correct the record — this does not affect week advancement.
       </p>
-      <DoseHistoryLog schedule={schedule} days={days} />
+      <RecentDaysEditor schedule={schedule} days={days} onToggle={handleToggle} />
     </main>
   )
 }

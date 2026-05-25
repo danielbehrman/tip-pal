@@ -193,6 +193,32 @@ export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
   }))
 }
 
+export async function fetchAllDoseLogDays(): Promise<DoseLogDay[]> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("id, week, day, session, checked_foods, completed_at, is_skipped")
+    .eq("family_id", familyId)
+    .order("completed_at", { ascending: false })
+    .limit(500)
+  if (error) throw error
+  if (!data) return []
+  const completedDayRows = data.filter(r => r.session === "day" && !r.is_skipped)
+  return completedDayRows.map(dayRow => ({
+    id: dayRow.id as string,
+    week: dayRow.week as number,
+    day: dayRow.day as number,
+    completedAt: dayRow.completed_at as string,
+    checkedFoods: (dayRow.checked_foods ?? {}) as Record<string, boolean>,
+    morningSkipped: data.some(
+      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "morning" && r.is_skipped
+    ),
+    eveningSkipped: data.some(
+      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "evening" && r.is_skipped
+    ),
+  }))
+}
+
 export async function updateDoseLogCheckedFoods(
   id: string,
   checkedFoods: Record<string, boolean>
