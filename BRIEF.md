@@ -3,12 +3,12 @@
 ## Project
 TIP Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
-## Current Phase
+## Current Status
 Phase: Phase 2 — Production
-Mode: Active Build
-Last Updated: 2026-05-24
+Mode: Dogfooding
+Last Updated: 2026-05-25
 Blocker: None
-Next Action: F5 — Skip session
+Next Action: Run Supabase SQL migrations (see SQL block below), then dogfood F5–F9 on device
 
 ---
 
@@ -178,10 +178,12 @@ Next Action: F5 — Skip session
 
 **Decision Gaps:** None — all resolved.
 - Evening is the only completion gate (confirmed 2026-05-24)
-- Skipping evening satisfies the gate and the day counts toward 7 (confirmed 2026-05-24)
+- Skipping evening BLOCKS Complete Day — does not satisfy the gate (confirmed 2026-05-24)
 - Morning skip has no behavioral consequence (confirmed 2026-05-24)
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed to production 2026-05-25
+
+**Implementation note:** Evening skip BLOCKS Complete Day (does not satisfy it). Error: "Evening session was skipped — give the same evening treatment foods again before advancing." Day + and Week + disabled while eveningSkipped. Morning skip is informational only.
 
 ---
 
@@ -207,7 +209,7 @@ Next Action: F5 — Skip session
 **Decision Gaps:**
 - Post-hoc correction flag: Does updating `checked_foods` require a `corrected_at` timestamp? Recommend yes for audit trail. Architect must decide.
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed to production 2026-05-25. Accessible at /history/edit from dose history page.
 
 ---
 
@@ -230,7 +232,7 @@ Next Action: F5 — Skip session
 - No export, share, filter, or search for MVP
 - Family-scoped via RLS
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed to production 2026-05-25. Accessible at /history from daily view.
 
 ---
 
@@ -256,7 +258,7 @@ Next Action: F5 — Skip session
 - Push delivery mechanism: Vercel Cron Job vs. Supabase Edge Function. Architect selects and validates.
 - VAPID key management: Generate and store as Vercel env vars.
 
-**Status:** Not Started
+**Status:** 🔴 Blocked — Vercel Hobby plan (1-day minimum cron), iOS web push requires PWA "Add to Home Screen". Requires F9 for family name in notification body. Build after F9 is deployed and dogfooded.
 
 ---
 
@@ -281,7 +283,9 @@ Next Action: F5 — Skip session
 - Bulk catch-up writes simplified `dose_log` rows (`is_skipped: false`, `checked_foods: {}`) — not a full food-by-food record
 - Week/day fast-forward prompt only shown if position is ahead of Day 1, Week 1
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed to production 2026-05-25. Auto-shown after schedule parse. Skipped on subsequent logins when family name already set.
+
+**Pending:** Run Supabase SQL migrations below before F9 is usable in production.
 
 ---
 
@@ -308,6 +312,27 @@ Next Action: F5 — Skip session
 ### Backlog (future phases)
 
 - **Recommended foods** — 3 to 5x per week frequency-based foods (per official FAI dosing schedule template). Separate from daily maintenance and weekly foods. Category sourced from clinic schedule.
+
+---
+
+### Pending Supabase SQL Migrations
+
+Run these in the Supabase SQL editor before F5–F9 features work in production:
+
+```sql
+-- F4/F5: dose_state columns for skip flags and completedDays
+ALTER TABLE dose_state ADD COLUMN IF NOT EXISTS completed_days JSONB DEFAULT '{}'::jsonb;
+ALTER TABLE dose_state ADD COLUMN IF NOT EXISTS morning_skipped BOOLEAN DEFAULT FALSE;
+ALTER TABLE dose_state ADD COLUMN IF NOT EXISTS evening_skipped BOOLEAN DEFAULT FALSE;
+
+-- F4/F5/F6/F7: dose_log RLS policies
+CREATE POLICY "auth_read_dose_log" ON dose_log FOR SELECT USING (family_id = (SELECT family_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY "auth_insert_dose_log" ON dose_log FOR INSERT WITH CHECK (family_id = (SELECT family_id FROM profiles WHERE id = auth.uid()));
+CREATE POLICY "auth_update_dose_log" ON dose_log FOR UPDATE USING (family_id = (SELECT family_id FROM profiles WHERE id = auth.uid()));
+
+-- F9: families UPDATE policy (for saveFamilyConfig)
+CREATE POLICY "auth_update_own_family" ON families FOR UPDATE USING (id = (SELECT family_id FROM profiles WHERE id = auth.uid()));
+```
 
 ---
 
