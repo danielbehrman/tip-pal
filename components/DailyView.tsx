@@ -212,8 +212,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
           <Link href="/history" className="text-sm text-gray-400 underline">
             Dose history
           </Link>
-          <Link href="/setup" className="text-sm text-gray-400 underline">
-            Re-parse schedule
+          <Link href="/settings" className="text-sm text-gray-400 underline">
+            Settings
           </Link>
         </div>
       </div>

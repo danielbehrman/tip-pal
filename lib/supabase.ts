@@ -278,6 +278,68 @@ export async function updateDoseLogCheckedFoods(
   if (error) throw error
 }
 
+export async function savePushSubscription(sub: {
+  endpoint: string
+  p256dh: string
+  auth: string
+}): Promise<void> {
+  const familyId = await getFamilyId()
+  const { data: { session } } = await getClient().auth.getSession()
+  if (!session) throw new Error("Not authenticated")
+  const { error } = await getClient()
+    .from("push_subscriptions")
+    .upsert(
+      { user_id: session.user.id, family_id: familyId, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth },
+      { onConflict: "user_id,endpoint" }
+    )
+  if (error) throw error
+}
+
+export async function deletePushSubscription(endpoint: string): Promise<void> {
+  const { data: { session } } = await getClient().auth.getSession()
+  if (!session) return
+  const { error } = await getClient()
+    .from("push_subscriptions")
+    .delete()
+    .eq("user_id", session.user.id)
+    .eq("endpoint", endpoint)
+  if (error) throw error
+}
+
+export async function fetchNotificationSettings(): Promise<{
+  morningReminder: string
+  eveningReminder: string
+  timezone: string
+}> {
+  const { data: { session } } = await getClient().auth.getSession()
+  if (!session) throw new Error("Not authenticated")
+  const { data, error } = await getClient()
+    .from("profiles")
+    .select("morning_reminder, evening_reminder, reminder_timezone")
+    .eq("id", session.user.id)
+    .single()
+  if (error) throw error
+  return {
+    morningReminder: (data.morning_reminder as string | null)?.slice(0, 5) ?? "08:00",
+    eveningReminder: (data.evening_reminder as string | null)?.slice(0, 5) ?? "18:00",
+    timezone: (data.reminder_timezone as string | null) ?? "America/New_York",
+  }
+}
+
+export async function saveNotificationSettings(
+  morningReminder: string,
+  eveningReminder: string,
+  timezone: string
+): Promise<void> {
+  const { data: { session } } = await getClient().auth.getSession()
+  if (!session) throw new Error("Not authenticated")
+  const { error } = await getClient()
+    .from("profiles")
+    .update({ morning_reminder: morningReminder, evening_reminder: eveningReminder, reminder_timezone: timezone })
+    .eq("id", session.user.id)
+  if (error) throw error
+}
+
 export async function saveDoseState(state: DoseState): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()

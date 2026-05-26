@@ -1,0 +1,9 @@
+{
+  "name": "TIP Pal",
+  "short_name": "TIP Pal",
+  "description": "Daily dosing assistant for TIP families",
+  "start_url": "/daily",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f172a"
+}
