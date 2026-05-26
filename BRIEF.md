@@ -8,7 +8,7 @@ Phase: Phase 2 — Production
 Mode: Dogfooding
 Last Updated: 2026-05-25
 Blocker: None
-Next Action: Run Supabase SQL migrations (see SQL block below), then dogfood F5–F9 on device
+Next Action: Run F8 SQL + Vercel env vars (see activation steps below), then dogfood all features
 
 ---
 
@@ -258,7 +258,9 @@ Next Action: Run Supabase SQL migrations (see SQL block below), then dogfood F5�
 - Push delivery mechanism: Vercel Cron Job vs. Supabase Edge Function. Architect selects and validates.
 - VAPID key management: Generate and store as Vercel env vars.
 
-**Status:** 🔴 Blocked — Vercel Hobby plan (1-day minimum cron), iOS web push requires PWA "Add to Home Screen". Requires F9 for family name in notification body. Build after F9 is deployed and dogfooded.
+**Status:** ✅ Complete — deployed to production 2026-05-25. Push delivery via `/api/send-reminders` (external cron, not Vercel Cron). Notification settings in Settings page. PWA manifest + service worker included.
+
+**Activation required** — see steps below before notifications will fire.
 
 ---
 
@@ -305,7 +307,52 @@ Next Action: Run Supabase SQL migrations (see SQL block below), then dogfood F5�
 **Constraints:**
 - No account management, no password change, no user deletion in Phase 2
 
-**Status:** Not Started
+**Status:** ✅ Complete — deployed to production 2026-05-25. Accessible via "Settings" link at bottom of daily view. Includes family name, appointment date, week/day adjustment, notification times, push subscribe/unsubscribe, and re-parse schedule link.
+
+---
+
+### F8 Activation Steps (required for push notifications to fire)
+
+**1. Generate VAPID keys** (run once in terminal):
+```
+npx web-push generate-vapid-keys
+```
+
+**2. Add to Vercel environment variables** (Settings → Environment Variables):
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` — the public key from step 1
+- `VAPID_PRIVATE_KEY` — the private key from step 1
+- `VAPID_SUBJECT` — `mailto:daniel.behrman@gmail.com`
+- `CRON_SECRET` — any random string (e.g., output of `openssl rand -hex 32`)
+- `SUPABASE_SERVICE_ROLE_KEY` — from Supabase dashboard → Project Settings → API → service_role key
+
+**3. Run SQL in Supabase** (in addition to earlier migrations):
+```sql
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  family_id UUID NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, endpoint)
+);
+ALTER TABLE push_subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "user_manage_subscriptions" ON push_subscriptions
+  FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS morning_reminder TIME DEFAULT '08:00:00';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS evening_reminder TIME DEFAULT '18:00:00';
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS reminder_timezone TEXT DEFAULT 'America/New_York';
+```
+
+**4. Set up external cron** (cron-job.org — free):
+- URL: `https://tippal.behrman.dev/api/send-reminders`
+- Method: GET
+- Header: `Authorization: Bearer <your CRON_SECRET>`
+- Schedule: every minute
+
+**5. On iOS**: add TIP Pal to Home Screen (Settings → Subscribe to push), then tap "Enable notifications" in Settings.
 
 ---
 
