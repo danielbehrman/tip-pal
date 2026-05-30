@@ -10,6 +10,7 @@ import {
   saveDoseLog,
   saveSkipLog,
   countCompletedDaysInWeek,
+  fetchCompletedPositions,
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchLastDay7Completion,
@@ -26,6 +27,7 @@ export default function DailyPage() {
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
   const [anchorTimestamp, setAnchorTimestamp] = useState<string | null>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
+  const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function load() {
@@ -49,11 +51,12 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, anchorTs, name] = await Promise.all([
+        const [ds, apptDate, anchorTs, name, positions] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchLastDay7Completion().catch(() => null),
           fetchFamilyName().catch(() => null),
+          fetchCompletedPositions().catch(() => new Set<string>()),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -64,6 +67,7 @@ export default function DailyPage() {
         setAppointmentDate(apptDate)
         setAnchorTimestamp(anchorTs)
         setFamilyName(name)
+        setCompletedPositions(positions)
         setHydrated(true)
       } catch {
         router.replace("/setup")
@@ -108,6 +112,12 @@ export default function DailyPage() {
     if (currentDay === 7) {
       setAnchorTimestamp(completedAt)
     }
+
+    setCompletedPositions(prev => {
+      const next = new Set(prev)
+      next.add(`${currentWeek}-${currentDay}`)
+      return next
+    })
 
     const weekAdvance = completedCount >= 7
 
@@ -190,6 +200,7 @@ export default function DailyPage() {
       anchorTimestamp={anchorTimestamp}
       onAppointmentChange={handleAppointmentChange}
       familyName={familyName}
+      completedPositions={completedPositions}
     />
   )
 }

@@ -202,6 +202,21 @@ export async function saveDoseLog(
   if (error) throw error
 }
 
+export async function fetchCompletedPositions(): Promise<Set<string>> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("week, day")
+    .eq("family_id", familyId)
+    .eq("is_skipped", false)
+  if (error) throw error
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    set.add(`${row.week as number}-${row.day as number}`)
+  }
+  return set
+}
+
 export async function countCompletedDaysInWeek(week: number): Promise<number> {
   const familyId = await getFamilyId()
   const { count, error } = await getClient()

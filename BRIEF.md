@@ -78,7 +78,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
   "treatmentFoods": [
     {
       "name": "",
-      "weeks": [{ "week": 1, "dose": 0, "unit": "", "terminal": false }]
+      "weeks": [{ "week": 1, "dose": 0, "unit": "", "isFinal": false }]
     }
   ],
   "recommendedFoods": [
@@ -91,7 +91,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 ```
 
 **Schema notes:**
-- `terminal: true` marks the final week of a treatment food — "continue this dose until next visit"
+- `isFinal: true` marks the final week of a treatment food — "continue this dose until next visit"
 - `capped: true` requires the CAPPED label — no more, no less than this dose
 - `prepNote` captures instructions like "crushed," "chopped," "reconstituted"
 - `recommendedFoods` are not daily — target frequency is 3–5x/week
@@ -160,7 +160,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Buffer anchor date | Record a `completed_at` timestamp on every Day 7 "Complete Day" action. Buffer calculated from most recent Day-7 completion timestamp. |
 | Dose log session model | One row per day (`session: 'day'`). Skip morning or skip evening creates a separate additional row. |
 | Day completion rule | All evening treatment foods must be checked before Complete Day is available. Evening skip does NOT satisfy the gate — blocks Complete Day with error ("dose evening again before advancing"). Morning has no impact on day completion or week advancement — morning skip is informational only. |
-| Day navigation | Day + button disabled until current day completed via Complete Day. Cannot skip ahead. Backwards navigation (Day −) always allowed. Week +/− are manual overrides, unrestricted. |
+| Day navigation | Day + disabled if current (week, day) has not been logged via Complete Day — cannot skip ahead to an unlogged position. After navigating back to a logged day, Day + is available to move forward. Backwards navigation (Day −) always allowed. Week +/− are manual overrides, unrestricted. |
 | Push delivery mechanism | External cron (cron-job.org) → `/api/send-reminders`. Runs every minute. |
 | Branding | App displayed as "[Family Name]'s TIP Pal" in top left when logged in. Family name entered during onboarding. |
 
@@ -200,7 +200,7 @@ Key implementation details:
 Key implementation details:
 - Skip morning → `dose_log` row: `session: 'morning'`, `is_skipped: true` — informational only
 - Skip evening → BLOCKS Complete Day with error: "Evening session was skipped — give the same evening treatment foods again before advancing"
-- Skipping both sessions + Complete Day → logs full day as complete, counts toward 7-day advancement
+- Evening skip always blocks Complete Day regardless of morning session state — treatment foods must be given before advancing
 
 #### F6: Trailing 3-Day Edit
 **Goal:** Let a parent correct checkbox state for the previous 3 completed days without affecting week advancement.
@@ -322,9 +322,10 @@ Acceptance criteria:
 - Medications (e.g. Zyrtec, Flovent) display on the same screen as recommended foods
 - Review screen shows all categories before confirm
 - Inline editing works for all categories
+- Recommended foods screen shows a per-food weekly frequency counter: number of times given this week out of the target (e.g. "2 / 3–5 this week"). Counter increments when the parent taps the food as given. Resets each week.
 
 Constraints:
-- Recommended foods and medications are informational only — no checkbox tracking in Phase 3
+- Recommended foods and medications are informational only — no checkbox tracking in Phase 3. The weekly counter is a simple given-this-week tally, not a dose log entry.
 - Daily dose view is unchanged
 
 #### F4: New Food Cycle Flow

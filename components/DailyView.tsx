@@ -18,9 +18,10 @@ interface DailyViewProps {
   anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
   familyName: string | null
+  completedPositions: Set<string>
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange, familyName }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange, familyName, completedPositions }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
@@ -114,7 +115,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <button
               onClick={() => handleDayChange(1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay >= 7 || !!eveningSkipped}
+              disabled={currentDay >= 7 || !!eveningSkipped || !completedPositions.has(`${currentWeek}-${currentDay}`)}
             >
               +
             </button>
