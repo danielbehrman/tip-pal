@@ -117,6 +117,12 @@ Tip Pal is not a medical device. It is not affiliated with the Food Allergy Inst
 
 ---
 
+## License
+
+MIT — free to use, fork, and adapt.
+
+---
+
 ## About
 
 Built by a TIP parent for TIP families.
