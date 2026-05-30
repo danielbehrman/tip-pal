@@ -167,6 +167,11 @@ Claude Code has full permission to read, write, and execute within the current p
 
 ---
 
+## LOCAL STORAGE HYGIENE
+At the end of every session, delete node_modules and .next from the project directory before closing. These are never committed and rebuild in seconds with `npm install` and `vercel dev`. Do not leave them on disk between sessions.
+
+---
+
 ## PROJECT CONFIGURATION
 
 > Fill in this section for each project. Everything above is global and never changes.

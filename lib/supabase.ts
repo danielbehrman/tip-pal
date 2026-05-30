@@ -95,8 +95,10 @@ export async function saveFamilyConfig(
   const familyId = await getFamilyId()
   const { error } = await getClient()
     .from("families")
-    .update({ name, next_appointment_date: appointmentDate })
-    .eq("id", familyId)
+    .upsert(
+      { id: familyId, name, next_appointment_date: appointmentDate },
+      { onConflict: "id" }
+    )
   if (error) throw error
 }
 
