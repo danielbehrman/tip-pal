@@ -486,7 +486,7 @@ Key spec: TBD — depends on Capacitor wrapper from Phase 3.
 ---
 
 ## Project Configuration
-- **Project Name:** joshy-tip (repo) / TIP Pal (product name)
+- **Project Name:** tip-tip (repo) / TIP Pal (product name)
 - **URL:** tippal.behrman.dev
 - **Stack:** Next.js, Supabase, Vercel, Anthropic Claude API, Capacitor (Phase 3+)
 - **Key Ports / IPs:** N/A

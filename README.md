@@ -1,69 +1,124 @@
-# TIP Pal
+# Tip Pal
 
-A daily dosing assistant for food allergy tolerance induction therapy (TIP).
+A daily dosing assistant for families in food allergy tolerance induction programs.
 
-Built for a family managing a multi-year oral immunotherapy program for their young son. Open the app, see exactly what to give, check it off. That's it.
+**Live app:** [tippal.behrman.dev](https://tippal.behrman.dev) — currently in active dogfooding. Core features are working but the app is under active development and not yet feature complete. Use with that in mind.
 
 ---
 
-## The Problem
+## Status
 
-TIP programs involve giving precise doses of allergenic foods every day, split across morning and evening sessions, across many treatment weeks. The schedule is complex:
+Tip Pal is in active development. Phase 2 (core dosing, shared state, push notifications) is complete and in use. Several critical features are still in progress, including App Store distribution, new food cycle management, and emergency medication expiry tracking. The app works and is being used daily, but expect rough edges and missing features.
 
-- **Morning:** maintenance foods (daily) + weekly foods (Sundays only)
-- **Evening:** treatment foods that change week by week, spaced 15 minutes apart, followed by a 1-hour rest
-- Some foods are **capped** — exact dose, no more, no less
-- Seeds require a **crush/chop reminder** before serving — a medical requirement, not a preference
-
-The schedule comes from clinic notes as unstructured text. There's no app for this. Parents are manually tracking it at 6am and 9pm, when cognitive load is high and mistakes have real consequences. Wrong dose or wrong week can set treatment back by weeks.
+If you self-host or use the live app, feedback is welcome.
 
 ---
 
 ## What It Does
 
-**Paste the schedule, see exactly what to give today.**
+Food allergy tolerance induction is a multi-year program where families give their child precisely measured doses of allergenic foods twice a day, every day, on a schedule that changes after every clinic visit.
 
-1. Paste raw clinic notes into the setup screen
-2. Claude parses them into a structured dosing schedule
-3. Review and confirm the parsed output — nothing is saved without explicit confirmation
-4. Open the app each session, check off doses as you go
+The schedule is complex. On any given day you might be measuring 5 to 7 foods in small exact amounts, tracking which week of treatment you're on, and remembering which foods are capped (exact dose, no more, no less). You do this at 6am before school and again in the evening after a 4-hour gap. You do it tired.
+
+Most families manage this off a printed chart from the clinic. Tip Pal replaces the chart.
+
+**Paste your clinic notes. The app figures out the rest.**
+
+An AI reads your plan of care and builds a structured schedule: morning maintenance foods, evening treatment foods, weekly foods, doses, units, prep notes. You get a clean checklist for each session. Check off each food as you give it. Tap Complete Day when you're done. The week counter advances automatically after 7 days.
 
 ---
 
-## How It Works
+## Features
 
-**Schedule parsing** — The setup screen sends pasted clinic notes to a server-side API route, which calls the Anthropic Claude API and returns a structured JSON schedule. The parsed output is shown as a review screen before anything is saved. Every field is editable inline. Parsing is never silent.
+- **AI-powered schedule parsing** — paste your plan of care notes directly from the clinic. No manual data entry.
+- **Morning and evening dose views** — separated clearly, with prep notes inline
+- **CAPPED food labels** — exact doses flagged visually throughout
+- **Complete Day gate** — requires all evening treatment foods checked before advancing
+- **Skip session logging** — morning and evening skips recorded separately
+- **Completion-based week advancement** — 7 complete days auto-advances the week
+- **Appointment date and buffer days** — see how many days remain before your next visit
+- **Trailing 3-day edit** — correct checkbox state for recent completed days
+- **Full dose history** — chronological log of every session, useful at clinic appointments
+- **Shared real-time state** — both parents see the same schedule and checkboxes
+- **Push notifications** — configurable morning and evening dose reminders
+- **"[Family Name]'s Tip Pal"** — personalized during onboarding
 
-**Daily dose view** — The main screen shows a Week/Day counter and two sections: Morning and Evening. Morning lists all maintenance foods, plus weekly foods when it's Day 7. Evening lists the treatment foods for the current week. Each food shows name, dose, unit, prep notes, and a CAPPED label where applicable. Everything has a checkbox. "Complete Day" advances the counter and resets checkboxes.
+---
 
-**No date logic** — The app has no calendar awareness. The Week and Day counters are manually adjustable. The only scheduling logic is: Day 7 shows weekly foods, and the Week counter selects which treatment doses appear in the evening section.
+## What's Coming
+
+- **App Store and Google Play** — native iOS and Android apps
+- **New food cycle flow** — start a new cycle after a clinic visit without losing history
+- **Emergency medication expiry tracker** — scenario kit and EpiPen expiration dates with advance warnings
+- **Recommended foods view** — track 3 to 5x weekly frequency targets
+- **Food grouping** — check off composite foods as a single item
 
 ---
 
 ## Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | Next.js |
-| Storage | localStorage |
-| Hosting | Vercel |
-| Schedule Parsing | Anthropic Claude API (server-side) |
-
-> This is a demo that proves the core concept. Shared state between parents, auth, and production infrastructure are Phase 2.
+- **Frontend:** Next.js
+- **Database:** Supabase (Postgres + Auth)
+- **Hosting:** Vercel
+- **Schedule parsing:** Anthropic Claude API (server-side)
+- **Push notifications:** Web Push via external cron
 
 ---
 
-## Roadmap
+## Self-Hosting
 
-**Phase 1 — Demo** *(current)*
-- Schedule parsing via Claude API
-- Daily dose view with checkboxes and manual week/day controls
+Tip Pal is open source. If you're comfortable with Next.js and Supabase, you can run your own instance.
 
-**Phase 2 — Production**
-- Supabase for shared real-time state (both parents see the same data)
-- Auth (two accounts)
-- Appointment date entry and buffer day calculation
-- Automatic week advancement on 7 completed doses
-- Skip session support
-- Trailing 3-day edit
-- Push notification reminders
+### Prerequisites
+
+- Node.js 18+
+- A Supabase project
+- An Anthropic API key
+- A Vercel account (or any Next.js host)
+
+### Setup
+
+1. Clone the repo
+
+```bash
+git clone https://github.com/[your-username]/tip-pal.git
+cd tip-pal
+npm install
+```
+
+2. Create a `.env.local` file:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+ANTHROPIC_API_KEY=your_anthropic_api_key
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
+VAPID_PRIVATE_KEY=your_vapid_private_key
+VAPID_SUBJECT=mailto:you@example.com
+CRON_SECRET=your_cron_secret
+```
+
+3. Run Supabase migrations (see `/supabase/migrations`)
+
+4. Start the dev server:
+
+```bash
+npm run dev
+```
+
+5. For push notifications, set up an external cron to hit `/api/send-reminders` every minute with `Authorization: Bearer <your CRON_SECRET>`.
+
+---
+
+## Disclaimer
+
+Tip Pal is not a medical device. It is not affiliated with the Food Allergy Institute or the Tolerance Induction Program. Always follow your provider's instructions. Never use this app as a substitute for the plan of care given to you by your clinical team.
+
+---
+
+## About
+
+Built by a TIP parent for TIP families.
+
+Questions or feedback: open an issue or reach out at [dan@behrman.dev](mailto:dan@behrman.dev).
