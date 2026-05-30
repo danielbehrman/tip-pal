@@ -26,8 +26,9 @@ export default function RecentDaysEditor({ schedule, days, onToggle }: RecentDay
   return (
     <div className="flex flex-col gap-6">
       {days.map(entry => {
+        const s = entry.scheduleSnapshot ?? schedule
         const morningFoods = [
-          ...schedule.maintenanceFoods.map(f => ({
+          ...s.maintenanceFoods.map(f => ({
             key: `morning-${f.name}`,
             name: f.name,
             dose: f.dose,
@@ -38,7 +39,7 @@ export default function RecentDaysEditor({ schedule, days, onToggle }: RecentDay
             isContinuing: false,
           })),
           ...(entry.day === 7
-            ? schedule.weeklyFoods.map(f => ({
+            ? s.weeklyFoods.map(f => ({
                 key: `morning-weekly-${f.name}`,
                 name: f.name,
                 dose: f.dose,
@@ -51,7 +52,7 @@ export default function RecentDaysEditor({ schedule, days, onToggle }: RecentDay
             : []),
         ]
 
-        const eveningFoods = getTreatmentFoodsForWeek(schedule, entry.week).map(
+        const eveningFoods = getTreatmentFoodsForWeek(s, entry.week).map(
           ({ food, weekEntry, isContinuing }) => ({
             key: `evening-${food.name}`,
             name: food.name,

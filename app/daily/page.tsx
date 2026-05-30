@@ -13,7 +13,6 @@ import {
   fetchCompletedPositions,
   fetchAppointmentDate,
   saveAppointmentDate,
-  fetchLastDay7Completion,
   fetchFamilyName,
   getSession,
 } from "@/lib/supabase"
@@ -25,7 +24,6 @@ export default function DailyPage() {
   const [doseState, setDoseState] = useState<DoseState | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
-  const [anchorTimestamp, setAnchorTimestamp] = useState<string | null>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
 
@@ -51,10 +49,9 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, anchorTs, name, positions] = await Promise.all([
+        const [ds, apptDate, name, positions] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
-          fetchLastDay7Completion().catch(() => null),
           fetchFamilyName().catch(() => null),
           fetchCompletedPositions().catch(() => new Set<string>()),
         ])
@@ -65,7 +62,6 @@ export default function DailyPage() {
         setSchedule(s)
         setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
         setAppointmentDate(apptDate)
-        setAnchorTimestamp(anchorTs)
         setFamilyName(name)
         setCompletedPositions(positions)
         setHydrated(true)
@@ -103,14 +99,10 @@ export default function DailyPage() {
 
     let completedCount = 0
     try {
-      await saveDoseLog(currentWeek, currentDay, checkedFoods, completedAt)
+      await saveDoseLog(currentWeek, currentDay, checkedFoods, completedAt, schedule!)
       completedCount = await countCompletedDaysInWeek(currentWeek)
     } catch {
       // Log failed — proceed with normal day advance
-    }
-
-    if (currentDay === 7) {
-      setAnchorTimestamp(completedAt)
     }
 
     setCompletedPositions(prev => {
@@ -197,7 +189,6 @@ export default function DailyPage() {
       onSkipMorning={handleSkipMorning}
       onSkipEvening={handleSkipEvening}
       appointmentDate={appointmentDate}
-      anchorTimestamp={anchorTimestamp}
       onAppointmentChange={handleAppointmentChange}
       familyName={familyName}
       completedPositions={completedPositions}

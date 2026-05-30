@@ -102,6 +102,15 @@ export async function saveFamilyConfig(
   if (error) throw error
 }
 
+export async function saveFamilyName(name: string): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ name })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
 export async function saveBulkCatchUpLog(toWeek: number, toDay: number): Promise<void> {
   const familyId = await getFamilyId()
   const now = new Date().toISOString()
@@ -185,7 +194,8 @@ export async function saveDoseLog(
   week: number,
   day: number,
   checkedFoods: Record<string, boolean>,
-  completedAt: string
+  completedAt: string,
+  scheduleSnapshot: object
 ): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()
@@ -198,6 +208,7 @@ export async function saveDoseLog(
       checked_foods: checkedFoods,
       completed_at: completedAt,
       is_skipped: false,
+      schedule_snapshot: scheduleSnapshot,
     })
   if (error) throw error
 }
@@ -233,7 +244,7 @@ export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("id, week, day, session, checked_foods, completed_at, is_skipped")
+    .select("id, week, day, session, checked_foods, completed_at, is_skipped, schedule_snapshot")
     .eq("family_id", familyId)
     .order("completed_at", { ascending: false })
     .limit(50)
@@ -247,6 +258,7 @@ export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
     day: dayRow.day as number,
     completedAt: dayRow.completed_at as string,
     checkedFoods: (dayRow.checked_foods ?? {}) as Record<string, boolean>,
+    scheduleSnapshot: (dayRow.schedule_snapshot ?? null) as import("./types").ParsedSchedule | null,
     morningSkipped: data.some(
       r => r.week === dayRow.week && r.day === dayRow.day && r.session === "morning" && r.is_skipped
     ),
@@ -260,7 +272,7 @@ export async function fetchAllDoseLogDays(): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("id, week, day, session, checked_foods, completed_at, is_skipped")
+    .select("id, week, day, session, checked_foods, completed_at, is_skipped, schedule_snapshot")
     .eq("family_id", familyId)
     .order("completed_at", { ascending: false })
     .limit(500)
@@ -273,6 +285,7 @@ export async function fetchAllDoseLogDays(): Promise<DoseLogDay[]> {
     day: dayRow.day as number,
     completedAt: dayRow.completed_at as string,
     checkedFoods: (dayRow.checked_foods ?? {}) as Record<string, boolean>,
+    scheduleSnapshot: (dayRow.schedule_snapshot ?? null) as import("./types").ParsedSchedule | null,
     morningSkipped: data.some(
       r => r.week === dayRow.week && r.day === dayRow.day && r.session === "morning" && r.is_skipped
     ),

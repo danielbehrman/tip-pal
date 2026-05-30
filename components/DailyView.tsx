@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { getTreatmentFoodsForWeek, calculateBuffer } from "@/lib/schedule"
+import { getTreatmentFoodsForWeek, getTotalTreatmentWeeks, calculateBuffer } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -15,19 +15,18 @@ interface DailyViewProps {
   onSkipMorning: () => void
   onSkipEvening: () => void
   appointmentDate: string | null
-  anchorTimestamp: string | null
   onAppointmentChange: (value: string) => void
   familyName: string | null
   completedPositions: Set<string>
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, anchorTimestamp, onAppointmentChange, familyName, completedPositions }: DailyViewProps) {
+export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, onAppointmentChange, familyName, completedPositions }: DailyViewProps) {
   const [confirmingComplete, setConfirmingComplete] = useState(false)
   const [completionAttempted, setCompletionAttempted] = useState(false)
 
   const { currentWeek, currentDay, checkedFoods, morningSkipped, eveningSkipped } = doseState
 
-  const bufferResult = calculateBuffer(appointmentDate, anchorTimestamp)
+  const bufferResult = calculateBuffer(appointmentDate, getTotalTreatmentWeeks(schedule))
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
   const allEveningChecked = eveningItems.every(({ food }) => !!checkedFoods[`evening-${food.name}`])
   const showEveningError = completionAttempted && !allEveningChecked
@@ -136,7 +135,12 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         />
         {bufferResult.kind === "days" && (
           <p className="mt-2 text-sm text-gray-600">
-            {bufferResult.count} buffer day{bufferResult.count !== 1 ? "s" : ""} before appointment
+            {bufferResult.count} buffer day{bufferResult.count !== 1 ? "s" : ""} after completing protocol
+          </p>
+        )}
+        {bufferResult.kind === "behind" && (
+          <p className="mt-2 text-sm text-amber-700 font-medium">
+            {bufferResult.count} day{bufferResult.count !== 1 ? "s" : ""} short — appointment falls within the protocol period
           </p>
         )}
         {bufferResult.kind === "past" && (

@@ -37,6 +37,7 @@ export interface DoseLogDay {
   day: number
   completedAt: string
   checkedFoods: Record<string, boolean>
+  scheduleSnapshot: ParsedSchedule | null
   morningSkipped: boolean
   eveningSkipped: boolean
 }

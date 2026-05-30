@@ -10,7 +10,8 @@ import {
   fetchAppointmentDate,
   fetchDoseState,
   fetchNotificationSettings,
-  saveFamilyConfig,
+  saveFamilyName,
+  saveAppointmentDate,
   saveDoseState,
   saveBulkCatchUpLog,
   saveNotificationSettings,
@@ -49,7 +50,9 @@ export default function SettingsPage() {
   const [subscribing, setSubscribing] = useState(false)
   const [nameError, setNameError] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const appointmentDateLoaded = useRef(false)
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const pushAvailable = pushSupported && !!vapidPublicKey
@@ -60,14 +63,20 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, apptDate, ds, notifSettings] = await Promise.all([
+        const [name, ds, notifSettings] = await Promise.all([
           fetchFamilyName().catch(() => null),
-          fetchAppointmentDate().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
         ])
+        // Load appointment date separately so we know if it succeeded
+        try {
+          const apptDate = await fetchAppointmentDate()
+          setAppointmentDate(apptDate ?? "")
+          appointmentDateLoaded.current = true
+        } catch {
+          // Don't update appointmentDateLoaded — prevents overwriting DB value on save
+        }
         if (name) setFamilyName(name)
-        if (apptDate) setAppointmentDate(apptDate)
         if (ds) {
           setWeek(ds.currentWeek)
           setDay(ds.currentDay)
@@ -137,8 +146,12 @@ export default function SettingsPage() {
 
   async function saveAll(withCatchup: boolean) {
     setSaving(true)
+    setSaveError(null)
     try {
-      await saveFamilyConfig(familyName.trim(), appointmentDate || null)
+      await saveFamilyName(familyName.trim())
+      if (appointmentDateLoaded.current) {
+        await saveAppointmentDate(appointmentDate || null)
+      }
       await saveNotificationSettings(morningReminder, eveningReminder, timezone)
       const positionChanged = week !== originalWeek || day !== originalDay
       if (positionChanged || !existingDoseState) {
@@ -156,7 +169,9 @@ export default function SettingsPage() {
       setSaved(true)
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
-    } catch {}
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
+    }
     setSaving(false)
   }
 
@@ -272,6 +287,10 @@ export default function SettingsPage() {
             Re-parse schedule
           </Link>
         </div>
+
+        {saveError && (
+          <p className="text-red-600 text-sm">{saveError}</p>
+        )}
 
         {showCatchup ? (
           <div className="px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl">

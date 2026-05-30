@@ -48,15 +48,16 @@ export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) 
   return (
     <div className="flex flex-col gap-4">
       {days.map(entry => {
+        const s = entry.scheduleSnapshot ?? schedule
         const morningFoods = [
-          ...schedule.maintenanceFoods.map(f => ({
+          ...s.maintenanceFoods.map(f => ({
             key: `morning-${f.name}`,
             name: f.name,
             dose: f.dose,
             unit: f.unit,
           })),
           ...(entry.day === 7
-            ? schedule.weeklyFoods.map(f => ({
+            ? s.weeklyFoods.map(f => ({
                 key: `morning-weekly-${f.name}`,
                 name: f.name,
                 dose: f.dose,
@@ -65,7 +66,7 @@ export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) 
             : []),
         ]
 
-        const eveningFoods = getTreatmentFoodsForWeek(schedule, entry.week).map(
+        const eveningFoods = getTreatmentFoodsForWeek(s, entry.week).map(
           ({ food, weekEntry }) => ({
             key: `evening-${food.name}`,
             name: food.name,

@@ -4,12 +4,18 @@ export type BufferResult =
   | { kind: "hidden" }
   | { kind: "past" }
   | { kind: "days"; count: number }
+  | { kind: "behind"; count: number }
+
+export function getTotalTreatmentWeeks(schedule: ParsedSchedule): number {
+  if (schedule.treatmentFoods.length === 0) return 0
+  return Math.max(...schedule.treatmentFoods.flatMap(f => f.weeks.map(w => w.week)))
+}
 
 export function calculateBuffer(
   appointmentDateStr: string | null,
-  anchorTimestamp: string | null
+  totalTreatmentWeeks: number
 ): BufferResult {
-  if (!appointmentDateStr || !anchorTimestamp) return { kind: "hidden" }
+  if (!appointmentDateStr || totalTreatmentWeeks === 0) return { kind: "hidden" }
 
   const [apptYear, apptMonth, apptDay] = appointmentDateStr.split("-").map(Number)
   const apptDate = new Date(apptYear, apptMonth - 1, apptDay)
@@ -18,17 +24,12 @@ export function calculateBuffer(
   const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   if (apptDate <= todayMidnight) return { kind: "past" }
 
-  const anchorRaw = new Date(anchorTimestamp)
-  const anchorMidnight = new Date(anchorRaw.getFullYear(), anchorRaw.getMonth(), anchorRaw.getDate())
-
-  const bufferStart = new Date(anchorMidnight)
-  bufferStart.setDate(bufferStart.getDate() + 1)
-
   const MS_PER_DAY = 1000 * 60 * 60 * 24
-  const count = Math.round((apptDate.getTime() - bufferStart.getTime()) / MS_PER_DAY)
+  const daysUntilAppt = Math.round((apptDate.getTime() - todayMidnight.getTime()) / MS_PER_DAY)
+  const bufferDays = daysUntilAppt - totalTreatmentWeeks * 7
 
-  if (count < 0) return { kind: "past" }
-  return { kind: "days", count }
+  if (bufferDays < 0) return { kind: "behind", count: Math.abs(bufferDays) }
+  return { kind: "days", count: bufferDays }
 }
 
 export interface TreatmentFoodForWeek {
