@@ -25,7 +25,7 @@ Publish on Apple App Store and Google Play. Open source the repo for self-hostin
 | Auth | Supabase Auth (email/password) | ✅ Confirmed |
 | Hosting | Vercel | ✅ Confirmed |
 | Schedule Parsing | Anthropic Claude API (server-side Next.js API route) | ✅ Confirmed |
-| Mobile Wrapper | Capacitor | ⚠️ Architect must evaluate and lock before Phase 3 Dev starts |
+| Mobile Wrapper | Capacitor (static export) | ✅ Locked — see plans/PHASE-3.md |
 | Open Source License | MIT | ✅ Confirmed |
 
 ---
@@ -103,7 +103,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 ## Assumptions
 - ✅ Anthropic API key available as server-side env var — confirmed working in Phase 1
 - ✅ Supabase project and credentials provisioned — confirmed complete
-- ⚠️ Capacitor is the right wrapper for App Store distribution — Architect must evaluate before Phase 3 Dev starts. Alternative: Expo/React Native rewrite. Decision gates all Phase 3 work.
+- ✅ Capacitor with Next.js static export — locked 2026-05-30. See plans/PHASE-3.md.
 
 ---
 
@@ -284,10 +284,15 @@ npx web-push generate-vapid-keys
 ---
 
 ## Phase 3 — App Store Launch 📋 Planned
-> Details locked after dogfooding period and Phase 2 confirmation. Architect must evaluate Capacitor before Dev starts.
 
-### Architectural Decision Required
-Capacitor (wrap existing Next.js app in native shell) vs. Expo/React Native (full rewrite). Capacitor is the recommended path — lowest lift to both stores, no rewrite required. Architect must validate and lock this decision before any Phase 3 Dev begins. All store submission work depends on it.
+### Architecture Decision — Locked (2026-05-30)
+**Capacitor with Next.js static export.** `output: 'export'` bundles HTML/JS/CSS into the native binary. API routes stay on Vercel, called via full URL from native. Same codebase for web and native. See `plans/PHASE-3.md` for full implementation details.
+
+### Open Decisions — Dan must resolve before Dev starts
+1. **Push notifications in native:** Option A (migrate to FCM/Capacitor push in Phase 3 — recommended) vs. Option B (hide push in native, defer to Phase 4). Affects F1 scope and Supabase migrations.
+2. **FAI branding permission:** Reach out to FAI for permission to use "TIP" / "Tolerance Induction Program" in App Store listing. Use "food allergy tolerance program" as fallback if no response before submission.
+3. **Apple Developer Program:** Enroll now ($99/year) — 2-day approval can block F7.
+4. **Firebase project (if Option A):** Create at firebase.google.com alongside F1 Dev work.
 
 ### Features
 
