@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from "next/server"
 import Anthropic from "@anthropic-ai/sdk"
 import { ParsedSchedule } from "@/lib/types"
 
+const CAPACITOR_ORIGINS = new Set(["capacitor://localhost", "https://localhost"])
+
+function corsHeaders(req: NextRequest): Record<string, string> {
+  const origin = req.headers.get("origin") ?? ""
+  if (CAPACITOR_ORIGINS.has(origin)) {
+    return { "Access-Control-Allow-Origin": origin }
+  }
+  return {}
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get("origin") ?? ""
+  if (CAPACITOR_ORIGINS.has(origin)) {
+    return new NextResponse(null, {
+      status: 204,
+      headers: {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Methods": "POST, OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type",
+      },
+    })
+  }
+  return new NextResponse(null, { status: 204 })
+}
+
 const SYSTEM_PROMPT = `You are a medical dosing schedule parser. Parse the provided text and return ONLY valid JSON with no explanation, no markdown, no code fences.
 
 Return an object matching this exact schema:
@@ -45,23 +70,25 @@ function isValidSchedule(obj: unknown): obj is ParsedSchedule {
 }
 
 export async function POST(req: NextRequest) {
+  const cors = corsHeaders(req)
+
   let body: { text?: string }
   try {
     body = await req.json()
   } catch {
-    return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400, headers: cors })
   }
 
   const { text } = body
   if (!text || typeof text !== "string" || text.trim() === "") {
-    return NextResponse.json({ error: "text is required" }, { status: 400 })
+    return NextResponse.json({ error: "text is required" }, { status: 400, headers: cors })
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
     return NextResponse.json(
       { error: "ANTHROPIC_API_KEY is not configured" },
-      { status: 500 }
+      { status: 500, headers: cors }
     )
   }
 
@@ -79,7 +106,7 @@ export async function POST(req: NextRequest) {
     if (!block || block.type !== "text") {
       return NextResponse.json(
         { error: "Unexpected response format from Claude" },
-        { status: 500 }
+        { status: 500, headers: cors }
       )
     }
     rawContent = block.text
@@ -87,7 +114,7 @@ export async function POST(req: NextRequest) {
     const message = err instanceof Error ? err.message : "Unknown error"
     return NextResponse.json(
       { error: `Claude API error: ${message}` },
-      { status: 500 }
+      { status: 500, headers: cors }
     )
   }
 
@@ -97,16 +124,16 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json(
       { error: "Could not parse response from Claude" },
-      { status: 500 }
+      { status: 500, headers: cors }
     )
   }
 
   if (!isValidSchedule(parsed)) {
     return NextResponse.json(
       { error: "Response did not match expected schedule schema" },
-      { status: 500 }
+      { status: 500, headers: cors }
     )
   }
 
-  return NextResponse.json({ schedule: parsed })
+  return NextResponse.json({ schedule: parsed }, { headers: cors })
 }

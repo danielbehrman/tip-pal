@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TIP Pal</string>
+    <string name="title_activity_main">TIP Pal</string>
+    <string name="package_name">dev.behrman.tippal</string>
+    <string name="custom_url_scheme">dev.behrman.tippal</string>
+</resources>

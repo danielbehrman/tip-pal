@@ -25,7 +25,8 @@ export default function SetupPage() {
   async function handleSubmit() {
     setView("loading")
     try {
-      const res = await fetch("/api/parse-schedule", {
+      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
+      const res = await fetch(`${apiBase}/api/parse-schedule`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: rawText }),

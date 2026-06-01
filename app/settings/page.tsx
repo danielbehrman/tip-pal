@@ -18,6 +18,7 @@ import {
   savePushSubscription,
   deletePushSubscription,
 } from "@/lib/supabase"
+import { isNative } from "@/lib/platform"
 import { DoseState } from "@/lib/types"
 
 function urlBase64ToBuffer(base64String: string): ArrayBuffer {
@@ -239,7 +240,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div className="border-t border-gray-100 pt-5">
+        {!isNative() && <div className="border-t border-gray-100 pt-5">
           <p className="text-sm font-medium text-gray-700 mb-3">Reminders</p>
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -278,7 +279,7 @@ export default function SettingsPage() {
               Notifications require adding this app to your Home Screen on iOS.
             </p>
           ) : null}
-        </div>
+        </div>}
 
         <div className="border-t border-gray-100 pt-5">
           <Link href="/setup" className="text-sm text-gray-500 underline">

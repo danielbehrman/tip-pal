@@ -1,7 +1,13 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from "next"
+
+const isNative = process.env.IS_NATIVE === "true"
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  ...(isNative && {
+    output: "export",
+    trailingSlash: true,
+    images: { unoptimized: true },
+  }),
+}
 
-export default nextConfig;
+export default nextConfig

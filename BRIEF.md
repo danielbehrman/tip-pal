@@ -4,11 +4,11 @@
 TIP Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 2 — Production
-Mode: Dogfooding
-Last Updated: 2026-05-30
+Phase: Phase 3 — App Store Launch
+Mode: Active Build
+Last Updated: 2026-06-01
 Blocker: None
-Next Action: Dogfood — gather real-world feedback before planning Phase 3
+Next Action: Dan opens Xcode (npx cap open:ios) and verifies app on iOS Simulator — then F2 (PII Hardening)
 
 ---
 
@@ -112,6 +112,10 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 |---|---|---|---|
 | localStorage persistence unreliable | High | Phase 1 | ✅ Resolved — Supabase migration in Phase 2 F1 |
 | Schema missing recommendedFoods and medications | Medium | Phase 1/2 | P0 in Phase 3 — parser update required |
+| Settings: appointment date not persisting | High | Phase 2 | ✅ Resolved — fixed in commit 2234b29 |
+| Re-parse overwrites dose history | High | Phase 2 | ✅ Not a bug — dose_log untouched by re-parse, confirmed 2026-06-01 |
+| Buffer calculation wrong | Medium | Phase 2 | ✅ Resolved — fixed in commit 2234b29 |
+| Push notifications firing in wrong timezone | High | Phase 2 | ✅ Resolved — daily page now syncs device timezone on every load, 2026-06-01 |
 
 ---
 
@@ -288,15 +292,15 @@ npx web-push generate-vapid-keys
 ### Architecture Decision — Locked (2026-05-30)
 **Capacitor with Next.js static export.** `output: 'export'` bundles HTML/JS/CSS into the native binary. API routes stay on Vercel, called via full URL from native. Same codebase for web and native. See `plans/PHASE-3.md` for full implementation details.
 
-### Open Decisions — Dan must resolve before Dev starts
-1. **Push notifications in native:** Option A (migrate to FCM/Capacitor push in Phase 3 — recommended) vs. Option B (hide push in native, defer to Phase 4). Affects F1 scope and Supabase migrations.
-2. **FAI branding permission:** Reach out to FAI for permission to use "TIP" / "Tolerance Induction Program" in App Store listing. Use "food allergy tolerance program" as fallback if no response before submission.
-3. **Apple Developer Program:** Enroll now ($99/year) — 2-day approval can block F7.
-4. **Firebase project (if Option A):** Create at firebase.google.com alongside F1 Dev work.
+### Open Decisions — Locked 2026-06-01
+1. **Push notifications in native:** ✅ Option B — push UI hidden in native wrapper. Web push remains active for web users. FCM/Capacitor push deferred to Phase 4.
+2. **FAI branding:** ✅ No contact made. Use "food allergy tolerance program" in all Phase 3 copy — store listing, disclaimer, all UI. FAI outreach deferred to Phase 4.
+3. **Apple Developer Program:** ✅ Enroll during F1 when physical device testing requires it — natural forcing function. Do not block F1 start on enrollment.
+4. **Firebase:** ✅ Not needed. Moot with Option B.
 
 ### Features
 
-#### F1: Capacitor Wrapper
+#### F1: Capacitor Wrapper ✅ Dev Complete — pending Dan simulator verification
 **Goal:** Wrap the Next.js app in a native mobile shell for App Store and Google Play distribution.
 **Priority:** P0 — gates everything else in Phase 3
 
@@ -304,8 +308,13 @@ Acceptance criteria:
 - App runs as a native iOS app via Capacitor
 - App runs as a native Android app via Capacitor
 - All Phase 1 and Phase 2 functionality works identically in the native wrapper
-- App icon and splash screen configured
+- App icon and splash screen configured — ✅ placeholder assets in place; Dan provides final 1024×1024 PNG before F7
 - No external payment or donation links inside the iOS app — App Store policy
+
+Build commands:
+- `npm run cap:sync` — builds native bundle and syncs to iOS/Android projects
+- `npm run cap:open:ios` — opens Xcode
+- `npm run cap:open:android` — opens Android Studio
 
 #### F2: Parser PII Hardening
 **Goal:** Ensure raw plan of care text is never stored and PII cannot leak into the parsed JSON output.
