@@ -356,6 +356,15 @@ export async function fetchNotificationSettings(): Promise<{
   }
 }
 
+export async function saveTimezone(timezone: string): Promise<void> {
+  const { data: { session } } = await getClient().auth.getSession()
+  if (!session) return
+  await getClient()
+    .from("profiles")
+    .update({ reminder_timezone: timezone })
+    .eq("id", session.user.id)
+}
+
 export async function saveNotificationSettings(
   morningReminder: string,
   eveningReminder: string,

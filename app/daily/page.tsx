@@ -14,6 +14,7 @@ import {
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchFamilyName,
+  saveTimezone,
   getSession,
 } from "@/lib/supabase"
 import DailyView from "@/components/DailyView"
@@ -41,6 +42,9 @@ export default function DailyPage() {
         router.replace("/login")
         return
       }
+
+      // Silently sync device timezone so push notifications fire at local time
+      saveTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone).catch(() => {})
 
       // Data fetching — errors here are not auth failures, never redirect to /login
       try {

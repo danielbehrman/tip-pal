@@ -87,10 +87,8 @@ export default function SettingsPage() {
         if (notifSettings) {
           setMorningReminder(notifSettings.morningReminder)
           setEveningReminder(notifSettings.eveningReminder)
-          setTimezone(notifSettings.timezone)
-        } else {
-          setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
         }
+        setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
       } catch {
         // proceed with defaults
       }
