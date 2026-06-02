@@ -119,7 +119,7 @@ Tip Pal is not a medical device. It is not affiliated with the Food Allergy Inst
 
 ## License
 
-MIT — free to use, fork, and adapt.
+AGPL v3 — free to self-host, run, and adapt. Commercial use requires publishing all changes under the same license.
 
 ---
 
@@ -127,4 +127,4 @@ MIT — free to use, fork, and adapt.
 
 Built by a TIP parent for TIP families.
 
-Questions or feedback: open an issue or reach out at [dan@behrman.dev](mailto:dan@behrman.dev).
+Questions or feedback: open an issue or reach out at [dan@behrman.dev](mailto:dan@behrman.dev).x1
