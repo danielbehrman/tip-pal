@@ -26,7 +26,7 @@ Publish on Apple App Store and Google Play. Open source the repo for self-hostin
 | Hosting | Vercel | ✅ Confirmed |
 | Schedule Parsing | Anthropic Claude API (server-side Next.js API route) | ✅ Confirmed |
 | Mobile Wrapper | Capacitor (static export) | ✅ Locked — see plans/PHASE-3.md |
-| Open Source License | MIT | ✅ Confirmed |
+| Open Source License | AGPL v3 | ✅ Confirmed |
 
 ---
 
@@ -312,9 +312,13 @@ Acceptance criteria:
 - No external payment or donation links inside the iOS app — App Store policy
 
 Build commands:
-- `npm run cap:sync` — builds native bundle and syncs to iOS/Android projects
-- `npm run cap:open:ios` — opens Xcode
+- `npm run build:native` — **permanent native build command**: renames `app/api` → `app/_api`, runs `next build` with `IS_NATIVE=true` + env vars from `.env.local`, restores `app/api` in `try/finally` (always, even on failure), then runs `npx cap sync ios`. Run this before every Xcode build.
+- `npm run cap:open:ios` — opens Xcode workspace
 - `npm run cap:open:android` — opens Android Studio
+
+Why the rename: Next.js requires `export const dynamic` to be a static string literal — Turbopack rejects runtime expressions. No config option exists to exclude specific routes from `output: 'export'`. Removing API routes before the build is the only viable approach. They stay on Vercel; native app calls them via `NEXT_PUBLIC_API_BASE_URL`.
+
+Recovery: if `app/api` is missing after an interrupted build, re-running `npm run build:native` auto-detects `app/_api` and restores it before starting.
 
 #### F2: Parser PII Hardening
 **Goal:** Ensure raw plan of care text is never stored and PII cannot leak into the parsed JSON output.
@@ -385,11 +389,10 @@ Requirements:
 - No HealthKit integration — custom data only
 
 #### F8: Open Source Repo
-**Goal:** Public GitHub repo with README, self-hosting guide, and MIT license. Ships alongside store launch.
+**Goal:** Public GitHub repo with README, self-hosting guide, and AGPL v3 license. Ships alongside store launch.
 **Priority:** P0
 
-Contents: project description, setup instructions, environment variable guide, MIT license, contribution notes.
-
+Contents: project description, setup instructions, environment variable guide, AGPL v3 license, contribution notes.
 ---
 
 ## Phase 4 — Engagement 📋 Planned
@@ -463,6 +466,8 @@ Key spec: TBD — depends on Capacitor wrapper from Phase 3.
 - Reaction reporting
 - SLIT tracking
 - Sourcing reminders (source specialty foods 4+ weeks before appointment)
+- App icon generation via npx @capacitor/assets generate — single 1024x1024 source PNG generates all required iOS and Android sizes
+- Design system foundation — Tailwind config as token layer (colors, spacing, type scale), reusable component library (buttons, cards, checkboxes), and layout components that control screen structure independently of business logic. Goal: move UI elements and redesign screens without touching dosing logic.
 
 ---
 

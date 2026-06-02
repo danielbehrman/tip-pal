@@ -1,14 +1,16 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
 import { ParsedSchedule, DoseState, DoseLogDay } from "./types"
 
+// Captured at module evaluation time so Turbopack can inline them as literals
+// during static export builds — process.env is not available at runtime in Capacitor.
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
 let _client: SupabaseClient | null = null
 
 export function getClient(): SupabaseClient {
   if (!_client) {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    if (!url || !key) throw new Error("Supabase env vars not set")
-    _client = createClient(url, key)
+    _client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   }
   return _client
 }
