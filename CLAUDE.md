@@ -174,9 +174,7 @@ At the end of every session, delete node_modules and .next from the project dire
 
 ## PROJECT CONFIGURATION
 
-> Fill in this section for each project. Everything above is global and never changes.
-
-**Project Name:**
-**Stack:**
-**Key Ports / IPs:** *(if applicable)*
-**Ground Rules:** *(project-specific constraints not covered above)*
+**Project Name:** tip-pal (repo) / Tip Pal (product name)
+**Stack:** Next.js, Supabase (Postgres + Auth), Vercel, Anthropic Claude API (server-side parsing), Capacitor (Phase 3+)
+**Key Ports / IPs:** N/A
+**Ground Rules:** No scope beyond features listed in BRIEF.md. All architectural decisions locked by Architect before Dev starts. UI components require Dan sign-off regardless of QA status. No personal names in the codebase or app. App name is "Tip Pal" — not "TIP Pal".

@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-01
+Last Updated: 2026-06-06
 Blocker: None
-Next Action: Dan opens Xcode (npx cap open:ios) and verifies app on iOS Simulator — then F2 (PII Hardening)
+Next Action: F0 (Daily View UX Fixes) — ship to web before resuming Capacitor work
 
 ---
 
@@ -104,6 +104,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 - ✅ Anthropic API key available as server-side env var — confirmed working in Phase 1
 - ✅ Supabase project and credentials provisioned — confirmed complete
 - ✅ Capacitor with Next.js static export — locked 2026-05-30. See plans/PHASE-3.md.
+- ⚠️ ASSUMPTION: Existing dose_log rows with `is_skipped: true` may exist from prior Skip Session usage. The new logic (F0) must not break on these rows — they should be treated as logged days (not gaps) when calculating current treatment day position. Architect must verify how many skipped rows exist in production Supabase before Dev touches completion logic, and confirm query handling before proceeding.
 
 ---
 
@@ -151,7 +152,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 
 ## Phase 2 — Production ✅ Complete (2026-05-25)
 
-### Architecture Decisions (locked 2026-05-22)
+### Architecture Decisions (locked 2026-05-22, updated 2026-06-06)
 
 | Decision | Detail |
 |---|---|
@@ -163,8 +164,10 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | State on refresh | Server wins. Refresh always fetches latest from Supabase. No stale cookie or localStorage override. |
 | Buffer anchor date | Record a `completed_at` timestamp on every Day 7 "Complete Day" action. Buffer calculated from most recent Day-7 completion timestamp. |
 | Dose log session model | One row per day (`session: 'day'`). Skip morning or skip evening creates a separate additional row. |
-| Day completion rule | All evening treatment foods must be checked before Complete Day is available. Evening skip does NOT satisfy the gate — blocks Complete Day with error ("dose evening again before advancing"). Morning has no impact on day completion or week advancement — morning skip is informational only. |
+| Day completion rule | **Updated F0:** Auto-completes when last evening treatment food is checked — no user action required. Evening treatment foods only gate completion — consistent with clinical plan of care. Morning is informational only, no impact on completion. Complete Day button removed. Skip Session removed. |
 | Day navigation | Day + disabled if current (week, day) has not been logged via Complete Day — cannot skip ahead to an unlogged position. After navigating back to a logged day, Day + is available to move forward. Backwards navigation (Day −) always allowed. Week +/− are manual overrides, unrestricted. |
+| Date display | **Added F0:** Completed days show `completed_at` date from dose_log. Current incomplete day shows live today's date. Format: "Week 1, Day 4 · Thu Jun 6" in header. |
+| Treatment day advancement | **Added F0:** Treatment day advances only via completion (auto or manual). Calendar time does not advance the treatment day — if a day is not completed, it remains the current day the next calendar day, with the date label updating to reflect the new calendar date. |
 | Push delivery mechanism | External cron (cron-job.org) → `/api/send-reminders`. Runs every minute. |
 | Branding | App displayed as "[Family Name]'s TIP Pal" in top left when logged in. Family name entered during onboarding. |
 
@@ -298,7 +301,33 @@ npx web-push generate-vapid-keys
 3. **Apple Developer Program:** ✅ Enroll during F1 when physical device testing requires it — natural forcing function. Do not block F1 start on enrollment.
 4. **Firebase:** ✅ Not needed. Moot with Option B.
 
-### Features
+### Phase 3 Features
+
+#### F0: Daily View UX Fixes
+**Goal:** Fix core usability issues discovered during dogfooding — missing date context, manual completion requirement, and ability to log out-of-order days.
+**Priority:** P0 — blocking daily use. Ship to web before Capacitor work resumes.
+**Status:** 📋 Planned
+
+Acceptance criteria:
+- Completed days display the `completed_at` date from dose_log in the header: "Week 1, Day 4 · Thu Jun 6"
+- Current incomplete day displays today's live calendar date in the same format
+- When the last evening treatment food is checked, the day completes automatically — no user action required
+- `completed_at` timestamp is written to dose_log at the moment of auto-complete
+- App advances to next day automatically on auto-complete
+- Complete Day button removed entirely
+- Skip Session button and skip logging removed entirely
+- Checking foods on any day ahead of the current treatment day is blocked
+- Blocked state shows inline error: "You haven't reached this treatment day yet"
+- Browsing forward with Day + navigation is still allowed — only food interaction is blocked on future days
+
+Constraints:
+- Evening treatment foods only gate auto-complete — clinically confirmed: treatment foods dosed PM, maintenance AM with no completion requirement per plan of care
+- Morning section unchanged and remains informational only
+- No new data fields required — dates derived from `completed_at` for past days, live date for current day
+- Removing Skip Session must not break existing dose_log queries that reference `is_skipped` rows — `is_skipped: true` rows treated as logged days (not gaps) for treatment day position calculation
+- Treatment day does not advance on calendar time — stays on current day until completed, with date label updating daily
+
+Definition of done: Dan opens the app, sees today's date on the current day, checks off all evening treatment foods, day advances automatically, and cannot check foods on a future day.
 
 #### F1: Capacitor Wrapper ✅ Dev Complete — pending Dan simulator verification
 **Goal:** Wrap the Next.js app in a native mobile shell for App Store and Google Play distribution.
