@@ -230,6 +230,38 @@ export async function fetchCompletedPositions(): Promise<Set<string>> {
   return set
 }
 
+export async function fetchLoggedPositions(): Promise<Set<string>> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("week, day")
+    .eq("family_id", familyId)
+  if (error) throw error
+  const set = new Set<string>()
+  for (const row of data ?? []) {
+    set.add(`${row.week as number}-${row.day as number}`)
+  }
+  return set
+}
+
+export async function fetchCompletedDayDates(): Promise<Map<string, string>> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("week, day, completed_at")
+    .eq("family_id", familyId)
+    .eq("session", "day")
+    .eq("is_skipped", false)
+    .order("completed_at", { ascending: true })
+  if (error) throw error
+  const map = new Map<string, string>()
+  for (const row of data ?? []) {
+    // ascending order: last row per position is the most recent — overwrites earlier entries
+    map.set(`${row.week as number}-${row.day as number}`, row.completed_at as string)
+  }
+  return map
+}
+
 export async function countCompletedDaysInWeek(week: number): Promise<number> {
   const familyId = await getFamilyId()
   const { count, error } = await getClient()
@@ -378,6 +410,22 @@ export async function saveNotificationSettings(
     .from("profiles")
     .update({ morning_reminder: morningReminder, evening_reminder: eveningReminder, reminder_timezone: timezone })
     .eq("id", session.user.id)
+  if (error) throw error
+}
+
+export async function saveCheckedState(
+  checkedFoods: Record<string, boolean>,
+  completedDays: Record<string, Record<string, boolean>>
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_state")
+    .update({
+      checked_foods: checkedFoods,
+      completed_days: completedDays,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("family_id", familyId)
   if (error) throw error
 }
 

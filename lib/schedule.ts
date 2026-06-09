@@ -38,6 +38,15 @@ export interface TreatmentFoodForWeek {
   isContinuing: boolean
 }
 
+export function getTreatmentPosition(loggedPositions: Set<string>): { week: number; day: number } {
+  let week = 1, day = 1
+  while (loggedPositions.has(`${week}-${day}`)) {
+    if (day === 7) { week++; day = 1 } else { day++ }
+    if (week > 100) break
+  }
+  return { week, day }
+}
+
 export function getTreatmentFoodsForWeek(
   schedule: ParsedSchedule,
   week: number

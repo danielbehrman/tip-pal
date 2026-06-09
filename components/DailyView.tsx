@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import { ParsedSchedule, DoseState } from "@/lib/types"
 import { getTreatmentFoodsForWeek, getTotalTreatmentWeeks, calculateBuffer } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
@@ -12,27 +11,62 @@ interface DailyViewProps {
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCompleteDay: () => void
-  onSkipMorning: () => void
-  onSkipEvening: () => void
   appointmentDate: string | null
   onAppointmentChange: (value: string) => void
   familyName: string | null
   completedPositions: Set<string>
+  completedDayDates: Map<string, string>
+  treatmentAnchor: { week: number; day: number }
 }
 
-export default function DailyView({ schedule, doseState, onStateChange, onCompleteDay, onSkipMorning, onSkipEvening, appointmentDate, onAppointmentChange, familyName, completedPositions }: DailyViewProps) {
-  const [confirmingComplete, setConfirmingComplete] = useState(false)
-  const [completionAttempted, setCompletionAttempted] = useState(false)
+function formatDateLabel(date: Date): string {
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+}
 
-  const { currentWeek, currentDay, checkedFoods, morningSkipped, eveningSkipped } = doseState
+export default function DailyView({
+  schedule,
+  doseState,
+  onStateChange,
+  onCompleteDay,
+  appointmentDate,
+  onAppointmentChange,
+  familyName,
+  completedPositions,
+  completedDayDates,
+  treatmentAnchor,
+}: DailyViewProps) {
+  const { currentWeek, currentDay, checkedFoods } = doseState
 
   const bufferResult = calculateBuffer(appointmentDate, getTotalTreatmentWeeks(schedule))
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
-  const allEveningChecked = eveningItems.every(({ food }) => !!checkedFoods[`evening-${food.name}`])
-  const showEveningError = completionAttempted && !allEveningChecked
+
+  const viewSeq = (currentWeek - 1) * 7 + currentDay
+  const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
+  const isFutureDay = viewSeq > anchorSeq
+  const isCurrentTreatmentDay = viewSeq === anchorSeq
+
+  // Past days: use completion date from DB.
+  // Current day: today. Future days: today + days ahead.
+  const posKey = `${currentWeek}-${currentDay}`
+  const isPastDay = viewSeq < anchorSeq
+  const projectedDate = new Date()
+  projectedDate.setDate(projectedDate.getDate() + (viewSeq - anchorSeq))
+  const dateLabel = isPastDay && completedDayDates.has(posKey)
+    ? formatDateLabel(new Date(completedDayDates.get(posKey)!))
+    : formatDateLabel(projectedDate)
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
+
+    if (val && key.startsWith("evening-") && isCurrentTreatmentDay && eveningItems.length > 0) {
+      const updatedChecked = { ...checkedFoods, [key]: val }
+      const allEveningChecked = eveningItems.every(
+        ({ food }) => !!updatedChecked[`evening-${food.name}`]
+      )
+      if (allEveningChecked) {
+        onCompleteDay()
+      }
+    }
   }
 
   function handleWeekChange(delta: number) {
@@ -44,7 +78,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
       }
       const restored = completedDays[`${nextWeek}-${prev.currentDay}`] ?? {}
-      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
+      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays }
     })
   }
 
@@ -57,14 +91,8 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
       }
       const restored = completedDays[`${prev.currentWeek}-${nextDay}`] ?? {}
-      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
+      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays }
     })
-  }
-
-  function handleCompleteDay() {
-    setConfirmingComplete(false)
-    setCompletionAttempted(false)
-    onCompleteDay()
   }
 
   return (
@@ -76,7 +104,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
               <p className="text-sm text-gray-500 mb-0.5">{familyName}&apos;s TIP Pal</p>
             )}
             <h1 className="text-2xl font-bold">
-              Week {currentWeek}, Day {currentDay}
+              Week {currentWeek}, Day {currentDay} · {dateLabel}
             </h1>
           </div>
         </div>
@@ -94,8 +122,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <span className="text-lg font-semibold w-6 text-center">{currentWeek}</span>
             <button
               onClick={() => handleWeekChange(1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={!!eveningSkipped}
+              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold"
             >
               +
             </button>
@@ -114,7 +141,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
             <button
               onClick={() => handleDayChange(1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay >= 7 || !!eveningSkipped || !completedPositions.has(`${currentWeek}-${currentDay}`)}
+              disabled={currentDay >= 7 || !completedPositions.has(`${currentWeek}-${currentDay}`)}
             >
               +
             </button>
@@ -155,8 +182,7 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         currentDay={currentDay}
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
-        skipped={!!morningSkipped}
-        onSkip={onSkipMorning}
+        isFutureDay={isFutureDay}
       />
 
       <EveningSection
@@ -164,56 +190,11 @@ export default function DailyView({ schedule, doseState, onStateChange, onComple
         currentWeek={currentWeek}
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
-        skipped={!!eveningSkipped}
-        onSkip={onSkipEvening}
+        isFutureDay={isFutureDay}
       />
 
       <div className="mt-auto pt-4">
-        <button
-          className="bg-slate-900 text-white w-full py-4 text-lg font-semibold rounded-xl"
-          onClick={() => {
-            setCompletionAttempted(true)
-            if (allEveningChecked) {
-              setConfirmingComplete(true)
-            } else {
-              setConfirmingComplete(false)
-            }
-          }}
-        >
-          Complete Day
-        </button>
-
-        {showEveningError && (
-          <div className="mt-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
-            <p className="text-sm text-amber-900 font-medium">
-              {eveningSkipped
-                ? "Evening session was skipped — give the same evening treatment foods again before advancing to the next day."
-                : "Please verify all evening treatment foods were given. If any dose was missed, give the same amounts again the next day — do not advance until all evening foods are completed."}
-            </p>
-          </div>
-        )}
-
-        {confirmingComplete && (
-          <div className="flex items-center justify-between mt-3 px-2 py-2 bg-gray-100 rounded-xl">
-            <span className="text-sm font-medium">Confirm complete?</span>
-            <div className="flex gap-3">
-              <button
-                className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg"
-                onClick={handleCompleteDay}
-              >
-                Yes
-              </button>
-              <button
-                className="px-4 py-2 bg-gray-200 text-gray-800 text-sm font-semibold rounded-lg"
-                onClick={() => setConfirmingComplete(false)}
-              >
-                No
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-center gap-6 mt-4 pb-4">
+        <div className="flex justify-center gap-6 pb-4">
           <Link href="/history" className="text-sm text-gray-400 underline">
             Dose history
           </Link>

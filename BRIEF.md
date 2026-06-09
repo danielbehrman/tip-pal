@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-06
+Last Updated: 2026-06-09
 Blocker: None
-Next Action: F0 (Daily View UX Fixes) — ship to web before resuming Capacitor work
+Next Action: F1 (Capacitor Wrapper) — resume simulator verification on iOS
 
 ---
 
@@ -306,7 +306,7 @@ npx web-push generate-vapid-keys
 #### F0: Daily View UX Fixes
 **Goal:** Fix core usability issues discovered during dogfooding — missing date context, manual completion requirement, and ability to log out-of-order days.
 **Priority:** P0 — blocking daily use. Ship to web before Capacitor work resumes.
-**Status:** 📋 Planned
+**Status:** ✅ Complete — deployed to web 2026-06-09
 
 Acceptance criteria:
 - Completed days display the `completed_at` date from dose_log in the header: "Week 1, Day 4 · Thu Jun 6"

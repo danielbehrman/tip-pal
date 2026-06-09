@@ -10,6 +10,7 @@ interface FoodItemProps {
   isContinuing?: boolean
   checked: boolean
   onChange: (checked: boolean) => void
+  disabled?: boolean
 }
 
 export default function FoodItem({
@@ -22,13 +23,15 @@ export default function FoodItem({
   isContinuing = false,
   checked,
   onChange,
+  disabled = false,
 }: FoodItemProps) {
   return (
-    <label className="flex items-start gap-4 py-3 cursor-pointer min-h-[44px]">
+    <label className={`flex items-start gap-4 py-3 min-h-[44px] ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
       <input
         type="checkbox"
         className="w-6 h-6 mt-0.5 shrink-0 accent-slate-900"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
       />
       <div className="flex-1">

@@ -7,10 +7,11 @@ import {
   fetchSchedule,
   fetchDoseState,
   saveDoseState,
+  saveCheckedState,
   saveDoseLog,
-  saveSkipLog,
   countCompletedDaysInWeek,
   fetchCompletedPositions,
+  fetchCompletedDayDates,
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchFamilyName,
@@ -27,6 +28,10 @@ export default function DailyPage() {
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
+  const [completedDayDates, setCompletedDayDates] = useState<Map<string, string>>(new Map())
+  // treatmentAnchor holds the current treatment day position independently of navigation.
+  // Set from doseState on load, advanced only on day completion.
+  const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -53,21 +58,25 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions] = await Promise.all([
+        const [ds, apptDate, name, positions, dayDates] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
           fetchCompletedPositions().catch(() => new Set<string>()),
+          fetchCompletedDayDates().catch(() => new Map<string, string>()),
         ])
         if (!name) {
           router.replace("/onboarding")
           return
         }
+        const initialState = ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} }
         setSchedule(s)
-        setDoseState(ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} })
+        setDoseState(initialState)
+        setTreatmentAnchor({ week: initialState.currentWeek, day: initialState.currentDay })
         setAppointmentDate(apptDate)
         setFamilyName(name)
         setCompletedPositions(positions)
+        setCompletedDayDates(dayDates)
         setHydrated(true)
       } catch {
         router.replace("/setup")
@@ -88,7 +97,14 @@ export default function DailyPage() {
       doseStateRef.current = next
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
       saveDebounceRef.current = setTimeout(() => {
-        if (doseStateRef.current) saveDoseState(doseStateRef.current).catch(() => {})
+        if (doseStateRef.current) {
+          // Only save checkboxes — position (week/day) is never written by navigation.
+          // Position is written only by handleCompleteDay and Settings.
+          saveCheckedState(
+            doseStateRef.current.checkedFoods,
+            doseStateRef.current.completedDays ?? {}
+          ).catch(() => {})
+        }
       }, 150)
       return next
     })
@@ -109,58 +125,32 @@ export default function DailyPage() {
       // Log failed — proceed with normal day advance
     }
 
+    const weekAdvance = completedCount >= 7
+    const nextWeek = weekAdvance ? currentWeek + 1 : currentDay < 7 ? currentWeek : currentWeek + 1
+    const nextDay = weekAdvance ? 1 : currentDay < 7 ? currentDay + 1 : 1
+
     setCompletedPositions(prev => {
       const next = new Set(prev)
       next.add(`${currentWeek}-${currentDay}`)
       return next
     })
 
-    const weekAdvance = completedCount >= 7
+    setCompletedDayDates(prev => {
+      const next = new Map(prev)
+      next.set(`${currentWeek}-${currentDay}`, completedAt)
+      return next
+    })
+
+    setTreatmentAnchor({ week: nextWeek, day: nextDay })
 
     setDoseState(prev => {
       if (!prev) return prev
       const completedDays = {
         ...(prev.completedDays ?? {}),
-        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+        [`${currentWeek}-${currentDay}`]: checkedFoods,
       }
-      const nextWeek = weekAdvance
-        ? prev.currentWeek + 1
-        : prev.currentDay < 7
-        ? prev.currentWeek
-        : prev.currentWeek + 1
-      const nextDay = weekAdvance ? 1 : prev.currentDay < 7 ? prev.currentDay + 1 : 1
       const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
-      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays, morningSkipped: false, eveningSkipped: false }
-      doseStateRef.current = next
-      saveDoseState(next).catch(() => {})
-      return next
-    })
-  }
-
-  async function handleSkipMorning() {
-    const current = doseStateRef.current
-    if (!current || !hydrated) return
-    try {
-      await saveSkipLog(current.currentWeek, current.currentDay, "morning")
-    } catch {}
-    setDoseState(prev => {
-      if (!prev) return prev
-      const next = { ...prev, morningSkipped: true }
-      doseStateRef.current = next
-      saveDoseState(next).catch(() => {})
-      return next
-    })
-  }
-
-  async function handleSkipEvening() {
-    const current = doseStateRef.current
-    if (!current || !hydrated) return
-    try {
-      await saveSkipLog(current.currentWeek, current.currentDay, "evening")
-    } catch {}
-    setDoseState(prev => {
-      if (!prev) return prev
-      const next = { ...prev, eveningSkipped: true }
+      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
       doseStateRef.current = next
       saveDoseState(next).catch(() => {})
       return next
@@ -182,7 +172,7 @@ export default function DailyPage() {
     }, 300)
   }
 
-  if (!schedule || !doseState) return null
+  if (!schedule || !doseState || !treatmentAnchor) return null
 
   return (
     <DailyView
@@ -190,12 +180,12 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
-      onSkipMorning={handleSkipMorning}
-      onSkipEvening={handleSkipEvening}
       appointmentDate={appointmentDate}
       onAppointmentChange={handleAppointmentChange}
       familyName={familyName}
       completedPositions={completedPositions}
+      completedDayDates={completedDayDates}
+      treatmentAnchor={treatmentAnchor}
     />
   )
 }
