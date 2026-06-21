@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-09
+Last Updated: 2026-06-20
 Blocker: None
-Next Action: F1 (Capacitor Wrapper) — resume simulator verification on iOS
+Next Action: F0.1 (Calendar-Anchored Day Dating) — PM ticket drafted, Architect to resolve open items before Dev starts. F1 (Capacitor Wrapper) resumes after F0.1 ships.
 
 ---
 
@@ -167,7 +167,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Day completion rule | **Updated F0:** Auto-completes when last evening treatment food is checked — no user action required. Evening treatment foods only gate completion — consistent with clinical plan of care. Morning is informational only, no impact on completion. Complete Day button removed. Skip Session removed. |
 | Day navigation | Day + disabled if current (week, day) has not been logged via Complete Day — cannot skip ahead to an unlogged position. After navigating back to a logged day, Day + is available to move forward. Backwards navigation (Day −) always allowed. Week +/− are manual overrides, unrestricted. |
 | Date display | **Added F0:** Completed days show `completed_at` date from dose_log. Current incomplete day shows live today's date. Format: "Week 1, Day 4 · Thu Jun 6" in header. |
-| Treatment day advancement | **Added F0:** Treatment day advances only via completion (auto or manual). Calendar time does not advance the treatment day — if a day is not completed, it remains the current day the next calendar day, with the date label updating to reflect the new calendar date. |
+| Treatment day advancement | **Added F0:** Treatment day advances only via completion (auto or manual). Calendar time does not advance the treatment day — if a day is not completed, it remains the current day the next calendar day, with the date label updating to reflect the new calendar date. **⚠️ Superseded by Phase 3 F0.1 (2026-06-20):** see F0.1 below — day position now auto-advances with calendar time by default; only explicit Skip Day freezes it. |
 | Push delivery mechanism | External cron (cron-job.org) → `/api/send-reminders`. Runs every minute. |
 | Branding | App displayed as "[Family Name]'s TIP Pal" in top left when logged in. Family name entered during onboarding. |
 
@@ -325,9 +325,41 @@ Constraints:
 - Morning section unchanged and remains informational only
 - No new data fields required — dates derived from `completed_at` for past days, live date for current day
 - Removing Skip Session must not break existing dose_log queries that reference `is_skipped` rows — `is_skipped: true` rows treated as logged days (not gaps) for treatment day position calculation
-- Treatment day does not advance on calendar time — stays on current day until completed, with date label updating daily
+- ~~Treatment day does not advance on calendar time — stays on current day until completed, with date label updating daily~~ **⚠️ Superseded by F0.1 (2026-06-20)** — see below.
 
 Definition of done: Dan opens the app, sees today's date on the current day, checks off all evening treatment foods, day advances automatically, and cannot check foods on a future day.
+
+---
+
+#### F0.1: Calendar-Anchored Day Dating
+**Goal:** Reverse the F0 "treatment day advances only via completion" rule. Anchor day position to calendar time so dates are easy to follow: Day 1 is the day the current protocol started, every day after is dated consecutively, and position auto-advances daily by default. An explicit Skip Day action is the only thing that freezes position.
+**Priority:** P0 — blocking. Runs before resuming F1 (Capacitor simulator verification, paused).
+**Status:** 📋 Ticket drafted 2026-06-20 — Architect has not yet started.
+
+**Supersedes:**
+- Phase 2 F4 "Treatment day advancement" rule (completion-count-based week/day advancement)
+- Phase 3 F0 acceptance criteria (shipped 2026-06-09): "Treatment day does not advance on calendar time"
+
+Acceptance criteria:
+1. The calendar date the current protocol started is Day 1; every day after is dated consecutively — one unique calendar date per day position.
+2. By default, day position auto-advances with calendar time even if the previous day's evening foods were not all given.
+3. The new day shows an inline warning that the previous day wasn't completed. Food-checking is NOT blocked on the new day.
+4. An explicit "Skip Day" action is the only thing that freezes position. Skip Day is only actionable when a day's evening foods were not all given.
+5. On Skip Day: position does not advance — the next calendar day repeats the same week/day. The skipped day's header changes to read "Skipped" instead of "Week X, Day Y."
+6. Acceptance example: Saturday = Week 3, Day 2, incomplete.
+   - If skipped → Sunday shows "Week 3, Day 2" again; Saturday's header now reads "Skipped."
+   - If not skipped → Sunday shows "Week 3, Day 3" with the incomplete-warning; foods unblocked.
+7. If the app is set up mid-protocol (not starting at Week 1, Day 1), historical days before app setup display as "undated" — never backfilled with a guessed date.
+
+Constraints:
+- Navigation (Day +/−, Week +/−) must never write `current_week`/`current_day` to Supabase — unchanged from F0. Only completion, Settings, and now Skip Day may write position. (See `treatmentAnchor` architecture, locked in F0.)
+- Position must not be derived by walking `dose_log` history — confirmed unreliable and already abandoned once (the unused `getTreatmentPosition()`/`fetchLoggedPositions()` from the original F0 plan). Position stays state-column-based; calendar logic layers on top of the `dose_state` anchor, it does not replace it with a dose_log scan.
+- No protocol/cycle start date field currently exists anywhere in the schema — this ticket must add one. Architect to design it, including how Phase 3 F4 (New Food Cycle) will reset it later.
+- Existing `is_skipped: true` dose_log rows from the legacy Skip Session feature (removed in F0) must not break the new position/Skip Day logic. ⚠️ Architect must query production Supabase to confirm row count/shape before Dev starts (see Assumptions).
+- Week-increment (currently 7-completions-based) and buffer-day calculation (currently anchored to last Day-7 `completed_at`) both assume completion-gated advancement and will very likely need redesign now that position advances independent of completion — Architect to confirm scope and resolve before Dev starts.
+- No personal names in the codebase or app. App name is "Tip Pal" — not "TIP Pal" — in any new UI copy.
+
+Definition of done: Project Owner opens the app on a day where the prior day's evening foods were incomplete and not skipped — sees the new day, with a warning banner, foods unblocked. Project Owner clicks Skip Day on an incomplete day — position freezes, that day's header reads "Skipped," and the next calendar day repeats the same week/day. A mid-protocol setup account sees "undated" labels for days that predate app setup.
 
 #### F1: Capacitor Wrapper ✅ Dev Complete — pending Dan simulator verification
 **Goal:** Wrap the Next.js app in a native mobile shell for App Store and Google Play distribution.
