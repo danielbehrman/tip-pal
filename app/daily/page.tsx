@@ -2,22 +2,24 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ParsedSchedule, DoseState } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord } from "@/lib/types"
 import {
   fetchSchedule,
   fetchDoseState,
   saveDoseState,
   saveCheckedState,
   saveDoseLog,
-  countCompletedDaysInWeek,
+  saveSkipDay,
   fetchCompletedPositions,
-  fetchCompletedDayDates,
+  fetchDayRecords,
+  fetchDateHasDayRecord,
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchFamilyName,
   saveTimezone,
   getSession,
 } from "@/lib/supabase"
+import { todayDateString, addDays } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -28,9 +30,12 @@ export default function DailyPage() {
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
   const [familyName, setFamilyName] = useState<string | null>(null)
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
-  const [completedDayDates, setCompletedDayDates] = useState<Map<string, string>>(new Map())
-  // treatmentAnchor holds the current treatment day position independently of navigation.
-  // Set from doseState on load, advanced only on day completion.
+  const [dayRecords, setDayRecords] = useState<Map<string, DayRecord>>(new Map())
+  const [previousDayIncomplete, setPreviousDayIncomplete] = useState(false)
+  // treatmentAnchor holds the current treatment day position, computed live from
+  // cycle_start_date + skip_count. Set from doseState on load — never advanced
+  // locally except by re-fetching doseState after a write that re-anchors it
+  // (Settings, Skip Day does NOT re-anchor — see handleSkipDay).
   const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
 
   useEffect(() => {
@@ -58,25 +63,38 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, dayDates] = await Promise.all([
+        const [ds, apptDate, name, positions, records] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
           fetchCompletedPositions().catch(() => new Set<string>()),
-          fetchCompletedDayDates().catch(() => new Map<string, string>()),
+          fetchDayRecords().catch(() => new Map<string, DayRecord>()),
         ])
         if (!name) {
           router.replace("/onboarding")
           return
         }
-        const initialState = ds ?? { currentWeek: 1, currentDay: 1, checkedFoods: {} }
+        const initialState = ds ?? {
+          currentWeek: 1,
+          currentDay: 1,
+          checkedFoods: {},
+          cycleStartDate: todayDateString(),
+          skipCount: 0,
+        }
         setSchedule(s)
         setDoseState(initialState)
         setTreatmentAnchor({ week: initialState.currentWeek, day: initialState.currentDay })
         setAppointmentDate(apptDate)
         setFamilyName(name)
         setCompletedPositions(positions)
-        setCompletedDayDates(dayDates)
+        setDayRecords(records)
+
+        const yesterday = addDays(todayDateString(), -1)
+        if (initialState.cycleStartDate < todayDateString()) {
+          const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
+          setPreviousDayIncomplete(!hasRecord)
+        }
+
         setHydrated(true)
       } catch {
         router.replace("/setup")
@@ -117,17 +135,11 @@ export default function DailyPage() {
     const { currentWeek, currentDay, checkedFoods } = current
     const completedAt = new Date().toISOString()
 
-    let completedCount = 0
     try {
       await saveDoseLog(currentWeek, currentDay, checkedFoods, completedAt, schedule!)
-      completedCount = await countCompletedDaysInWeek(currentWeek)
     } catch {
-      // Log failed — proceed with normal day advance
+      // Log failed — local state still reflects the checked foods either way
     }
-
-    const weekAdvance = completedCount >= 7
-    const nextWeek = weekAdvance ? currentWeek + 1 : currentDay < 7 ? currentWeek : currentWeek + 1
-    const nextDay = weekAdvance ? 1 : currentDay < 7 ? currentDay + 1 : 1
 
     setCompletedPositions(prev => {
       const next = new Set(prev)
@@ -135,24 +147,33 @@ export default function DailyPage() {
       return next
     })
 
-    setCompletedDayDates(prev => {
+    setDayRecords(prev => {
       const next = new Map(prev)
-      next.set(`${currentWeek}-${currentDay}`, completedAt)
+      next.set(`${currentWeek}-${currentDay}`, { date: completedAt, skipped: false })
       return next
     })
+  }
 
-    setTreatmentAnchor({ week: nextWeek, day: nextDay })
+  async function handleSkipDay() {
+    const current = doseStateRef.current
+    if (!current || !hydrated || !treatmentAnchor) return
+    const { week, day } = treatmentAnchor
+    const skippedAt = new Date().toISOString()
 
-    setDoseState(prev => {
-      if (!prev) return prev
-      const completedDays = {
-        ...(prev.completedDays ?? {}),
-        [`${currentWeek}-${currentDay}`]: checkedFoods,
-      }
-      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
-      const next = { currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
-      doseStateRef.current = next
-      saveDoseState(next).catch(() => {})
+    try {
+      await saveSkipDay(week, day)
+    } catch {
+      return
+    }
+
+    setDayRecords(prev => {
+      const next = new Map(prev)
+      next.set(`${week}-${day}`, { date: skippedAt, skipped: true })
+      return next
+    })
+    setCompletedPositions(prev => {
+      const next = new Set(prev)
+      next.add(`${week}-${day}`)
       return next
     })
   }
@@ -180,12 +201,14 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
+      onSkipDay={handleSkipDay}
       appointmentDate={appointmentDate}
       onAppointmentChange={handleAppointmentChange}
       familyName={familyName}
       completedPositions={completedPositions}
-      completedDayDates={completedDayDates}
+      dayRecords={dayRecords}
       treatmentAnchor={treatmentAnchor}
+      previousDayIncomplete={previousDayIncomplete}
     />
   )
 }
