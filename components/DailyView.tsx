@@ -59,7 +59,7 @@ export default function DailyView({
   const record = dayRecords.get(posKey)
   const projectedDate = new Date()
   projectedDate.setDate(projectedDate.getDate() + (viewSeq - anchorSeq))
-  const isSkipped = isPastDay && record?.skipped === true
+  const isSkipped = record?.skipped === true
   const dateLabel = isPastDay && record
     ? formatDateLabel(new Date(record.date))
     : formatDateLabel(projectedDate)
@@ -211,6 +211,7 @@ export default function DailyView({
         onSkipDay={onSkipDay}
         isFutureDay={isFutureDay}
         isCurrentTreatmentDay={isCurrentTreatmentDay}
+        isSkipped={isSkipped}
       />
 
       <div className="mt-auto pt-4">

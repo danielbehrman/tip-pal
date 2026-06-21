@@ -13,6 +13,7 @@ interface EveningSectionProps {
   onSkipDay: () => void
   isFutureDay: boolean
   isCurrentTreatmentDay: boolean
+  isSkipped: boolean
 }
 
 export default function EveningSection({
@@ -23,6 +24,7 @@ export default function EveningSection({
   onSkipDay,
   isFutureDay,
   isCurrentTreatmentDay,
+  isSkipped,
 }: EveningSectionProps) {
   const treatmentItems = getTreatmentFoodsForWeek(schedule, currentWeek)
   const [confirming, setConfirming] = useState(false)
@@ -30,7 +32,7 @@ export default function EveningSection({
   const allChecked = treatmentItems.length > 0 && treatmentItems.every(
     ({ food }) => !!checkedFoods[`evening-${food.name}`]
   )
-  const canSkip = isCurrentTreatmentDay && !isFutureDay && !allChecked && treatmentItems.length > 0
+  const canSkip = isCurrentTreatmentDay && !isFutureDay && !allChecked && treatmentItems.length > 0 && !isSkipped
 
   return (
     <section className="mb-6">
