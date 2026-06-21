@@ -72,20 +72,20 @@ export function getTotalTreatmentWeeks(schedule: ParsedSchedule): number {
 
 export function calculateBuffer(
   appointmentDateStr: string | null,
-  totalTreatmentWeeks: number
+  totalTreatmentWeeks: number,
+  cycleStartDate: string | null,
+  skipCount: number
 ): BufferResult {
-  if (!appointmentDateStr || totalTreatmentWeeks === 0) return { kind: "hidden" }
+  if (!appointmentDateStr || totalTreatmentWeeks === 0 || !cycleStartDate) return { kind: "hidden" }
 
-  const [apptYear, apptMonth, apptDay] = appointmentDateStr.split("-").map(Number)
-  const apptDate = new Date(apptYear, apptMonth - 1, apptDay)
-
-  const today = new Date()
-  const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const apptDate = parseDateOnly(appointmentDateStr)
+  const todayMidnight = parseDateOnly(todayDateString())
   if (apptDate <= todayMidnight) return { kind: "past" }
 
-  const MS_PER_DAY = 1000 * 60 * 60 * 24
-  const daysUntilAppt = Math.round((apptDate.getTime() - todayMidnight.getTime()) / MS_PER_DAY)
-  const bufferDays = daysUntilAppt - totalTreatmentWeeks * 7
+  const finalDay7Date = parseDateOnly(
+    projectedDateForPosition(cycleStartDate, skipCount, totalTreatmentWeeks, 7)
+  )
+  const bufferDays = Math.round((apptDate.getTime() - finalDay7Date.getTime()) / MS_PER_DAY) - 1
 
   if (bufferDays < 0) return { kind: "behind", count: Math.abs(bufferDays) }
   return { kind: "days", count: bufferDays }
