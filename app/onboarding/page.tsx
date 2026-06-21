@@ -13,6 +13,7 @@ import {
   saveBulkCatchUpLog,
 } from "@/lib/supabase"
 import { DoseState } from "@/lib/types"
+import { cycleStartDateForPosition } from "@/lib/schedule"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -70,6 +71,8 @@ export default function OnboardingPage() {
           currentDay: day,
           checkedFoods: {},
           completedDays: existingDoseState?.completedDays ?? {},
+          cycleStartDate: cycleStartDateForPosition(week, day),
+          skipCount: 0,
         })
       }
       if (withCatchup) {
