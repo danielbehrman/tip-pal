@@ -1,6 +1,6 @@
 "use client"
 
-import { ParsedSchedule, DoseState } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord } from "@/lib/types"
 import { getTreatmentFoodsForWeek, getTotalTreatmentWeeks, calculateBuffer } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
@@ -11,12 +11,14 @@ interface DailyViewProps {
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCompleteDay: () => void
+  onSkipDay: () => void
   appointmentDate: string | null
   onAppointmentChange: (value: string) => void
   familyName: string | null
   completedPositions: Set<string>
-  completedDayDates: Map<string, string>
+  dayRecords: Map<string, DayRecord>
   treatmentAnchor: { week: number; day: number }
+  previousDayIncomplete: boolean
 }
 
 function formatDateLabel(date: Date): string {
@@ -28,32 +30,40 @@ export default function DailyView({
   doseState,
   onStateChange,
   onCompleteDay,
+  onSkipDay,
   appointmentDate,
   onAppointmentChange,
   familyName,
   completedPositions,
-  completedDayDates,
+  dayRecords,
   treatmentAnchor,
+  previousDayIncomplete,
 }: DailyViewProps) {
   const { currentWeek, currentDay, checkedFoods } = doseState
 
-  const bufferResult = calculateBuffer(appointmentDate, getTotalTreatmentWeeks(schedule))
+  const bufferResult = calculateBuffer(
+    appointmentDate,
+    getTotalTreatmentWeeks(schedule),
+    doseState.cycleStartDate,
+    doseState.skipCount
+  )
   const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
 
   const viewSeq = (currentWeek - 1) * 7 + currentDay
   const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
   const isFutureDay = viewSeq > anchorSeq
   const isCurrentTreatmentDay = viewSeq === anchorSeq
-
-  // Past days: use completion date from DB.
-  // Current day: today. Future days: today + days ahead.
-  const posKey = `${currentWeek}-${currentDay}`
   const isPastDay = viewSeq < anchorSeq
+
+  const posKey = `${currentWeek}-${currentDay}`
+  const record = dayRecords.get(posKey)
   const projectedDate = new Date()
   projectedDate.setDate(projectedDate.getDate() + (viewSeq - anchorSeq))
-  const dateLabel = isPastDay && completedDayDates.has(posKey)
-    ? formatDateLabel(new Date(completedDayDates.get(posKey)!))
+  const isSkipped = isPastDay && record?.skipped === true
+  const dateLabel = isPastDay && record
+    ? formatDateLabel(new Date(record.date))
     : formatDateLabel(projectedDate)
+  const showPreviousDayWarning = isCurrentTreatmentDay && previousDayIncomplete
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
@@ -101,13 +111,21 @@ export default function DailyView({
         <div className="flex items-center justify-between mb-4">
           <div>
             {familyName && (
-              <p className="text-sm text-gray-500 mb-0.5">{familyName}&apos;s TIP Pal</p>
+              <p className="text-sm text-gray-500 mb-0.5">{familyName}&apos;s Tip Pal</p>
             )}
             <h1 className="text-2xl font-bold">
-              Week {currentWeek}, Day {currentDay} · {dateLabel}
+              {isSkipped ? "Skipped" : `Week ${currentWeek}, Day ${currentDay}`} · {dateLabel}
             </h1>
           </div>
         </div>
+
+        {showPreviousDayWarning && (
+          <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
+            <p className="text-sm text-amber-900 font-medium">
+              Yesterday wasn&apos;t completed — you can still check off today&apos;s foods.
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
@@ -190,7 +208,9 @@ export default function DailyView({
         currentWeek={currentWeek}
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
+        onSkipDay={onSkipDay}
         isFutureDay={isFutureDay}
+        isCurrentTreatmentDay={isCurrentTreatmentDay}
       />
 
       <div className="mt-auto pt-4">
