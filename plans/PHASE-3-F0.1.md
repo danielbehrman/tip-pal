@@ -78,6 +78,8 @@ git add supabase/migrations/20260620_calendar_anchored_dating.sql
 git commit -m "feat: add cycle_start_date and skip_count to dose_state"
 ```
 
+**Production note (recorded after actually running this against the live project):** the backfill UPDATE above using `CURRENT_DATE` is timezone-ambiguous — Postgres's `CURRENT_DATE` evaluates in UTC, not the family's local day. Running it as written produced `cycle_start_date = 2026-06-07`, computed against UTC's date at execution time. Cross-checked against the production family's actual stored timezone (`profiles.reminder_timezone = 'America/New_York'`, evaluated at run time) — this happened to be correct (UTC's date matched NY's date at the moment this ran), but it was luck, not by construction. **For any future one-time backfill against a real family's row, compute the family's local date explicitly from their `reminder_timezone` first, and use that literal date in the `UPDATE`, rather than trusting `CURRENT_DATE`.** This doesn't affect the live application going forward — `lib/schedule.ts`'s `todayDateString()` always uses the browser's local `Date()`, so there's no UTC-mismatch risk once a family is using the app normally; the risk is specific to server-side one-time SQL migrations standing in for "today" without a browser present.
+
 ---
 
 ### Task 2: Core Date/Position Formulas in `lib/schedule.ts`
