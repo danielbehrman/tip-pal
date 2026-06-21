@@ -117,7 +117,8 @@ export default function DailyPage() {
       saveDebounceRef.current = setTimeout(() => {
         if (doseStateRef.current) {
           // Only save checkboxes — position (week/day) is never written by navigation.
-          // Position is written only by handleCompleteDay and Settings.
+          // Position is derived live from cycle_start_date/skip_count (see lib/schedule.ts
+          // getCalendarPosition) and written only by onboarding, Settings, and Skip Day.
           saveCheckedState(
             doseStateRef.current.checkedFoods,
             doseStateRef.current.completedDays ?? {}
