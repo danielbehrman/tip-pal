@@ -20,6 +20,7 @@ import {
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
 import { DoseState } from "@/lib/types"
+import { cycleStartDateForPosition } from "@/lib/schedule"
 
 function urlBase64ToBuffer(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -159,6 +160,8 @@ export default function SettingsPage() {
           currentDay: day,
           checkedFoods: {},
           completedDays: existingDoseState?.completedDays ?? {},
+          cycleStartDate: cycleStartDateForPosition(week, day),
+          skipCount: 0,
         })
         setOriginalWeek(week)
         setOriginalDay(day)
