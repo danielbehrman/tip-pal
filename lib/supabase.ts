@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState, DoseLogDay } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay, DayRecord } from "./types"
+import { getCalendarPosition } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
 // during static export builds — process.env is not available at runtime in Capacitor.
@@ -64,18 +65,23 @@ export async function fetchDoseState(): Promise<DoseState | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_state")
-    .select("current_week, current_day, checked_foods, completed_days, morning_skipped, evening_skipped")
+    .select("checked_foods, completed_days, morning_skipped, evening_skipped, cycle_start_date, skip_count")
     .eq("family_id", familyId)
     .maybeSingle()
   if (error) throw error
   if (!data) return null
+  const cycleStartDate = data.cycle_start_date as string
+  const skipCount = (data.skip_count as number) ?? 0
+  const { week, day } = getCalendarPosition(cycleStartDate, skipCount)
   return {
-    currentWeek: data.current_week,
-    currentDay: data.current_day,
+    currentWeek: week,
+    currentDay: day,
     checkedFoods: data.checked_foods as Record<string, boolean>,
     completedDays: (data.completed_days ?? {}) as Record<string, Record<string, boolean>>,
     morningSkipped: data.morning_skipped ?? false,
     eveningSkipped: data.evening_skipped ?? false,
+    cycleStartDate,
+    skipCount,
   }
 }
 
@@ -156,22 +162,6 @@ export async function saveAppointmentDate(date: string | null): Promise<void> {
   if (error) throw error
 }
 
-export async function fetchLastDay7Completion(): Promise<string | null> {
-  const familyId = await getFamilyId()
-  const { data, error } = await getClient()
-    .from("dose_log")
-    .select("completed_at")
-    .eq("family_id", familyId)
-    .eq("day", 7)
-    .eq("is_skipped", false)
-    .order("completed_at", { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (error) throw error
-  if (!data) return null
-  return data.completed_at as string
-}
-
 export async function saveSkipLog(
   week: number,
   day: number,
@@ -215,13 +205,34 @@ export async function saveDoseLog(
   if (error) throw error
 }
 
+export async function saveSkipDay(week: number, day: number): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error: logError } = await getClient()
+    .from("dose_log")
+    .insert({
+      family_id: familyId,
+      week,
+      day,
+      session: "day",
+      checked_foods: {},
+      completed_at: new Date().toISOString(),
+      is_skipped: true,
+    })
+  if (logError) throw logError
+
+  const { error: incrementError } = await getClient().rpc("increment_skip_count", {
+    p_family_id: familyId,
+  })
+  if (incrementError) throw incrementError
+}
+
 export async function fetchCompletedPositions(): Promise<Set<string>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
     .select("week, day")
     .eq("family_id", familyId)
-    .eq("is_skipped", false)
+    .eq("session", "day")
   if (error) throw error
   const set = new Set<string>()
   for (const row of data ?? []) {
@@ -230,36 +241,37 @@ export async function fetchCompletedPositions(): Promise<Set<string>> {
   return set
 }
 
-export async function fetchLoggedPositions(): Promise<Set<string>> {
+export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("week, day")
-    .eq("family_id", familyId)
-  if (error) throw error
-  const set = new Set<string>()
-  for (const row of data ?? []) {
-    set.add(`${row.week as number}-${row.day as number}`)
-  }
-  return set
-}
-
-export async function fetchCompletedDayDates(): Promise<Map<string, string>> {
-  const familyId = await getFamilyId()
-  const { data, error } = await getClient()
-    .from("dose_log")
-    .select("week, day, completed_at")
+    .select("week, day, completed_at, is_skipped")
     .eq("family_id", familyId)
     .eq("session", "day")
-    .eq("is_skipped", false)
     .order("completed_at", { ascending: true })
   if (error) throw error
-  const map = new Map<string, string>()
+  const map = new Map<string, DayRecord>()
   for (const row of data ?? []) {
-    // ascending order: last row per position is the most recent — overwrites earlier entries
-    map.set(`${row.week as number}-${row.day as number}`, row.completed_at as string)
+    // ascending order: last row per position wins (most recent) — see Design Note above
+    map.set(`${row.week as number}-${row.day as number}`, {
+      date: row.completed_at as string,
+      skipped: row.is_skipped as boolean,
+    })
   }
   return map
+}
+
+export async function fetchDateHasDayRecord(dateStr: string): Promise<boolean> {
+  const familyId = await getFamilyId()
+  const { count, error } = await getClient()
+    .from("dose_log")
+    .select("*", { count: "exact", head: true })
+    .eq("family_id", familyId)
+    .eq("session", "day")
+    .gte("completed_at", `${dateStr}T00:00:00`)
+    .lt("completed_at", `${dateStr}T23:59:59.999`)
+  if (error) throw error
+  return (count ?? 0) > 0
 }
 
 export async function countCompletedDaysInWeek(week: number): Promise<number> {
@@ -442,6 +454,8 @@ export async function saveDoseState(state: DoseState): Promise<void> {
         completed_days: state.completedDays ?? {},
         morning_skipped: state.morningSkipped ?? false,
         evening_skipped: state.eveningSkipped ?? false,
+        cycle_start_date: state.cycleStartDate,
+        skip_count: state.skipCount,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "family_id" }

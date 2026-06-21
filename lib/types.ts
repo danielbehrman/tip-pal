@@ -49,4 +49,11 @@ export interface DoseState {
   morningSkipped?: boolean
   eveningSkipped?: boolean
   completedDays?: Record<string, Record<string, boolean>>
+  cycleStartDate: string
+  skipCount: number
+}
+
+export interface DayRecord {
+  date: string
+  skipped: boolean
 }
