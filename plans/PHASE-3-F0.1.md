@@ -547,6 +547,14 @@ git commit -m "feat: derive dose_state position from cycle_start_date/skip_count
 
 ---
 
+### Task 4b: Fix — `app/setup/page.tsx` Missing From Original File List
+
+**Found during execution, not in the original plan:** `app/setup/page.tsx:52` calls `saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })` immediately after a fresh schedule parse, before redirecting to `/onboarding`. This call was never accounted for in any of the 9 tasks above, and with `DoseState.cycleStartDate`/`skipCount` now required fields (Task 4), it both fails to typecheck and — if it somehow ran anyway — would attempt to write `cycle_start_date: undefined` against a `NOT NULL` column, breaking the new-account signup flow entirely.
+
+**Fix applied directly (not worth a full subagent round-trip for a 3-line change):** added `cycleStartDate: todayDateString(), skipCount: 0` to the call, plus the `todayDateString` import from `lib/schedule`. This is a safe placeholder — `/onboarding` immediately follows and overwrites it via Task 5's `cycleStartDateForPosition` logic for both fresh and mid-protocol starts, so the placeholder is never user-visible.
+
+---
+
 ### Task 5: Onboarding — Set `cycle_start_date` on Setup
 
 **Files:**

@@ -6,6 +6,7 @@ import PasteInput from "@/components/PasteInput"
 import ScheduleReview from "@/components/ScheduleReview"
 import { ParsedSchedule } from "@/lib/types"
 import { saveSchedule, saveDoseState, getSession } from "@/lib/supabase"
+import { todayDateString } from "@/lib/schedule"
 
 type View = "paste" | "loading" | "review" | "error"
 
@@ -49,7 +50,13 @@ export default function SetupPage() {
     if (!parsedSchedule) return
     try {
       await saveSchedule(parsedSchedule)
-      await saveDoseState({ currentWeek: 1, currentDay: 1, checkedFoods: {} })
+      await saveDoseState({
+        currentWeek: 1,
+        currentDay: 1,
+        checkedFoods: {},
+        cycleStartDate: todayDateString(),
+        skipCount: 0,
+      })
       router.push("/onboarding")
     } catch (err) {
       const msg =
