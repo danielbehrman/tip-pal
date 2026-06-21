@@ -274,18 +274,6 @@ export async function fetchDateHasDayRecord(dateStr: string): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
-export async function countCompletedDaysInWeek(week: number): Promise<number> {
-  const familyId = await getFamilyId()
-  const { count, error } = await getClient()
-    .from("dose_log")
-    .select("*", { count: "exact", head: true })
-    .eq("family_id", familyId)
-    .eq("week", week)
-    .eq("is_skipped", false)
-  if (error) throw error
-  return count ?? 0
-}
-
 export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
