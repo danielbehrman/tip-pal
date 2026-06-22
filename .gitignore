@@ -8,3 +8,4 @@ out/
 icons/
 .vercel
 .env*.local
+supabase/.temp/
