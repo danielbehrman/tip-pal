@@ -61,15 +61,22 @@ export default function DailyView({
   const projectedDate = new Date()
   projectedDate.setDate(projectedDate.getDate() + (viewSeq - anchorSeq))
   const isSkipped = record?.skipped === true
-  const dateLabel = isPastDay && record
-    ? formatDateLabel(new Date(record.date))
-    : formatDateLabel(projectedDate)
+  // Date always comes from the calendar formula, never from dose_log's completed_at.
+  // A position's date and its dose_log record's timestamp can diverge (bulk catch-up
+  // actions, pre-F0.1 history, resets) — the formula is the single source of truth
+  // for "what date is this position" under calendar-anchored dating. record is used
+  // only to determine isSkipped above, never for what date to display.
+  const dateLabel = formatDateLabel(projectedDate)
   const showPreviousDayWarning = isCurrentTreatmentDay && previousDayIncomplete
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
 
-    if (val && key.startsWith("evening-") && isCurrentTreatmentDay && eveningItems.length > 0) {
+    // Auto-complete fires on any non-future day, not just the live current day —
+    // finishing a previous day's evening checkboxes after it's auto-advanced past
+    // (e.g. correcting via trailing edit) retroactively logs the completion,
+    // consistent with checking the boxes on the day itself.
+    if (val && key.startsWith("evening-") && !isFutureDay && eveningItems.length > 0) {
       const updatedChecked = { ...checkedFoods, [key]: val }
       const allEveningChecked = eveningItems.every(
         ({ food }) => !!updatedChecked[`evening-${food.name}`]
