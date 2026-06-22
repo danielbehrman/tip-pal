@@ -73,6 +73,8 @@ export default function OnboardingPage() {
           completedDays: existingDoseState?.completedDays ?? {},
           cycleStartDate: cycleStartDateForPosition(week, day),
           skipCount: 0,
+          floorWeek: week,
+          floorDay: day,
         })
       }
       if (withCatchup) {

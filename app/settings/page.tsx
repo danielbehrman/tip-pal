@@ -162,6 +162,8 @@ export default function SettingsPage() {
           completedDays: existingDoseState?.completedDays ?? {},
           cycleStartDate: cycleStartDateForPosition(week, day),
           skipCount: 0,
+          floorWeek: week,
+          floorDay: day,
         })
         setOriginalWeek(week)
         setOriginalDay(day)

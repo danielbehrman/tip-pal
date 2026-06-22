@@ -80,6 +80,8 @@ export default function DailyPage() {
           checkedFoods: {},
           cycleStartDate: todayDateString(),
           skipCount: 0,
+          floorWeek: 1,
+          floorDay: 1,
         }
         setSchedule(s)
         setDoseState(initialState)

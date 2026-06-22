@@ -39,7 +39,7 @@ export default function DailyView({
   treatmentAnchor,
   previousDayIncomplete,
 }: DailyViewProps) {
-  const { currentWeek, currentDay, checkedFoods } = doseState
+  const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
   const bufferResult = calculateBuffer(
     appointmentDate,
@@ -51,6 +51,7 @@ export default function DailyView({
 
   const viewSeq = (currentWeek - 1) * 7 + currentDay
   const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
+  const floorSeq = (floorWeek - 1) * 7 + floorDay
   const isFutureDay = viewSeq > anchorSeq
   const isCurrentTreatmentDay = viewSeq === anchorSeq
   const isPastDay = viewSeq < anchorSeq
@@ -83,6 +84,9 @@ export default function DailyView({
     onStateChange(prev => {
       const nextWeek = prev.currentWeek + delta
       if (nextWeek < 1) return prev
+      const nextSeq = (nextWeek - 1) * 7 + prev.currentDay
+      const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
+      if (nextSeq < floorSeq) return prev
       const completedDays = {
         ...(prev.completedDays ?? {}),
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
@@ -96,6 +100,9 @@ export default function DailyView({
     onStateChange(prev => {
       const nextDay = prev.currentDay + delta
       if (nextDay < 1 || nextDay > 7) return prev
+      const nextSeq = (prev.currentWeek - 1) * 7 + nextDay
+      const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
+      if (nextSeq < floorSeq) return prev
       const completedDays = {
         ...(prev.completedDays ?? {}),
         [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
@@ -133,7 +140,7 @@ export default function DailyView({
             <button
               onClick={() => handleWeekChange(-1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentWeek <= 1}
+              disabled={currentWeek <= 1 || viewSeq - 7 < floorSeq}
             >
               −
             </button>
@@ -151,7 +158,7 @@ export default function DailyView({
             <button
               onClick={() => handleDayChange(-1)}
               className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay <= 1}
+              disabled={currentDay <= 1 || viewSeq - 1 < floorSeq}
             >
               −
             </button>

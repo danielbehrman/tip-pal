@@ -51,6 +51,8 @@ export interface DoseState {
   completedDays?: Record<string, Record<string, boolean>>
   cycleStartDate: string
   skipCount: number
+  floorWeek: number
+  floorDay: number
 }
 
 export interface DayRecord {
