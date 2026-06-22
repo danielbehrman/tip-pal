@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-20
-Blocker: None
-Next Action: F0.1 (Calendar-Anchored Day Dating) — PM ticket drafted, Architect to resolve open items before Dev starts. F1 (Capacitor Wrapper) resumes after F0.1 ships.
+Last Updated: 2026-06-21
+Blocker: F0.1 is a conditional QA pass — code/logic verified comprehensively (see F0.1 entry below), but the interactive UI was never visually confirmed in a browser (no browser automation tooling available in this environment, no test credentials found). This is a blocking prerequisite before F0.1 can be considered shipped, not an implicit follow-up.
+Next Action: Project Owner runs `npm run dev`, logs in, and manually walks the F0.1 acceptance criteria (see QA report in F0.1 entry) on branch `phase3-f0.1-calendar-anchored-dating`. F1 (Capacitor Wrapper) resumes after F0.1 is confirmed and merged.
 
 ---
 
@@ -104,7 +104,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 - ✅ Anthropic API key available as server-side env var — confirmed working in Phase 1
 - ✅ Supabase project and credentials provisioned — confirmed complete
 - ✅ Capacitor with Next.js static export — locked 2026-05-30. See plans/PHASE-3.md.
-- ⚠️ ASSUMPTION: Existing dose_log rows with `is_skipped: true` may exist from prior Skip Session usage. The new logic (F0) must not break on these rows — they should be treated as logged days (not gaps) when calculating current treatment day position. Architect must verify how many skipped rows exist in production Supabase before Dev touches completion logic, and confirm query handling before proceeding.
+- ✅ Resolved 2026-06-20: queried production Supabase directly — exactly 1 `is_skipped: true` row exists, `session: 'morning'` (legacy Skip Session, informational only), dated 2026-05-30. Confirmed safe: F0.1's position calculation never derives from `dose_log` at all (it's `dose_state.cycle_start_date`/`skip_count`-based), so this row has zero interaction with the new logic. F0.1's own Skip Day writes a distinguishable shape (`session: 'day', is_skipped: true`), confirmed via final whole-branch review to not leak into F6 (Trailing Edit) or F7 (Dose History), both of which already filter `is_skipped` rows out.
 
 ---
 
@@ -334,7 +334,37 @@ Definition of done: Dan opens the app, sees today's date on the current day, che
 #### F0.1: Calendar-Anchored Day Dating
 **Goal:** Reverse the F0 "treatment day advances only via completion" rule. Anchor day position to calendar time so dates are easy to follow: Day 1 is the day the current protocol started, every day after is dated consecutively, and position auto-advances daily by default. An explicit Skip Day action is the only thing that freezes position.
 **Priority:** P0 — blocking. Runs before resuming F1 (Capacitor simulator verification, paused).
-**Status:** 📋 Ticket drafted 2026-06-20 — Architect has not yet started.
+**Status:** ⚠️ Conditional QA pass 2026-06-21 — implemented on branch `phase3-f0.1-calendar-anchored-dating` (not yet merged to main). All 7 acceptance criteria verified at the code/logic level (typecheck, formula verification script, hand-traced boundary math, and direct production-data cross-checks). The interactive UI was never visually confirmed in a browser — blocking prerequisite before this can close, not an implicit follow-up. See QA test matrix below.
+
+**Architect investigation findings (2026-06-20):**
+- No protocol/cycle start date field existed anywhere prior to this ticket — added `dose_state.cycle_start_date`, `skip_count`, `floor_week`, `floor_day`.
+- The original F0 plan's `getTreatmentPosition()`/`fetchLoggedPositions()` (deriving position by walking `dose_log` for gaps) were written but never wired up — confirmed abandoned, removed as dead code.
+- Buffer-day calc never actually used `completed_at` as BRIEF.md previously claimed — `fetchLastDay7Completion()` was dead code. The real implementation overcounted remaining days for any account already mid-treatment. Fixed as part of this ticket (see Architecture below) — buffer numbers will visibly *increase* for the existing account vs. before this ships; that's a correction, not a regression.
+- A real timezone bug was caught and fixed during the production migration: Postgres `CURRENT_DATE` is UTC-evaluated, not the family's local day. Corrected using their stored `profiles.reminder_timezone`. Documented in `supabase/migrations/20260620_calendar_anchored_dating.sql` and `plans/PHASE-3-F0.1.md` Task 1.
+- A gap in the original design was found during the Reviewer step (not the implementation): AC #7 (undated mid-protocol history) wasn't actually satisfiable by the original design — positions before `cycle_start_date` aren't "outside the addressable range" the way the design assumed, since the formula always defines position 0 as "Week 1, Day 1" even when backdated for a mid-protocol setup. Fixed via a new `floor_week`/`floor_day` navigation bound (Task 10).
+
+**Architecture (as built):** Position is fully derived — `positionIndex = daysSinceCycleStart − skipCount`, computed live, never advanced by a write-on-load path. `dose_state.current_week`/`current_day` are now a write-only debug cache; the application never reads them. Week-increment and buffer-day calc both derive from the same formula. Full design: `docs/superpowers/specs/2026-06-20-calendar-anchored-day-dating-design.md`. Full plan with as-built deviations recorded inline: `plans/PHASE-3-F0.1.md`.
+
+**QA test matrix (code/logic-level — see "Conditional QA pass" above for what's still pending):**
+
+| Scenario | Verified via | Result |
+|---|---|---|
+| Fresh onboarding (Week 1, Day 1) | Code trace, Task 5 + 10 review | ✅ |
+| Mid-protocol onboarding (e.g. Week 3, Day 2) | Code trace, boundary math re-derived independently, Task 10 review | ✅ |
+| Day completes normally, position doesn't advance until tomorrow | Task 7 review — `handleCompleteDay` no longer writes position | ✅ |
+| Day passes incomplete (not skipped) — auto-advance + warning, foods unblocked | Task 7 (`previousDayIncomplete`) + Task 8 review | ✅ |
+| Skip Day on incomplete day — position freezes, header reads "Skipped" immediately | Formula verification script (exact spec example) + Task 8 fix/re-review | ✅ |
+| Skip Day double-click / re-trigger attempt | Task 8 review found this as a real bug, fixed and re-reviewed (`isSkipped` gates `canSkip`) | ✅ (after fix) |
+| Buffer day calculation | Hand-verified against worked example, Task 3 review | ✅ |
+| Week-increment (now purely derived, no discrete event) | Task 3/7 review; dead `countCompletedDaysInWeek` removed | ✅ |
+| Legacy `is_skipped` rows don't interact with new logic | Confirmed: only 1 production row, position never reads `dose_log` | ✅ |
+| F6 (Trailing Edit) / F7 (Dose History) unaffected by Skip Day's new `dose_log` shape | Final whole-branch review — both already filter `!is_skipped` | ✅ |
+| Production migration correctness | Verified live against actual production `dose_state` row, twice (incl. timezone fix) | ✅ |
+| Navigation never writes position/floor fields | Verified structurally impossible (only 3 explicit write paths exist) across 3 separate reviews | ✅ |
+| AC #7 — undated mid-protocol history | Found broken during Reviewer step, fixed (Task 10), re-reviewed clean | ✅ |
+| **Live interactive browser walkthrough** | **Not performed — no browser automation tooling in this environment, no test credentials found** | **⚠️ Pending — Project Owner** |
+
+**Definition of done (restated):** not yet met — pending the live walkthrough above.
 
 **Supersedes:**
 - Phase 2 F4 "Treatment day advancement" rule (completion-count-based week/day advancement)
