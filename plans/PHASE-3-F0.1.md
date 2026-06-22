@@ -1275,6 +1275,168 @@ Using the `cycle_start_date` from Step 1 and today's date, compute `positionInde
 
 ---
 
+### Task 10: Fix — AC #7 (Undated Mid-Protocol History) Not Actually Satisfied
+
+**Found during the Reviewer step (PM-ticket acceptance-criteria pass), not caught by Tasks 1-9 or the final whole-branch review.** The design's claim that "positions before `cycle_start_date` are outside the addressable range" was wrong: `positionIndex 0` always equals "Week 1, Day 1" *by construction*, even for a mid-protocol setup where `cycle_start_date` is backdated via `cycleStartDateForPosition`. That backdated date is real math, not an undefined region — so the existing Day −/Week − navigation (bounded only by absolute `currentWeek <= 1` / `currentDay <= 1`, untouched by Tasks 1-9) can browse back to it and show a normal dated header for a day the family never actually used the app. This violates BRIEF.md's F0.1 AC #7 verbatim ("historical days before app setup should display as undated rather than backfilded with a guessed date").
+
+**Fix:** add `floor_week`/`floor_day` to `dose_state` — the family's actual entered starting position, set at onboarding/Settings re-anchor (same moments `cycle_start_date` is re-anchored), defaulting to `1, 1` for fresh starts and the already-migrated production account. Bound Day −/Week − navigation by this floor instead of (in addition to) the absolute `1, 1` bounds. No new "Undated" UI string is needed — by construction, the floor's own date is always real (it's computed from "today" at the moment it was set), so nothing unreachable is ever displayed; navigation simply can't go there.
+
+**Migration (already run against production, see commit history):**
+
+```sql
+-- supabase/migrations/20260621_navigation_floor.sql
+ALTER TABLE dose_state
+  ADD COLUMN IF NOT EXISTS floor_week integer NOT NULL DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS floor_day integer NOT NULL DEFAULT 1;
+```
+
+**Files:**
+- Modify: `lib/types.ts` (`DoseState`)
+- Modify: `lib/supabase.ts` (`fetchDoseState`, `saveDoseState`)
+- Modify: `app/setup/page.tsx` (initial placeholder)
+- Modify: `app/onboarding/page.tsx` (`saveAndRedirect`)
+- Modify: `app/settings/page.tsx` (`saveAll`)
+- Modify: `components/DailyView.tsx` (navigation bounds)
+
+**Interfaces:**
+- Produces: `DoseState.floorWeek: number`, `DoseState.floorDay: number` (both required)
+
+- [ ] **Step 1: `lib/types.ts`** — add to `DoseState`:
+
+```ts
+export interface DoseState {
+  currentWeek: number
+  currentDay: number
+  checkedFoods: Record<string, boolean>
+  morningSkipped?: boolean
+  eveningSkipped?: boolean
+  completedDays?: Record<string, Record<string, boolean>>
+  cycleStartDate: string
+  skipCount: number
+  floorWeek: number
+  floorDay: number
+}
+```
+
+- [ ] **Step 2: `lib/supabase.ts` — `fetchDoseState`**
+
+Add `floor_week, floor_day` to the `.select(...)` column list, and add to the returned object:
+
+```ts
+floorWeek: (data.floor_week as number) ?? 1,
+floorDay: (data.floor_day as number) ?? 1,
+```
+
+- [ ] **Step 3: `lib/supabase.ts` — `saveDoseState`**
+
+Add to the upsert payload:
+
+```ts
+floor_week: state.floorWeek,
+floor_day: state.floorDay,
+```
+
+- [ ] **Step 4: `app/setup/page.tsx`**
+
+Add to the `saveDoseState` call (the one Task 4b already touched):
+
+```ts
+floorWeek: 1,
+floorDay: 1,
+```
+
+(Always `1, 1` here — this is the pre-onboarding placeholder; onboarding sets the real floor immediately after.)
+
+- [ ] **Step 5: `app/onboarding/page.tsx` — `saveAndRedirect`**
+
+Add to the `saveDoseState` call:
+
+```ts
+floorWeek: week,
+floorDay: day,
+```
+
+- [ ] **Step 6: `app/settings/page.tsx` — `saveAll`**
+
+Add to the `saveDoseState` call inside the `positionChanged || !existingDoseState` block:
+
+```ts
+floorWeek: week,
+floorDay: day,
+```
+
+- [ ] **Step 7: `components/DailyView.tsx` — bound navigation by the floor**
+
+Destructure `floorWeek, floorDay` from `doseState` alongside the existing fields, and add after `viewSeq`/`anchorSeq`:
+
+```ts
+const floorSeq = (floorWeek - 1) * 7 + floorDay
+```
+
+Update `handleWeekChange` and `handleDayChange` to reject moves that would cross the floor:
+
+```ts
+function handleWeekChange(delta: number) {
+  onStateChange(prev => {
+    const nextWeek = prev.currentWeek + delta
+    if (nextWeek < 1) return prev
+    const nextSeq = (nextWeek - 1) * 7 + prev.currentDay
+    const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
+    if (nextSeq < floorSeq) return prev
+    const completedDays = {
+      ...(prev.completedDays ?? {}),
+      [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+    }
+    const restored = completedDays[`${nextWeek}-${prev.currentDay}`] ?? {}
+    return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays }
+  })
+}
+
+function handleDayChange(delta: number) {
+  onStateChange(prev => {
+    const nextDay = prev.currentDay + delta
+    if (nextDay < 1 || nextDay > 7) return prev
+    const nextSeq = (prev.currentWeek - 1) * 7 + nextDay
+    const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
+    if (nextSeq < floorSeq) return prev
+    const completedDays = {
+      ...(prev.completedDays ?? {}),
+      [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
+    }
+    const restored = completedDays[`${prev.currentWeek}-${nextDay}`] ?? {}
+    return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays }
+  })
+}
+```
+
+Update the Week − and Day − button `disabled` attributes:
+
+```tsx
+disabled={currentWeek <= 1 || viewSeq - 7 < floorSeq}
+```
+
+```tsx
+disabled={currentDay <= 1 || viewSeq - 1 < floorSeq}
+```
+
+- [ ] **Step 8: Typecheck**
+
+Run: `npx tsc --noEmit`
+Expected: zero errors.
+
+- [ ] **Step 9: Manual verification by hand**
+
+For a hypothetical mid-protocol account with `floorWeek=3, floorDay=2` (`floorSeq = 16`): confirm `viewSeq=16` (Week 3, Day 2) has both buttons correctly disabled per the new conditions, and `viewSeq=17` (Week 3, Day 3) has Day − enabled (`17-1=16`, not `< 16`). For the existing production account (`floorWeek=1, floorDay=1`, `floorSeq=1`): confirm behavior is unchanged from before this task (Week −/Day − still disable only at the absolute `1,1` floor, since `floorSeq=1` never blocks anything `currentWeek<=1`/`currentDay<=1` wouldn't already block).
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add lib/types.ts lib/supabase.ts app/setup/page.tsx app/onboarding/page.tsx app/settings/page.tsx components/DailyView.tsx
+git commit -m "fix: bound Day-/Week- navigation by floor_week/floor_day (AC #7)"
+```
+
+---
+
 ## Self-Review
 
 **Spec coverage:**
