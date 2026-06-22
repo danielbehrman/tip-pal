@@ -405,6 +405,7 @@ Acceptance criteria:
 - App runs as a native Android app via Capacitor
 - All Phase 1 and Phase 2 functionality works identically in the native wrapper
 - App icon and splash screen configured — ✅ final icon in place 2026-06-23 (`Tip Pal App Icon.png`, full-bleed source, generated via `npx @capacitor/assets generate` — 87 Android + 10 iOS + 7 PWA assets). Splash remains solid background color (unchanged, no logo overlay).
+- ✅ Fixed 2026-06-23: production web app's iOS "Add to Home Screen" icon was never actually wired up — `manifest.json` pointed at `/icons/*`, but those files only existed in a gitignored, never-deployed project-root folder, and the `.gitignore` rule (`icons/`, unanchored) would have silently excluded `public/icons/` too even if someone tried to fix it there. No `apple-touch-icon` tag existed at all (the tag iOS Safari relies on most for home screen bookmarks). Fixed: anchored the gitignore rule to `/icons/` (root only), added real icon files to `public/icons/` + a dedicated `public/apple-touch-icon.png`, declared both explicitly in `app/layout.tsx` metadata, corrected `manifest.json`'s paths and MIME type. Verified live in production (200s on all icon paths, `apple-touch-icon` link tag renders in page head). **Note for Project Owner:** if you already have TIP Pal on your home screen, iOS caches that icon at add-time — remove and re-add the bookmark to pick up the new one; it won't update automatically.
 - No external payment or donation links inside the iOS app — App Store policy
 
 Build commands:
