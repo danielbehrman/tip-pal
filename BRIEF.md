@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-22
-Blocker: F0.1 merged to main and deployed to production (tippal.behrman.dev) at Project Owner's request — single production family, pre-App-Store testing. Code/logic verified comprehensively (see F0.1 entry below); the live interactive walkthrough is now happening directly in production rather than a local dev server.
-Next Action: Project Owner uses the live app at tippal.behrman.dev and confirms the F0.1 acceptance criteria hold (see QA test matrix in F0.1 entry). F1 (Capacitor Wrapper) resumes after F0.1 is confirmed.
+Last Updated: 2026-06-23
+Blocker: None
+Next Action: F1 (Capacitor Wrapper) — resume simulator verification. Dev work was already complete before F0.1 started; F0.1's changes haven't been verified in the native wrapper yet. Run `npm run build:native` to pick up the latest web changes before testing in Xcode/Android Studio, then walk F1's acceptance criteria (native iOS + Android, Phase 1/2 functionality identical, icon/splash placeholder, no in-app payment links).
 
 ---
 
@@ -334,7 +334,7 @@ Definition of done: Dan opens the app, sees today's date on the current day, che
 #### F0.1: Calendar-Anchored Day Dating
 **Goal:** Reverse the F0 "treatment day advances only via completion" rule. Anchor day position to calendar time so dates are easy to follow: Day 1 is the day the current protocol started, every day after is dated consecutively, and position auto-advances daily by default. An explicit Skip Day action is the only thing that freezes position.
 **Priority:** P0 — blocking. Runs before resuming F1 (Capacitor simulator verification, paused).
-**Status:** ⚠️ Conditional QA pass — merged to `main` and deployed to production 2026-06-22 at Project Owner's request (single production family, pre-App-Store testing; no separate staging environment exists). All 7 acceptance criteria verified at the code/logic level (typecheck, formula verification script, hand-traced boundary math, and direct production-data cross-checks). Production Supabase data confirmed intact post-deploy: `dose_log` row count unchanged (160), `checked_foods`/`completed_days`/family name/appointment date all untouched — new columns (`cycle_start_date`, `skip_count`, `floor_week`, `floor_day`) added with safe defaults only. The interactive UI walkthrough is now happening live in production rather than a local dev server — still the one remaining confirmation before this fully closes. See QA test matrix below.
+**Status:** ✅ Complete — confirmed by Project Owner in production 2026-06-23, after two post-deploy follow-up fixes (see below). Deployed to `tippal.behrman.dev`.
 
 **Architect investigation findings (2026-06-20):**
 - No protocol/cycle start date field existed anywhere prior to this ticket — added `dose_state.cycle_start_date`, `skip_count`, `floor_week`, `floor_day`.
