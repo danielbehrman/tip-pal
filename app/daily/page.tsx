@@ -19,7 +19,7 @@ import {
   saveTimezone,
   getSession,
 } from "@/lib/supabase"
-import { todayDateString, addDays } from "@/lib/schedule"
+import { todayDateString, addDays, getTreatmentFoodsForWeek } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -94,7 +94,41 @@ export default function DailyPage() {
         const yesterday = addDays(todayDateString(), -1)
         if (initialState.cycleStartDate < todayDateString()) {
           const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
-          setPreviousDayIncomplete(!hasRecord)
+          if (!hasRecord) {
+            // No dose_log record for yesterday — but it may already be fully checked
+            // in the completedDays cache (e.g. via Trailing Edit before retroactive
+            // auto-complete existed, or before this reconciliation existed). Treat
+            // that the same as completing it now, rather than showing a stale warning.
+            const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
+            const yWeek = yesterdaySeq >= 1 ? Math.floor((yesterdaySeq - 1) / 7) + 1 : null
+            const yDay = yesterdaySeq >= 1 ? ((yesterdaySeq - 1) % 7) + 1 : null
+            const yPosKey = yWeek && yDay ? `${yWeek}-${yDay}` : null
+            const yCheckedFoods = yPosKey ? initialState.completedDays?.[yPosKey] ?? {} : {}
+            const yEveningItems = yWeek ? getTreatmentFoodsForWeek(s, yWeek) : []
+            const yAllChecked = yEveningItems.length > 0 && yEveningItems.every(
+              ({ food }) => !!yCheckedFoods[`evening-${food.name}`]
+            )
+            if (yWeek && yDay && yPosKey && yAllChecked) {
+              const reconciledAt = new Date().toISOString()
+              try {
+                await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s)
+                setDayRecords(prev => {
+                  const next = new Map(prev)
+                  next.set(yPosKey, { date: reconciledAt, skipped: false })
+                  return next
+                })
+                setCompletedPositions(prev => {
+                  const next = new Set(prev)
+                  next.add(yPosKey)
+                  return next
+                })
+              } catch {
+                setPreviousDayIncomplete(true)
+              }
+            } else {
+              setPreviousDayIncomplete(true)
+            }
+          }
         }
 
         setHydrated(true)
