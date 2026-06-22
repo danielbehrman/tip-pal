@@ -6,6 +6,10 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 export const metadata: Metadata = {
   title: "TIP Pal",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/icon-192.webp",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

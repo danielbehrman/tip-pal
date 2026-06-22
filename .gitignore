@@ -5,7 +5,7 @@ node_modules/
 tsconfig.tsbuildinfo
 .DS_Store
 out/
-icons/
+/icons/
 .vercel
 .env*.local
 supabase/.temp/
