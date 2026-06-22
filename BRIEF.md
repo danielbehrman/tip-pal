@@ -404,7 +404,7 @@ Acceptance criteria:
 - App runs as a native iOS app via Capacitor
 - App runs as a native Android app via Capacitor
 - All Phase 1 and Phase 2 functionality works identically in the native wrapper
-- App icon and splash screen configured — ✅ placeholder assets in place; Dan provides final 1024×1024 PNG before F7
+- App icon and splash screen configured — ✅ final icon in place 2026-06-23 (`Tip Pal App Icon.png`, full-bleed source, generated via `npx @capacitor/assets generate` — 87 Android + 10 iOS + 7 PWA assets). Splash remains solid background color (unchanged, no logo overlay).
 - No external payment or donation links inside the iOS app — App Store policy
 
 Build commands:
