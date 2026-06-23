@@ -8,7 +8,7 @@ Phase: Phase 3 — App Store Launch
 Mode: Active Build
 Last Updated: 2026-06-23
 Blocker: None
-Next Action: F1 (Capacitor Wrapper) — resume simulator verification. Dev work was already complete before F0.1 started; F0.1's changes haven't been verified in the native wrapper yet. Run `npm run build:native` to pick up the latest web changes before testing in Xcode/Android Studio, then walk F1's acceptance criteria (native iOS + Android, Phase 1/2 functionality identical, icon/splash placeholder, no in-app payment links).
+Next Action: F3 (Schema v2 — Recommended Foods + Medications) — Project Owner reprioritized ahead of F1 simulator verification, which remains pending whenever Project Owner picks it back up (hands-on Xcode/Android Studio step, unaffected by this work). Scope confirmed: full F3 ticket (recommended foods + medications together), weekly counter resets on protocol week (not calendar week) — consistent with F0.1's calendar-anchored week.
 
 ---
 
@@ -430,6 +430,11 @@ Acceptance criteria:
 #### F3: Schema v2 — Recommended Foods + Medications
 **Goal:** Update the Claude API parsing prompt and UI to handle all five food/medication categories.
 **Priority:** P0 — incomplete without it
+**Status:** 📋 In progress — started 2026-06-23, Project Owner reprioritized ahead of F1 simulator verification.
+
+**Scope locked 2026-06-23:**
+- Full ticket as written below — recommended foods AND medications together, one pass.
+- Weekly counter resets on the app's protocol week (the same calendar-anchored week from F0.1), not a calendar week (Sun–Sat). No new date-boundary logic — reuses the existing week-derivation formula.
 
 Acceptance criteria:
 - Parser outputs all fields per Schema v2 above: maintenanceFoods, weeklyFoods, treatmentFoods, recommendedFoods, medications
@@ -442,6 +447,9 @@ Acceptance criteria:
 Constraints:
 - Recommended foods and medications are informational only — no checkbox tracking in Phase 3. The weekly counter is a simple given-this-week tally, not a dose log entry.
 - Daily dose view is unchanged
+- Existing family's stored schedule predates this schema — `recommendedFoods`/`medications` will be empty/absent until they re-parse via Settings → Re-parse schedule. Not a backfill blocker; the app must handle the absent-field case gracefully without crashing.
+
+Definition of done: Project Owner re-parses the existing plan of care, sees recommended foods and medications on a new info screen separate from the daily view, taps a recommended food as given and watches its counter increment toward the target range, and confirms the counter resets when the protocol week advances.
 
 #### F4: New Food Cycle Flow
 **Goal:** When a clinic visit produces a new plan of care, archive the current cycle and load the new schedule without losing history.
