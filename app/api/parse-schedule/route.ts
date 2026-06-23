@@ -45,6 +45,12 @@ Return an object matching this exact schema:
         { "week": number, "dose": number, "unit": "string", "isFinal": boolean }
       ]
     }
+  ],
+  "recommendedFoods": [
+    { "name": "string", "dose": number, "unit": "string", "frequencyPerWeek": "string" }
+  ],
+  "medications": [
+    { "name": "string", "dose": "string", "unit": "string", "frequency": "string" }
   ]
 }
 
@@ -53,10 +59,13 @@ Parsing rules:
 - weeklyFoods: foods given once per week (Sunday or Day 7 only). These appear in the morning section once a week.
 - treatmentFoods: foods with a weekly dose escalation schedule. Each entry has a weeks array covering each week's dose.
 - Set isFinal=true on a TreatmentWeek if the notes say "continue at final dose", "maintain at", "continue", or similar terminal language for that dose level. Only the last week entry should have isFinal=true.
+- recommendedFoods: foods recommended at a target frequency that is NOT daily (e.g. "3-5x/week", "2-3 times weekly"). Set frequencyPerWeek to that range exactly as stated (e.g. "3-5"). These are distinct from maintenanceFoods (daily) and weeklyFoods (once per week, Day 7 only).
+- medications: daily medications (e.g. Zyrtec, Flovent, antihistamines) — not food, not scenario kit / emergency medications. Set frequency to how often it's given (e.g. "once daily", "twice daily").
+- If the text has no recommended foods or no medications, return an empty array for that field — never omit the field.
 - Seeds (sesame seed, flax seed, etc.) must have prepNote set to "Crush before serving". This is a medical requirement.
 - Any food with a specific preparation instruction must have that instruction in prepNote.
 - If there is no prep note, set prepNote to null.
-- dose must always be a number (not a string).
+- dose must always be a number for maintenanceFoods, weeklyFoods, treatmentFoods, and recommendedFoods (not a string). medications dose is a string (e.g. "10mg", "1 tablet").
 - All fields are required. Do not omit any field.`
 
 function isValidSchedule(obj: unknown): obj is ParsedSchedule {
@@ -65,7 +74,9 @@ function isValidSchedule(obj: unknown): obj is ParsedSchedule {
   return (
     Array.isArray(s.maintenanceFoods) &&
     Array.isArray(s.weeklyFoods) &&
-    Array.isArray(s.treatmentFoods)
+    Array.isArray(s.treatmentFoods) &&
+    Array.isArray(s.recommendedFoods) &&
+    Array.isArray(s.medications)
   )
 }
 
