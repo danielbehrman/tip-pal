@@ -25,10 +25,26 @@ export interface TreatmentFood {
   weeks: TreatmentWeek[]
 }
 
+export interface RecommendedFood {
+  name: string
+  dose: number
+  unit: string
+  frequencyPerWeek: string
+}
+
+export interface Medication {
+  name: string
+  dose: string
+  unit: string
+  frequency: string
+}
+
 export interface ParsedSchedule {
   maintenanceFoods: MaintenanceFood[]
   weeklyFoods: WeeklyFood[]
   treatmentFoods: TreatmentFood[]
+  recommendedFoods?: RecommendedFood[]
+  medications?: Medication[]
 }
 
 export interface DoseLogDay {
@@ -53,6 +69,7 @@ export interface DoseState {
   skipCount: number
   floorWeek: number
   floorDay: number
+  recommendedFoodCounts?: Record<string, Record<string, number>>
 }
 
 export interface DayRecord {
