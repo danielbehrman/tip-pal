@@ -142,6 +142,8 @@ Responsibilities:
 
 Claude Code has full permission to read, write, and execute within the current project directory without asking for confirmation. This includes running npm commands, editing any project file, and running git commands. Never modify anything outside the current project directory.
 
+If the 1M context error appears, exit Claude Code and restart the terminal session. /clear and /model alone will not resolve it.
+
 ---
 
 ## PHASE GATES

@@ -230,6 +230,11 @@ export default function DailyView({
 
       <div className="mt-auto pt-4">
         <div className="flex justify-center gap-6 pb-4">
+          {((schedule.recommendedFoods?.length ?? 0) > 0 || (schedule.medications?.length ?? 0) > 0) && (
+            <Link href="/recommended" className="text-sm text-gray-400 underline">
+              Recommended
+            </Link>
+          )}
           <Link href="/history" className="text-sm text-gray-400 underline">
             Dose history
           </Link>

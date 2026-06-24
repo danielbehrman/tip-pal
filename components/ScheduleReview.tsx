@@ -1,6 +1,6 @@
 "use client"
 
-import { ParsedSchedule, MaintenanceFood, WeeklyFood, TreatmentFood, TreatmentWeek } from "@/lib/types"
+import { ParsedSchedule, MaintenanceFood, WeeklyFood, TreatmentFood, TreatmentWeek, RecommendedFood, Medication } from "@/lib/types"
 import FoodReviewRow from "./FoodReviewRow"
 
 interface ScheduleReviewProps {
@@ -42,6 +42,18 @@ export default function ScheduleReview({
       fi === foodIndex ? { ...f, name } : f
     )
     onScheduleChange({ ...schedule, treatmentFoods: foods })
+  }
+
+  function updateRecommendedFood(index: number, updated: RecommendedFood) {
+    const foods = [...(schedule.recommendedFoods ?? [])]
+    foods[index] = updated
+    onScheduleChange({ ...schedule, recommendedFoods: foods })
+  }
+
+  function updateMedication(index: number, updated: Medication) {
+    const meds = [...(schedule.medications ?? [])]
+    meds[index] = updated
+    onScheduleChange({ ...schedule, medications: meds })
   }
 
   return (
@@ -137,6 +149,91 @@ export default function ScheduleReview({
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(schedule.recommendedFoods ?? []).length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-2">Recommended foods</h2>
+          {(schedule.recommendedFoods ?? []).map((food, i) => (
+            <div key={i} className="flex gap-2 items-end flex-wrap py-2 border-b border-gray-100 last:border-0">
+              <div className="flex flex-col flex-1 min-w-32">
+                <label className="text-xs text-gray-500 mb-0.5">Food</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={food.name}
+                  onChange={(e) => updateRecommendedFood(i, { ...food, name: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col w-20">
+                <label className="text-xs text-gray-500 mb-0.5">Dose</label>
+                <input
+                  type="number"
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={food.dose}
+                  onChange={(e) => updateRecommendedFood(i, { ...food, dose: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="flex flex-col w-20">
+                <label className="text-xs text-gray-500 mb-0.5">Unit</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={food.unit}
+                  onChange={(e) => updateRecommendedFood(i, { ...food, unit: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col w-16">
+                <label className="text-xs text-gray-500 mb-0.5">×/week</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={food.frequencyPerWeek}
+                  onChange={(e) => updateRecommendedFood(i, { ...food, frequencyPerWeek: e.target.value })}
+                />
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {(schedule.medications ?? []).length > 0 && (
+        <section>
+          <h2 className="text-lg font-bold mb-2">Daily medications</h2>
+          {(schedule.medications ?? []).map((med, i) => (
+            <div key={i} className="flex gap-2 items-end flex-wrap py-2 border-b border-gray-100 last:border-0">
+              <div className="flex flex-col flex-1 min-w-32">
+                <label className="text-xs text-gray-500 mb-0.5">Medication</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={med.name}
+                  onChange={(e) => updateMedication(i, { ...med, name: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col w-24">
+                <label className="text-xs text-gray-500 mb-0.5">Dose</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={med.dose}
+                  onChange={(e) => updateMedication(i, { ...med, dose: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col w-20">
+                <label className="text-xs text-gray-500 mb-0.5">Unit</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={med.unit}
+                  onChange={(e) => updateMedication(i, { ...med, unit: e.target.value })}
+                />
+              </div>
+              <div className="flex flex-col flex-1 min-w-28">
+                <label className="text-xs text-gray-500 mb-0.5">Frequency</label>
+                <input
+                  className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm"
+                  value={med.frequency}
+                  onChange={(e) => updateMedication(i, { ...med, frequency: e.target.value })}
+                />
               </div>
             </div>
           ))}

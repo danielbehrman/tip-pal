@@ -65,7 +65,7 @@ export async function fetchDoseState(): Promise<DoseState | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_state")
-    .select("checked_foods, completed_days, morning_skipped, evening_skipped, cycle_start_date, skip_count, floor_week, floor_day")
+    .select("checked_foods, completed_days, morning_skipped, evening_skipped, cycle_start_date, skip_count, floor_week, floor_day, recommended_food_counts")
     .eq("family_id", familyId)
     .maybeSingle()
   if (error) throw error
@@ -84,7 +84,20 @@ export async function fetchDoseState(): Promise<DoseState | null> {
     skipCount,
     floorWeek: (data.floor_week as number) ?? 1,
     floorDay: (data.floor_day as number) ?? 1,
+    recommendedFoodCounts: (data.recommended_food_counts ?? {}) as Record<string, Record<string, number>>,
   }
+}
+
+export async function saveRecommendedGiven(counts: Record<string, Record<string, number>>): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_state")
+    .update({
+      recommended_food_counts: counts,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("family_id", familyId)
+  if (error) throw error
 }
 
 export async function fetchFamilyName(): Promise<string | null> {
