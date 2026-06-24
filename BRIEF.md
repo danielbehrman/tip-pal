@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-23
+Last Updated: 2026-06-24
 Blocker: None
-Next Action: F3 (Schema v2 — Recommended Foods + Medications) — Project Owner reprioritized ahead of F1 simulator verification, which remains pending whenever Project Owner picks it back up (hands-on Xcode/Android Studio step, unaffected by this work). Scope confirmed: full F3 ticket (recommended foods + medications together), weekly counter resets on protocol week (not calendar week) — consistent with F0.1's calendar-anchored week.
+Next Action: F3 UI checkpoint — Project Owner to verify: re-parse plan of care via Settings, confirm recommended foods + medications appear on review screen and /recommended page, tap a food to increment counter, confirm counter persists. After UI sign-off, F3 closes and next up is F2 (Parser PII Hardening) or F1 Capacitor simulator verification (hands-on Xcode/Android Studio step).
 
 ---
 
@@ -430,7 +430,7 @@ Acceptance criteria:
 #### F3: Schema v2 — Recommended Foods + Medications
 **Goal:** Update the Claude API parsing prompt and UI to handle all five food/medication categories.
 **Priority:** P0 — incomplete without it
-**Status:** 📋 In progress — started 2026-06-23, Project Owner reprioritized ahead of F1 simulator verification.
+**Status:** 🔲 Dev complete — deployed 2026-06-24. Pending UI checkpoint (Project Owner).
 
 **Scope locked 2026-06-23:**
 - Full ticket as written below — recommended foods AND medications together, one pass.
