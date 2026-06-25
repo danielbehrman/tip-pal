@@ -1,6 +1,6 @@
 "use client"
 
-import { ParsedSchedule, DoseState, DayRecord } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup } from "@/lib/types"
 import { getTreatmentFoodsForWeek, getTotalTreatmentWeeks, calculateBuffer } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
@@ -19,6 +19,7 @@ interface DailyViewProps {
   dayRecords: Map<string, DayRecord>
   treatmentAnchor: { week: number; day: number }
   previousDayIncomplete: boolean
+  foodGroups: FoodGroup[]
 }
 
 function formatDateLabel(date: Date): string {
@@ -38,6 +39,7 @@ export default function DailyView({
   dayRecords,
   treatmentAnchor,
   previousDayIncomplete,
+  foodGroups,
 }: DailyViewProps) {
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
@@ -215,6 +217,7 @@ export default function DailyView({
         checkedFoods={checkedFoods}
         onCheck={handleCheck}
         isFutureDay={isFutureDay}
+        foodGroups={foodGroups}
       />
 
       <EveningSection

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ParsedSchedule, DoseState, DayRecord } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup } from "@/lib/types"
 import {
   fetchSchedule,
   fetchDoseState,
@@ -16,6 +16,7 @@ import {
   fetchAppointmentDate,
   saveAppointmentDate,
   fetchFamilyName,
+  fetchFoodGroups,
   saveTimezone,
   getSession,
 } from "@/lib/supabase"
@@ -32,6 +33,7 @@ export default function DailyPage() {
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
   const [dayRecords, setDayRecords] = useState<Map<string, DayRecord>>(new Map())
   const [previousDayIncomplete, setPreviousDayIncomplete] = useState(false)
+  const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   // treatmentAnchor holds the current treatment day position, computed live from
   // cycle_start_date + skip_count. Set from doseState on load — never advanced
   // locally except by re-fetching doseState after a write that re-anchors it
@@ -63,12 +65,13 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
           fetchCompletedPositions().catch(() => new Set<string>()),
           fetchDayRecords().catch(() => new Map<string, DayRecord>()),
+          fetchFoodGroups().catch(() => []),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -90,6 +93,7 @@ export default function DailyPage() {
         setFamilyName(name)
         setCompletedPositions(positions)
         setDayRecords(records)
+        setFoodGroups(groups)
 
         const yesterday = addDays(todayDateString(), -1)
         if (initialState.cycleStartDate < todayDateString()) {
@@ -246,6 +250,7 @@ export default function DailyPage() {
       dayRecords={dayRecords}
       treatmentAnchor={treatmentAnchor}
       previousDayIncomplete={previousDayIncomplete}
+      foodGroups={foodGroups}
     />
   )
 }
