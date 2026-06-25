@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState, DoseLogDay, DayRecord } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup } from "./types"
 import { getCalendarPosition } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
@@ -109,6 +109,26 @@ export async function fetchFamilyName(): Promise<string | null> {
     .single()
   if (error) throw error
   return (data.name as string | null) || null
+}
+
+export async function fetchFoodGroups(): Promise<FoodGroup[]> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("food_groups")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return (data.food_groups ?? []) as FoodGroup[]
+}
+
+export async function saveFoodGroups(groups: FoodGroup[]): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ food_groups: groups })
+    .eq("id", familyId)
+  if (error) throw error
 }
 
 export async function saveFamilyConfig(

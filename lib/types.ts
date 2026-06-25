@@ -39,6 +39,13 @@ export interface Medication {
   frequency: string
 }
 
+export interface FoodGroup {
+  id: string           // client-generated UUID — never changes for the life of the group
+  name: string         // display name, e.g. "Jam"
+  foodNames: string[]  // matches MaintenanceFood.name or WeeklyFood.name exactly
+  sortOrder: number    // display order within the group list (not used in daily view ordering)
+}
+
 export interface ParsedSchedule {
   maintenanceFoods: MaintenanceFood[]
   weeklyFoods: WeeklyFood[]
