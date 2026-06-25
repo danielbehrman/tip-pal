@@ -27,7 +27,32 @@ export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, { status: 204 })
 }
 
-const SYSTEM_PROMPT = `You are a medical dosing schedule parser. Parse the provided text and return ONLY valid JSON with no explanation, no markdown, no code fences.
+// Removes common PII patterns from plan-of-care text before it reaches the Claude API.
+// Targets labeled fields (Patient:, DOB:, Phone:, etc.), phone numbers, email addresses,
+// and SSNs. Does NOT attempt generic name detection — food names would be collateral damage.
+function stripPii(text: string): string {
+  return text
+    // Labeled PII fields — strip the label and everything after it on the same line
+    .replace(
+      /\b(patient(\s+name)?|dob|date\s+of\s+birth|parent(\/guardian)?|guardian|provider|physician|allergist|referring\s+physician|doctor|fax|e[-\s]?mail|address|mrn|medical\s+record\s+(number|#)?)\s*[:#]\s*.*/gi,
+      ""
+    )
+    // "Dr. Firstname Lastname" patterns
+    .replace(/\bDr\.?\s+[A-Z][a-z]+(\s+[A-Z][a-z]+)+(\s*,?\s*(MD|DO|PhD|NP|PA)\.?)?\b/g, "")
+    // Phone numbers: (123) 456-7890 / 123-456-7890 / 123.456.7890
+    .replace(/\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/g, "")
+    // Email addresses
+    .replace(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g, "")
+    // SSN-like patterns (XXX-XX-XXXX)
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, "")
+    // Collapse excess blank lines left behind
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+const SYSTEM_PROMPT = `You are a medical dosing schedule parser. This document is a clinical plan of care that may contain protected health information such as patient names, provider names, dates of birth, phone numbers, and addresses. Your task is to extract ONLY food and medication dosing information. Do NOT reproduce, reference, or include any patient names, provider names, contact details, or identifying information in your output — treat them as noise to be ignored entirely.
+
+Parse the provided text and return ONLY valid JSON with no explanation, no markdown, no code fences.
 
 Return an object matching this exact schema:
 
@@ -104,6 +129,7 @@ export async function POST(req: NextRequest) {
   }
 
   const client = new Anthropic({ apiKey })
+  const sanitizedText = stripPii(text)
 
   let rawContent: string
   try {
@@ -111,7 +137,7 @@ export async function POST(req: NextRequest) {
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: text }],
+      messages: [{ role: "user", content: sanitizedText }],
     })
     const block = message.content[0]
     if (!block || block.type !== "text") {
