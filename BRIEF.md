@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-24
-Blocker: None
-Next Action: F3 UI checkpoint — Project Owner to verify: re-parse plan of care via Settings, confirm recommended foods + medications appear on review screen and /recommended page, tap a food to increment counter, confirm counter persists. After UI sign-off, F3 closes and next up is F2 (Parser PII Hardening) or F1 Capacitor simulator verification (hands-on Xcode/Android Studio step).
+Last Updated: 2026-06-25
+Blocker: .env.local was overwritten to blank values during food grouping deploy — local dev broken until restored from 1Password. Production unaffected.
+Next Action: Food Grouping UI checkpoint — Project Owner to verify on tippal.behrman.dev: open Settings, create a group (e.g. "Jam" with seeds), return to daily view, confirm seeds collapse into one row, tap to check all, expand to see individual foods. After sign-off, next is F2 (Parser PII Hardening) or F1 Capacitor simulator verification.
 
 ---
 
