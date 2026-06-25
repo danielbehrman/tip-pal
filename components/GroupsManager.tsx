@@ -20,11 +20,11 @@ export default function GroupsManager({ schedule, groups, onChange }: GroupsMana
   const [creatingFoods, setCreatingFoods] = useState<string[]>([])
   const [showCreateForm, setShowCreateForm] = useState(false)
 
-  // All morning-eligible foods (maintenance + weekly)
-  const allFoods = [
+  // All morning-eligible foods (maintenance + weekly), deduped by name
+  const allFoods = Array.from(new Set([
     ...schedule.maintenanceFoods.map((f) => f.name),
     ...schedule.weeklyFoods.map((f) => f.name),
-  ]
+  ]))
 
   // foodName → group.id for foods already claimed
   const claimedBy = new Map<string, string>()
