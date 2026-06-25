@@ -30,6 +30,19 @@ export default function PrivacyPage() {
       </section>
 
       <section className="mb-6">
+        <h2 className="text-base font-semibold mb-2">Schedule parsing</h2>
+        <p className="text-sm text-gray-700 leading-relaxed">
+          When you paste a plan of care to parse your schedule, the raw document text is processed
+          server-side and immediately discarded — it is never logged or stored. Before the text reaches
+          the AI parser, an automated pass removes common personal information: labeled fields
+          (Patient, Date of Birth, Provider, Phone, etc.), phone numbers, email addresses, and similar
+          identifiers. The AI is also explicitly instructed to extract food and medication dosing
+          information only and to ignore any remaining patient or provider details. Only the resulting
+          structured schedule — food names, doses, and units — is saved to your account.
+        </p>
+      </section>
+
+      <section className="mb-6">
         <h2 className="text-base font-semibold mb-2">Data processor</h2>
         <p className="text-sm text-gray-700 leading-relaxed">
           Your data is stored in Supabase (Supabase, Inc.), a hosted database and authentication service.
@@ -49,7 +62,7 @@ export default function PrivacyPage() {
       <section className="mb-10">
         <h2 className="text-base font-semibold mb-2">Contact</h2>
         <p className="text-sm text-gray-700 leading-relaxed">
-          Questions about this policy: daniel.behrman@gmail.com
+          Questions about this policy: daniel@behrman.dev
         </p>
       </section>
 
