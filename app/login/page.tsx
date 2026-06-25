@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { getSession, getClient } from "@/lib/supabase"
 
 export default function LoginPage() {
@@ -67,6 +68,11 @@ export default function LoginPage() {
           {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
+
+      <div className="flex justify-center gap-6 mt-8">
+        <Link href="/privacy" className="text-xs text-gray-400 underline">Privacy</Link>
+        <Link href="/disclaimer" className="text-xs text-gray-400 underline">Disclaimer</Link>
+      </div>
     </main>
   )
 }

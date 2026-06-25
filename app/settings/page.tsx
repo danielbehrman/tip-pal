@@ -365,6 +365,11 @@ export default function SettingsPage() {
           </button>
         )}
       </div>
+
+      <div className="flex justify-center gap-6 pt-2 pb-4">
+        <Link href="/privacy" className="text-xs text-gray-400 underline">Privacy</Link>
+        <Link href="/disclaimer" className="text-xs text-gray-400 underline">Disclaimer</Link>
+      </div>
     </main>
   )
 }
