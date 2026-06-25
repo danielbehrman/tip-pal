@@ -8,7 +8,7 @@ Phase: Phase 3 — App Store Launch
 Mode: Active Build
 Last Updated: 2026-06-25
 Blocker: .env.local was overwritten to blank values during food grouping deploy — local dev broken until restored from 1Password. Production unaffected.
-Next Action: Food Grouping UI checkpoint — Project Owner to verify on tippal.behrman.dev: open Settings, create a group (e.g. "Jam" with seeds), return to daily view, confirm seeds collapse into one row, tap to check all, expand to see individual foods. After sign-off, next is F2 (Parser PII Hardening) or F1 Capacitor simulator verification.
+Next Action: F2 (Parser PII Hardening) — strip PII from plan-of-care text before Claude API call, then F4 (New Food Cycle Flow). F5/F6 done. F1 Capacitor simulator verification still needs Dan (hands-on Xcode step).
 
 ---
 
@@ -471,14 +471,16 @@ Constraints:
 #### F5: Privacy Policy
 **Goal:** Publicly hosted privacy policy satisfying Apple's App Store requirement.
 **Priority:** P0
+**Status:** ✅ Complete — deployed 2026-06-25. Live at tippal.behrman.dev/privacy. Links in login page + Settings footer.
 
 Must cover: what data is stored (food/dose schedule linked to account email only), no PII in app data tables, no sale of data, account deletion removes all data, Supabase as data processor.
 
 #### F6: Medical Disclaimer
-**Goal:** Clear disclaimer that TIP Pal is not a medical device and not affiliated with FAI.
+**Goal:** Clear disclaimer that Tip Pal is not a medical device and not affiliated with FAI.
 **Priority:** P0
+**Status:** ✅ Complete — deployed 2026-06-25. Live at tippal.behrman.dev/disclaimer. Links in login page + Settings footer.
 
-Copy: "TIP Pal is not a medical device. It is not affiliated with the Food Allergy Institute or the Tolerance Induction Program. Always follow your provider's instructions."
+Copy: "Tip Pal is not a medical device. It is not affiliated with the Food Allergy Institute or the Tolerance Induction Program. Always follow your provider's instructions."
 
 Note: Do not use "TIP" or "Tolerance Induction Program" in the App Store listing without written FAI permission. Use "food allergy tolerance program" as fallback if no response to FAI outreach.
 
