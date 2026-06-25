@@ -8,7 +8,7 @@ Phase: Phase 3 — App Store Launch
 Mode: Active Build
 Last Updated: 2026-06-25
 Blocker: .env.local was overwritten to blank values during food grouping deploy — local dev broken until restored from 1Password. Production unaffected.
-Next Action: F2 (Parser PII Hardening) — strip PII from plan-of-care text before Claude API call, then F4 (New Food Cycle Flow). F5/F6 done. F1 Capacitor simulator verification still needs Dan (hands-on Xcode step).
+Next Action: F4 — New Food Cycle Flow. F2/F5/F6 done. F1 iOS simulator parked as carry forward (see Carry Forward table).
 
 ---
 
@@ -117,6 +117,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Re-parse overwrites dose history | High | Phase 2 | ✅ Not a bug — dose_log untouched by re-parse, confirmed 2026-06-01 |
 | Buffer calculation wrong | Medium | Phase 2 | ✅ Resolved — fixed in commit 2234b29 |
 | Push notifications firing in wrong timezone | High | Phase 2 | ✅ Resolved — daily page now syncs device timezone on every load, 2026-06-01 |
+| F1 iOS Simulator — confirm lazy Supabase init fix works | High | Phase 3 | Parked — simulator launched but app errored on load before fix was confirmed. Re-verify before App Store submission. |
 
 ---
 
@@ -396,7 +397,7 @@ Constraints:
 
 Definition of done: Project Owner opens the app on a day where the prior day's evening foods were incomplete and not skipped — sees the new day, with a warning banner, foods unblocked. Project Owner clicks Skip Day on an incomplete day — position freezes, that day's header reads "Skipped," and the next calendar day repeats the same week/day. A mid-protocol setup account sees "undated" labels for days that predate app setup.
 
-#### F1: Capacitor Wrapper ✅ Dev Complete — pending Dan simulator verification
+#### F1: Capacitor Wrapper ⚠️ Dev Complete — simulator verification inconclusive (carry forward)
 **Goal:** Wrap the Next.js app in a native mobile shell for App Store and Google Play distribution.
 **Priority:** P0 — gates everything else in Phase 3
 
