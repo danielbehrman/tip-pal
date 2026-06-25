@@ -10,6 +10,7 @@ import {
   fetchAppointmentDate,
   fetchDoseState,
   fetchNotificationSettings,
+  fetchFoodGroups,
   saveFamilyName,
   saveAppointmentDate,
   saveDoseState,
@@ -17,9 +18,11 @@ import {
   saveNotificationSettings,
   savePushSubscription,
   deletePushSubscription,
+  saveFoodGroups,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
-import { DoseState } from "@/lib/types"
+import { DoseState, ParsedSchedule, FoodGroup } from "@/lib/types"
+import GroupsManager from "@/components/GroupsManager"
 import { cycleStartDateForPosition } from "@/lib/schedule"
 
 function urlBase64ToBuffer(base64String: string): ArrayBuffer {
@@ -55,6 +58,10 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appointmentDateLoaded = useRef(false)
+  const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
+  const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
+  const [groupsSaved, setGroupsSaved] = useState(false)
+  const groupsSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const pushAvailable = pushSupported && !!vapidPublicKey
@@ -65,10 +72,12 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, ds, notifSettings] = await Promise.all([
+        const [name, ds, notifSettings, groups, sched] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
+          fetchFoodGroups().catch(() => []),
+          fetchSchedule().catch(() => null),
         ])
         // Load appointment date separately so we know if it succeeded
         try {
@@ -90,6 +99,8 @@ export default function SettingsPage() {
           setMorningReminder(notifSettings.morningReminder)
           setEveningReminder(notifSettings.eveningReminder)
         }
+        setFoodGroups(groups)
+        if (sched) setSchedule(sched)
         setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
       } catch {
         // proceed with defaults
@@ -142,6 +153,18 @@ export default function SettingsPage() {
       }
     } catch {}
     setSubscribing(false)
+  }
+
+  async function handleGroupsChange(groups: FoodGroup[]) {
+    setFoodGroups(groups)
+    try {
+      await saveFoodGroups(groups)
+      setGroupsSaved(true)
+      if (groupsSavedTimerRef.current) clearTimeout(groupsSavedTimerRef.current)
+      groupsSavedTimerRef.current = setTimeout(() => setGroupsSaved(false), 2000)
+    } catch {
+      // Silent fail — state is updated locally; will sync on next load
+    }
   }
 
   async function saveAll(withCatchup: boolean) {
@@ -291,6 +314,20 @@ export default function SettingsPage() {
             Re-parse schedule
           </Link>
         </div>
+
+        {schedule && (
+          <div className="border-t border-gray-100 pt-5">
+            <div className="flex items-center gap-2 mb-3">
+              <p className="text-sm font-medium text-gray-700">Food groups</p>
+              {groupsSaved && <span className="text-xs text-green-600">Saved</span>}
+            </div>
+            <GroupsManager
+              schedule={schedule}
+              groups={foodGroups}
+              onChange={handleGroupsChange}
+            />
+          </div>
+        )}
 
         {saveError && (
           <p className="text-red-600 text-sm">{saveError}</p>
