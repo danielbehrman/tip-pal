@@ -89,13 +89,13 @@ export default function NewCyclePage() {
         <p className="text-gray-600 text-lg">Parsing new schedule…</p>
       )}
 
-      {view === "review" && parsedSchedule && (
+      {(view === "review" || view === "confirming") && parsedSchedule && (
         <NewCycleReview
           currentSchedule={currentSchedule}
           newSchedule={parsedSchedule}
           onBack={() => setView("paste")}
           onConfirm={handleConfirm}
-          confirming={false}
+          confirming={view === "confirming"}
         />
       )}
 
