@@ -14,12 +14,21 @@ type DiffTag = "new" | "changed" | "updated" | null
 
 interface ChangedMeta { prevDose: number; prevUnit: string }
 
+// Clinic sometimes abbreviates "Stone Fruit (Peach, Apricot...)" as "Stone Fruit".
+// Treat names as matching if one is a case-insensitive prefix of the other.
+function foodNamesMatch(a: string, b: string): boolean {
+  if (a === b) return true
+  const na = a.trim().toLowerCase()
+  const nb = b.trim().toLowerCase()
+  return na === nb || na.startsWith(nb + " ") || nb.startsWith(na + " ")
+}
+
 function getMFTag(
   food: MaintenanceFood | WeeklyFood,
   current: (MaintenanceFood | WeeklyFood)[] | undefined
 ): { tag: DiffTag; meta?: ChangedMeta } {
   if (!current) return { tag: "new" }
-  const existing = current.find(f => f.name === food.name)
+  const existing = current.find(f => foodNamesMatch(f.name, food.name))
   if (!existing) return { tag: "new" }
   if (existing.dose !== food.dose || existing.unit !== food.unit) {
     return { tag: "changed", meta: { prevDose: existing.dose, prevUnit: existing.unit } }
@@ -104,7 +113,7 @@ export default function NewCycleReview({
         <section>
           <h2 className="text-lg font-bold mb-2">Evening (treatment)</h2>
           {newSchedule.treatmentFoods.map((food, fi) => {
-            const existsInCurrent = cur?.treatmentFoods.some(f => f.name === food.name)
+            const existsInCurrent = cur?.treatmentFoods.some(f => foodNamesMatch(f.name, food.name))
             const tag: DiffTag = existsInCurrent ? "updated" : "new"
             return (
               <div key={fi} className="mb-3">
@@ -129,7 +138,7 @@ export default function NewCycleReview({
         <section>
           <h2 className="text-lg font-bold mb-2">Recommended foods</h2>
           {(newSchedule.recommendedFoods ?? []).map((food, i) => {
-            const existsInCurrent = cur?.recommendedFoods?.some(f => f.name === food.name)
+            const existsInCurrent = cur?.recommendedFoods?.some(f => foodNamesMatch(f.name, food.name))
             const tag: DiffTag = existsInCurrent ? null : "new"
             return (
               <div key={i} className="flex items-start justify-between py-2 border-b border-gray-100 last:border-0">
@@ -150,7 +159,7 @@ export default function NewCycleReview({
         <section>
           <h2 className="text-lg font-bold mb-2">Daily medications</h2>
           {(newSchedule.medications ?? []).map((med, i) => {
-            const existsInCurrent = cur?.medications?.some(m => m.name === med.name)
+            const existsInCurrent = cur?.medications?.some(m => foodNamesMatch(m.name, med.name))
             const tag: DiffTag = existsInCurrent ? null : "new"
             return (
               <div key={i} className="flex items-start justify-between py-2 border-b border-gray-100 last:border-0">
