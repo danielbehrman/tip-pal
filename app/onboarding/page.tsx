@@ -28,6 +28,7 @@ export default function OnboardingPage() {
   const [showCatchup, setShowCatchup] = useState(false)
   const [saving, setSaving] = useState(false)
   const [nameError, setNameError] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -62,6 +63,7 @@ export default function OnboardingPage() {
 
   async function saveAndRedirect(withCatchup: boolean) {
     setSaving(true)
+    setSaveError(null)
     try {
       await saveFamilyConfig(familyName.trim(), appointmentDate || null)
       const positionChanged = week !== originalWeek || day !== originalDay
@@ -81,7 +83,8 @@ export default function OnboardingPage() {
         await saveBulkCatchUpLog(week, day)
       }
       router.replace("/daily")
-    } catch {
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err))
       setSaving(false)
     }
   }
@@ -150,6 +153,10 @@ export default function OnboardingPage() {
             </div>
           </div>
         </div>
+
+        {saveError && (
+          <p className="text-red-600 text-sm">{saveError}</p>
+        )}
 
         {showCatchup ? (
           <div className="px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl">
