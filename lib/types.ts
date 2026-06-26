@@ -52,6 +52,8 @@ export interface ParsedSchedule {
   treatmentFoods: TreatmentFood[]
   recommendedFoods?: RecommendedFood[]
   medications?: Medication[]
+  visitNumber?: string
+  appointmentDate?: string
 }
 
 export interface DoseLogDay {

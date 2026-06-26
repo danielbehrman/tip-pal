@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
 import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup } from "./types"
-import { getCalendarPosition } from "./schedule"
+import { getCalendarPosition, todayDateString } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
 // during static export builds — process.env is not available at runtime in Capacitor.
@@ -486,4 +486,91 @@ export async function saveDoseState(state: DoseState): Promise<void> {
       { onConflict: "family_id" }
     )
   if (error) throw error
+}
+
+export async function fetchVisitNumber(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("visit_number")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return (data.visit_number as string | null) ?? null
+}
+
+export async function saveVisitNumber(visitNumber: string | null): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ visit_number: visitNumber })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function archiveAndStartNewCycle(
+  currentSchedule: ParsedSchedule | null,
+  newSchedule: ParsedSchedule,
+  visitNumber: string | null,
+  newAppointmentDate: string | null
+): Promise<void> {
+  const familyId = await getFamilyId()
+
+  // 1. Read current previous_cycles array
+  const { data: familyData, error: familyReadError } = await getClient()
+    .from("families")
+    .select("previous_cycles")
+    .eq("id", familyId)
+    .single()
+  if (familyReadError) throw familyReadError
+
+  const existingCycles = (familyData.previous_cycles ?? []) as object[]
+  const archivedEntry = currentSchedule
+    ? { schedule: currentSchedule, archivedAt: new Date().toISOString() }
+    : null
+  const newCycles = archivedEntry ? [...existingCycles, archivedEntry] : existingCycles
+
+  // 2. Update families: archive, visit number, appointment date
+  const { error: familyUpdateError } = await getClient()
+    .from("families")
+    .update({
+      previous_cycles: newCycles,
+      visit_number: visitNumber,
+      next_appointment_date: newAppointmentDate,
+    })
+    .eq("id", familyId)
+  if (familyUpdateError) throw familyUpdateError
+
+  // 3. Replace schedule
+  const { error: scheduleError } = await getClient()
+    .from("schedules")
+    .upsert(
+      { family_id: familyId, parsed_data: newSchedule, updated_at: new Date().toISOString() },
+      { onConflict: "family_id" }
+    )
+  if (scheduleError) throw scheduleError
+
+  // 4. Reset dose_state
+  const today = todayDateString()
+  const { error: doseError } = await getClient()
+    .from("dose_state")
+    .upsert(
+      {
+        family_id: familyId,
+        current_week: 1,
+        current_day: 1,
+        checked_foods: {},
+        completed_days: {},
+        morning_skipped: false,
+        evening_skipped: false,
+        cycle_start_date: today,
+        skip_count: 0,
+        floor_week: 1,
+        floor_day: 1,
+        recommended_food_counts: {},
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "family_id" }
+    )
+  if (doseError) throw doseError
 }

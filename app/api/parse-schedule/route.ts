@@ -57,6 +57,8 @@ Parse the provided text and return ONLY valid JSON with no explanation, no markd
 Return an object matching this exact schema:
 
 {
+  "visitNumber": "string — the visit number as stated in the document (e.g. '8', '9', 'Tolerance Visit 1'). If not found, omit this field.",
+  "appointmentDate": "YYYY-MM-DD — the next appointment or follow-up date. If not found, omit this field.",
   "maintenanceFoods": [
     { "name": "string", "dose": number, "unit": "string", "capped": boolean, "prepNote": "string or null" }
   ],
@@ -91,7 +93,9 @@ Parsing rules:
 - Any food with a specific preparation instruction must have that instruction in prepNote.
 - If there is no prep note, set prepNote to null.
 - dose must always be a number for maintenanceFoods, weeklyFoods, treatmentFoods, and recommendedFoods (not a string). medications dose is a string (e.g. "10mg", "1 tablet").
-- All fields are required. Do not omit any field.`
+- All fields are required. Do not omit any field.
+- visitNumber: extract the visit identifier exactly as written (e.g. "Visit 8" → "8", "Tolerance Visit 1" → "Tolerance Visit 1"). Omit if not present.
+- appointmentDate: extract the next appointment date and format it as YYYY-MM-DD. Omit if not present or unclear.`
 
 function isValidSchedule(obj: unknown): obj is ParsedSchedule {
   if (!obj || typeof obj !== "object") return false
