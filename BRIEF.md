@@ -30,6 +30,14 @@ Publish on Apple App Store and Google Play. Open source the repo for self-hostin
 
 ---
 
+## Test Accounts
+
+| Environment | Email | Notes |
+|---|---|---|
+| Production | daniel.behrman+test1@gmail.com | General prod testing |
+
+---
+
 ## Security Constraints
 > RLS and shared state are implemented in Phase 2. Remaining items are Phase 3 gates.
 
