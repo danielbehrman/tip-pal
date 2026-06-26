@@ -8,7 +8,7 @@ Phase: Phase 3 — App Store Launch
 Mode: Active Build
 Last Updated: 2026-06-26
 Blocker: .env.local overwritten during food grouping deploy — restore from 1Password before local dev. Production unaffected.
-Next Action: F4 UI checkpoint + apply Supabase migration (20260625_new_cycle.sql) + deploy to production. F4 code complete and reviewed.
+Next Action: Phase gate decision — F0–F6 all complete. Options: continue to F7 (App Store submission), enter Dogfooding mode, or Stable/maintenance.
 
 ---
 
@@ -439,7 +439,7 @@ Acceptance criteria:
 #### F3: Schema v2 — Recommended Foods + Medications
 **Goal:** Update the Claude API parsing prompt and UI to handle all five food/medication categories.
 **Priority:** P0 — incomplete without it
-**Status:** 🔲 Dev complete — deployed 2026-06-24. Pending UI checkpoint (Project Owner).
+**Status:** ✅ Complete — deployed 2026-06-24. UI checkpoint passed.
 
 **Scope locked 2026-06-23:**
 - Full ticket as written below — recommended foods AND medications together, one pass.
@@ -460,9 +460,15 @@ Constraints:
 
 Definition of done: Project Owner re-parses the existing plan of care, sees recommended foods and medications on a new info screen separate from the daily view, taps a recommended food as given and watches its counter increment toward the target range, and confirms the counter resets when the protocol week advances.
 
-#### F4: New Food Cycle Flow
+#### F4: New Food Cycle Flow ✅ Complete — deployed 2026-06-26. UI checkpoint passed.
 **Goal:** When a clinic visit produces a new plan of care, archive the current cycle and load the new schedule without losing history.
 **Priority:** P0
+
+**Bugs fixed post-deploy during test account validation (2026-06-26):**
+- Parse route: Claude occasionally returns JSON wrapped in markdown code fences despite instructions — strip before JSON.parse.
+- New user provisioning: no trigger existed to create families/profiles rows on signup — all new users hit "Profile not found." Fixed: `handle_new_user()` trigger on auth.users INSERT auto-creates both rows.
+- `saveFamilyConfig` used upsert (INSERT + ON CONFLICT) — Postgres evaluates INSERT RLS even on conflict, blocking write. Fixed: use update (row always exists post-trigger).
+- `NewCycleReview` diff: "Stone Fruit" ≠ "Stone Fruit (Peach, Apricot, Cherry...)" caused spurious NEW badge. Fixed: prefix-based fuzzy name match handles clinic abbreviation variants.
 
 Acceptance criteria:
 - "New Food Cycle" option accessible from Settings
