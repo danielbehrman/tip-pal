@@ -84,7 +84,12 @@ export default function OnboardingPage() {
       }
       router.replace("/daily")
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : String(err))
+      const msg = err instanceof Error
+        ? err.message
+        : typeof err === "object" && err !== null && "message" in err
+        ? String((err as { message: unknown }).message)
+        : JSON.stringify(err)
+      setSaveError(msg)
       setSaving(false)
     }
   }
