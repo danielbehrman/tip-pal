@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3 — App Store Launch
 Mode: Active Build
-Last Updated: 2026-06-25
-Blocker: .env.local was overwritten to blank values during food grouping deploy — local dev broken until restored from 1Password. Production unaffected.
-Next Action: F4 — New Food Cycle Flow. F2/F5/F6 done. F1 iOS simulator parked as carry forward (see Carry Forward table).
+Last Updated: 2026-06-26
+Blocker: .env.local overwritten during food grouping deploy — restore from 1Password before local dev. Production unaffected.
+Next Action: F4 UI checkpoint + apply Supabase migration (20260625_new_cycle.sql) + deploy to production. F4 code complete and reviewed.
 
 ---
 
