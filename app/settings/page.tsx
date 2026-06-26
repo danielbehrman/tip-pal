@@ -309,7 +309,10 @@ export default function SettingsPage() {
           ) : null}
         </div>}
 
-        <div className="border-t border-gray-100 pt-5">
+        <div className="border-t border-gray-100 pt-5 flex flex-col gap-3">
+          <Link href="/new-cycle" className="text-sm text-gray-500 underline">
+            New food cycle
+          </Link>
           <Link href="/setup" className="text-sm text-gray-500 underline">
             Re-parse schedule
           </Link>
