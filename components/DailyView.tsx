@@ -20,6 +20,8 @@ interface DailyViewProps {
   treatmentAnchor: { week: number; day: number }
   previousDayIncomplete: boolean
   foodGroups: FoodGroup[]
+  visitNumber: string | null
+  isAppointmentDay: boolean
 }
 
 function formatDateLabel(date: Date): string {
@@ -40,6 +42,8 @@ export default function DailyView({
   treatmentAnchor,
   previousDayIncomplete,
   foodGroups,
+  visitNumber,
+  isAppointmentDay,
 }: DailyViewProps) {
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
@@ -185,7 +189,7 @@ export default function DailyView({
 
       <div className="mb-4">
         <label className="block text-sm text-gray-500 mb-1" htmlFor="next-appointment">
-          Next appointment
+          {visitNumber ? `Next appointment, Visit ${visitNumber}` : "Next appointment"}
         </label>
         <input
           id="next-appointment"
@@ -211,25 +215,46 @@ export default function DailyView({
         )}
       </div>
 
-      <MorningSection
-        schedule={schedule}
-        currentDay={currentDay}
-        checkedFoods={checkedFoods}
-        onCheck={handleCheck}
-        isFutureDay={isFutureDay}
-        foodGroups={foodGroups}
-      />
+      {isAppointmentDay && isCurrentTreatmentDay ? (
+        <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-6 mb-4 flex flex-col gap-3">
+          <div>
+            <p className="text-base font-semibold text-blue-900">
+              {visitNumber ? `Today is Visit ${visitNumber}.` : "Today is your appointment."}
+            </p>
+            <p className="text-sm text-blue-800 mt-1">
+              When you&apos;re ready, start your new food cycle to load your updated schedule.
+            </p>
+          </div>
+          <Link
+            href="/new-cycle"
+            className="inline-block text-center w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl"
+          >
+            Start new food cycle
+          </Link>
+        </div>
+      ) : (
+        <>
+          <MorningSection
+            schedule={schedule}
+            currentDay={currentDay}
+            checkedFoods={checkedFoods}
+            onCheck={handleCheck}
+            isFutureDay={isFutureDay}
+            foodGroups={foodGroups}
+          />
 
-      <EveningSection
-        schedule={schedule}
-        currentWeek={currentWeek}
-        checkedFoods={checkedFoods}
-        onCheck={handleCheck}
-        onSkipDay={onSkipDay}
-        isFutureDay={isFutureDay}
-        isCurrentTreatmentDay={isCurrentTreatmentDay}
-        isSkipped={isSkipped}
-      />
+          <EveningSection
+            schedule={schedule}
+            currentWeek={currentWeek}
+            checkedFoods={checkedFoods}
+            onCheck={handleCheck}
+            onSkipDay={onSkipDay}
+            isFutureDay={isFutureDay}
+            isCurrentTreatmentDay={isCurrentTreatmentDay}
+            isSkipped={isSkipped}
+          />
+        </>
+      )}
 
       <div className="mt-auto pt-4">
         <div className="flex justify-center gap-6 pb-4">

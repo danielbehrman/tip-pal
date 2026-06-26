@@ -17,6 +17,7 @@ import {
   saveAppointmentDate,
   fetchFamilyName,
   fetchFoodGroups,
+  fetchVisitNumber,
   saveTimezone,
   getSession,
 } from "@/lib/supabase"
@@ -34,6 +35,7 @@ export default function DailyPage() {
   const [dayRecords, setDayRecords] = useState<Map<string, DayRecord>>(new Map())
   const [previousDayIncomplete, setPreviousDayIncomplete] = useState(false)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
+  const [visitNumber, setVisitNumber] = useState<string | null>(null)
   // treatmentAnchor holds the current treatment day position, computed live from
   // cycle_start_date + skip_count. Set from doseState on load — never advanced
   // locally except by re-fetching doseState after a write that re-anchors it
@@ -65,13 +67,14 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
           fetchCompletedPositions().catch(() => new Set<string>()),
           fetchDayRecords().catch(() => new Map<string, DayRecord>()),
           fetchFoodGroups().catch(() => []),
+          fetchVisitNumber().catch(() => null),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -94,6 +97,7 @@ export default function DailyPage() {
         setCompletedPositions(positions)
         setDayRecords(records)
         setFoodGroups(groups)
+        setVisitNumber(vNum)
 
         const yesterday = addDays(todayDateString(), -1)
         if (initialState.cycleStartDate < todayDateString()) {
@@ -236,6 +240,8 @@ export default function DailyPage() {
 
   if (!schedule || !doseState || !treatmentAnchor) return null
 
+  const isAppointmentDay = !!appointmentDate && appointmentDate === todayDateString()
+
   return (
     <DailyView
       schedule={schedule}
@@ -251,6 +257,8 @@ export default function DailyPage() {
       treatmentAnchor={treatmentAnchor}
       previousDayIncomplete={previousDayIncomplete}
       foodGroups={foodGroups}
+      visitNumber={visitNumber}
+      isAppointmentDay={isAppointmentDay}
     />
   )
 }
