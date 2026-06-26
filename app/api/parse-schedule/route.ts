@@ -159,9 +159,15 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // Claude occasionally wraps JSON in markdown code fences despite being told not to.
+  const cleaned = rawContent
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```\s*$/i, "")
+    .trim()
+
   let parsed: unknown
   try {
-    parsed = JSON.parse(rawContent)
+    parsed = JSON.parse(cleaned)
   } catch {
     return NextResponse.json(
       { error: "Could not parse response from Claude" },
