@@ -115,7 +115,7 @@ export default function OnboardingPage() {
       <div className="flex flex-col gap-5">
         <div>
           <label className="block text-sm text-gray-500 mb-1">
-            Family name <span className="text-red-500">*</span>
+            Child's name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -124,7 +124,7 @@ export default function OnboardingPage() {
             onChange={e => { setFamilyName(e.target.value); setNameError(false) }}
             className={`border rounded-xl px-4 py-3 text-base w-full ${nameError ? "border-red-400" : "border-gray-300"}`}
           />
-          {nameError && <p className="text-red-600 text-sm mt-1">Family name is required.</p>}
+          {nameError && <p className="text-red-600 text-sm mt-1">Child's name is required.</p>}
         </div>
 
         <div>
