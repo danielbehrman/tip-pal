@@ -9,3 +9,4 @@ out/
 .vercel
 .env*.local
 supabase/.temp/
+.env*
