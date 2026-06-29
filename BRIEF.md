@@ -8,7 +8,7 @@ Phase: Phase 3 — App Store Launch
 Mode: Active Build
 Last Updated: 2026-06-26
 Blocker: .env.local overwritten during food grouping deploy — restore from 1Password before local dev. Production unaffected.
-Next Action: Phase gate decision — F0–F6 all complete. Options: continue to F7 (App Store submission), enter Dogfooding mode, or Stable/maintenance.
+Next Action: Begin Phase 3.5 F0 (Design System Foundation). After completion go back to Phase 3 to continue to F7 (App Store submission)
 
 ---
 
@@ -517,6 +517,309 @@ Requirements:
 Contents: project description, setup instructions, environment variable guide, AGPL v3 license, contribution notes.
 ---
 
+
+## Phase 3.5 — Mobile UI Redesign 📋 Planned
+> Insert this phase between Phase 3 (App Store Launch) and Phase 4 (Engagement).
+> All screens designed and approved in a dedicated design session (June 2026).
+> Design system spec and screen mockups: `plans/DESIGN-SPEC.md`
+> Prerequisite: Phase 3 complete and confirmed.
+
+### Design Decisions — Locked
+
+| Decision | Detail |
+|---|---|
+| Direction | Warm/Family — coral-orange primary, rounded cards, warm tones |
+| Mode | Light only |
+| Primary color | `#ff6b35` (coral-orange) |
+| Evening/medication color | `#9b6fd4` (purple) |
+| Progress ring color | `#4fc3f7` (sky blue) |
+| Child name in header | Child's first name, not family name (e.g. "Joshy's Tip Pal") |
+| Bottom nav | 4 tabs: Today · History · Rec. Foods · Settings — replaces link-based nav |
+| Morning session | Orange checkmarks (`#ff6b35`) |
+| Evening session | Purple checkmarks (`#9b6fd4`) |
+| Medications on daily view | Inline in AM/PM food list with purple card treatment — not a separate screen |
+| Program progress | SVG ring around child avatar — fills clockwise, sky blue, Visit N of 25 |
+| Buffer days | Replaces week progress bar in header — label + bold number + ⓘ info button |
+| Week badges on treatment foods | Hidden when all foods in sync; shown per-food only when diverged |
+| Group food interaction | Checkbox completes all; chevron expands/collapses independently; no auto-expand on check |
+
+---
+
+### Architecture Change — Treatment Food Week/Day Tracking
+
+**This is a data model change from Phase 2.** The single global week/day counter is replaced by per-food counters.
+
+**New model:**
+- Each treatment food stores its own `week` and `day` in Supabase (`treatment_food_progress` table or equivalent column on the treatment food row)
+- **Global week/day** (displayed in header) = the furthest-behind treatment food at all times
+- **Buffer days** are calculated against the global (slowest) counter — because buffer is only meaningful when the slowest food completes its final week
+- **Per-food week badges** hidden when all foods share the same week/day; appear on individual food cards only when at least one food diverges from the rest
+
+**Day completion and advancement:**
+- Complete Day gate: all evening treatment foods must be checked (existing rule unchanged)
+- When Complete Day is triggered: each **checked** evening treatment food advances its own day counter independently
+- A treatment food that was **individually skipped** (not checked) stays on its current day — it does not advance
+- A **full evening skip** (Skip evening button) blocks Complete Day entirely, same as current behaviour
+- When foods fall out of sync: per-food week/day badges appear on each evening treatment food card showing that food's individual position (e.g. `Wk 7` vs `Wk 1`)
+- The global header counter always reflects the furthest-behind food, so buffer days are never overstated
+
+**Example scenario (real case):**
+Peanut Gelatin is on Week 7, Day 3. Uncooked Mare Milk is on Week 1, Day 1 (new food this cycle). Header shows "Week 1, Day 1" (the furthest behind). Both foods show individual week badges since they are out of sync. Completing a day where both are checked: Peanut advances to Week 7 Day 4, Mare Milk advances to Week 1 Day 2. Header updates to "Week 1, Day 2". If only Peanut is checked (Mare Milk individually skipped): Peanut advances, Mare Milk stays at Day 1. Header remains "Week 1, Day 1".
+
+**Migration note:** Existing `week` and `day` columns on `families` table seed the initial value for all treatment foods on first load after this phase ships.
+
+---
+
+### Features
+
+#### F0: Design System Foundation
+**Goal:** Implement the approved color tokens, typography scale, component library, and bottom nav before any screen-level work begins. All subsequent features build on this foundation.
+**Priority:** P0 — gates everything else in this phase
+
+Acceptance criteria:
+- CSS custom properties defined for all color tokens per `plans/DESIGN-SPEC.md`
+- Bottom nav component (Today · History · Rec. Foods · Settings) replaces current link-based navigation — active state, inactive state, correct routes
+- Card, badge, check circle, section header, CTA button components match spec
+- Morning (orange) and evening (purple) color coding applied throughout
+- No existing functionality broken
+
+Constraints:
+- No screen-level UI changes in this feature — foundation only
+- Dan sign-off required before F1 begins
+
+---
+
+#### F1: Daily View Redesign
+**Goal:** Redesign the primary daily view screen to match the approved design.
+**Priority:** P0
+
+Acceptance criteria:
+- **Header:** child photo avatar with SVG progress ring (sky blue, Visit N of 25, fills clockwise from 12 o'clock). Child name ("Joshy's Tip Pal") top left. Visit · Week · Day title. Appointment bubble (frosted pill, no emoji, text only: "61 days to appointment"). All three text lines stack to the right of the avatar.
+- **Buffer days row:** immediately below header. Label "Buffer days" (13px, regular weight, `rgba(255,255,255,0.85)`), bold number (13px, 700, white), ⓘ circle button far right. Tap ⓘ → sheet with buffer days explanation including: "The day of your appointment and the day before (for travel) are not counted as buffer days."
+- **Day navigator:** date + "Today" sub, left/right chevrons, right disabled on current unlogged day
+- **Morning section:** ☀️ icon, "MORNING" label, count. Orange check circles. CAPPED badge. Crush/chop note inline on dose line for seeds.
+- **Evening section:** 🌙 icon, "EVENING" label, count. Purple check circles. Week badge per food — hidden when all in sync, shown when diverged.
+- **Medications:** appear inline in AM and/or PM list per their schedule. Purple card treatment (border `#e8dff5`, check circle `#9b6fd4`). No CAPPED badge, no week badge.
+- **Group food cards:** checkbox completes all; chevron expands/collapses only; partial state = dashed border + dashed circle; expanded state shows individual sub-item check circles; no auto-expand on checkbox tap.
+- **Complete Day button:** disabled (muted) until all evening treatment foods checked. Skip morning / Skip evening links below.
+- **Bottom nav:** Today tab active.
+- Per-food week/day advancement logic per Architecture Change section above.
+
+Constraints:
+- Dan sign-off required (UI gate)
+- No changes to dose logging, week advancement, or skip logic beyond what is specified above
+
+---
+
+#### F2: Header Child Name + Photo
+**Goal:** Replace family name with child name in header. Add child photo to avatar circle.
+**Priority:** P0
+
+Acceptance criteria:
+- `child_name` field added to Supabase (replaces or supplements `family_name`)
+- Header displays "[child_name]'s Tip Pal" (e.g. "Joshy's Tip Pal")
+- Child photo stored in Supabase Storage, displayed in header avatar circle
+- Tapping photo in Settings → opens device photo library (Capacitor Camera plugin)
+- Onboarding updated: collects child name and optional photo on step 1; no family name field
+- Existing accounts: `child_name` defaults to existing `family_name` value on migration
+
+Constraints:
+- Multi-child architecture not built — single child per account for now. Schema should not block it in future.
+
+---
+
+#### F3: Treatment Food Week/Day Data Model Migration
+**Goal:** Migrate from single global week/day counter to per-food independent counters.
+**Priority:** P0 — blocks F1 daily view logic
+
+Acceptance criteria:
+- Each treatment food row in Supabase has its own `week` and `day` columns
+- On load, global header week/day = minimum (furthest behind) across all active treatment foods
+- Complete Day advances only checked treatment foods; skipped foods stay on their current day
+- Per-food week badges appear on evening food cards when at least one food is on a different week/day than the others; hidden when all in sync
+- Buffer days recalculated against the furthest-behind food's projected final week completion date
+- Existing data migrated: current global `week` and `day` seeded into all treatment foods
+
+Constraints:
+- Architect must define migration plan before Dev starts — this touches existing Phase 2 F4 logic
+- No change to Complete Day gate rule (all evening foods must be checked)
+
+---
+
+#### F4: Medications on Daily View
+**Goal:** Move medications (Zyrtec, Flovent, etc.) from the Recommended Foods screen into the daily AM/PM food list.
+**Priority:** P0
+
+Acceptance criteria:
+- Medications parsed via Schema v2 `medications` array appear inline in the morning and/or evening food list based on their `frequency` field
+- Medication cards use purple visual treatment: border `#e8dff5`, check circle `#9b6fd4` when checked, card bg `#faf8ff` when checked
+- No CAPPED badge, no week badge on medication cards
+- Dose shown in subtitle line (e.g. "2 puffs")
+- Medications are checkable — tracked same as food items for session completion purposes
+- Medications do NOT gate Complete Day (only evening treatment foods gate Complete Day)
+- Recommended Foods screen (`/foods`) no longer shows medications — tab removed, screen shows recommended foods only with This Week / History tabs
+
+Constraints:
+- Medication order within session: shown after food items, before skip links
+
+---
+
+#### F5: Recommended Foods Screen Redesign
+**Goal:** Redesign the Recommended Foods screen to match the approved design. Rename nav label.
+**Priority:** P1
+
+Acceptance criteria:
+- Bottom nav label: "Rec. Foods"
+- Screen title: "Recommended Foods"
+- Two tabs in orange header: "This week" and "History"
+- **This week tab:** foods grouped by category (Fruits, Proteins & legumes, Seeds & flours, etc.). Each food card shows name, dose, and 5-pip dot row. Filled dots = given this week (`#ff6b35`). Empty dots = remaining (`#f0ddd4`). Label below pips: "3–5 per week". No count prefix before the dots.
+- **History tab:** flat list per week, collapsible. Each collapsed row: week label + date range + status. Expanded: food name + pip row, no grouping, no extra info. Current week expanded by default, prior weeks collapsed.
+- Tapping a pip logs a serving for that food (increments count, fills dot)
+- Weekly count resets on Monday (or configurable week start)
+
+Constraints:
+- No medications on this screen (moved to daily view in F4)
+- Dan sign-off required (UI gate)
+
+---
+
+#### F6: History Screen Redesign
+**Goal:** Redesign the History screen to match the approved design.
+**Priority:** P1
+
+Acceptance criteria:
+- Grouped by week with section labels ("Week 3 · Visit 9")
+- Each day row: date, day number, status dot + label (Complete / In progress / AM skipped / PM skipped)
+- Default collapsed. Chevron expands to show AM and PM session detail inline
+- Expanded: session tag (AM orange / PM purple) + food list as comma-separated string. "Not yet dosed" for pending session.
+- "Edit" button top right → trailing 3-day edit flow (existing F6 from Phase 2, no changes to logic)
+- Most recent week at top
+
+Constraints:
+- Dan sign-off required (UI gate)
+- No changes to edit logic
+
+---
+
+#### F7: Settings Screen Redesign
+**Goal:** Redesign the Settings screen to match the approved design.
+**Priority:** P1
+
+Acceptance criteria:
+- Sections: Child · Program · Notifications · Account · Legal
+- **Child section:** child name (editable inline), child photo (tap to change)
+- **Program section:** next appointment date, current week (manual adjust), current day (manual adjust), New Food Cycle (→ F8 flow), Re-parse schedule
+- **Notifications section:** morning reminder time, evening reminder time, push toggle
+- **Account section:** Sign out (red destructive style)
+- **Legal section:** Privacy policy (→ `/privacy`), Medical disclaimer (→ `/disclaimer`)
+- Version number at bottom
+- All existing settings functionality preserved
+
+Constraints:
+- Dan sign-off required (UI gate)
+
+---
+
+#### F8: New Food Cycle Flow Redesign
+**Goal:** Redesign the New Food Cycle flow to match the approved design.
+**Priority:** P1
+
+Acceptance criteria:
+- **Step 1 — Confirm:** what-happens list (treatment foods replaced, maintenance kept/additive, week/day resets to 1/1, history preserved, visit number updates). Continue / Cancel.
+- **Step 2 — Paste dosing plan:** text area with label "Paste your new dosing plan". PII strip note. CTA: "Parse new dosing plan". Parsing spinner hidden until CTA tapped — not visible on load.
+- **Step 3 — Review changes:** visit transition card (old → new, "Resets to Week 1, Day 1"). Treatment food diff (New / Updated / Removed with reason). Maintenance food diff (New / Kept). **Appointment date input on this screen** — pre-filled from parsed notes, tappable to adjust. CTA: "Confirm new cycle".
+- **Step 4 — Cycle started:** large child avatar with two-layer animated SVG progress ring. Ghost arc (orange `#ff9966`, 55% opacity) shows previous visit position. Sky blue arc (`#4fc3f7`) animates from zero to new visit position on screen load (1.4s ease). Legend below: old visit / new visit. Title "Visit [N] is live". Buffer days shown immediately (calculated from appointment date entered in step 3). Summary card: visit, starting position, next appointment, buffer days. CTA: "Start dosing" → daily view.
+
+Constraints:
+- Dan sign-off required (UI gate)
+- Appointment date not requested before step 3 — parsed from notes and confirmed there
+
+---
+
+#### F9: Onboarding Flow Redesign
+**Goal:** Redesign the 4-step onboarding flow to match the approved design.
+**Priority:** P1
+
+Acceptance criteria:
+- **Step 1 — Child setup:** header "Welcome to Tip Pal" with no child name reference (name not known yet). Photo upload circle (tap → device library). Child name text input. "Skip photo for now" secondary link.
+- **Step 2 — Appointment date:** date picker. Single field. "Tap to pick a date from the calendar."
+- **Step 3 — Visit / Week / Day:** three steppers. Visit stepper cycles through full labeled sequence: Launch → Visit 1 → Visit 2 → … → Visit 20 → Tolerance 1 → Tolerance 2 → Remission 1 → Annual Remission. Week stepper: 1+. Day stepper: 1–7. Header subtitle: "Set the week and day you're currently dosing on." — no appointment reference on this step.
+- **Step 4 — Summary:** mini header preview showing child name and Week/Day (no visit number — not yet parsed). Summary card: child name, next appointment, current position (Visit · Week · Day from steppers), buffer days auto-calculated, "Schedule parsed ✓" if parse already done. CTA: "Start dosing".
+- Progress dots in orange header track step position throughout.
+
+Constraints:
+- Dan sign-off required (UI gate)
+- Visit number in header only appears after schedule is parsed — not during onboarding
+
+---
+
+#### F10: Auth Screen Redesign
+**Goal:** Redesign the login and first-parse screens to match the approved design.
+**Priority:** P1
+
+Acceptance criteria:
+- **Login screen:** orange hero with app icon and tagline "Your family's daily dosing companion". Email + password fields. "Sign in" primary CTA. "Create account" secondary. "Forgot password?" link. Medical disclaimer text at bottom: "Tip Pal is not a medical device and is not affiliated with the Food Allergy Institute or the Tolerance Induction Program. Always follow your provider's instructions."
+- **First parse screen** (shown after first login, before onboarding completes): matches app header style. Avatar with empty ring (no progress yet). Title "Load your dosing plan". Intro text. Paste area labeled "Paste your dosing plan". Hint: "Copy from your patient portal (e.g. TIPConnect) and paste above." CTA: "Parse dosing plan". Secondary: "Enter foods manually instead."
+
+Constraints:
+- Dan sign-off required (UI gate)
+- No changes to Supabase Auth logic
+
+---
+
+### Cross-Feature Dependency Map
+
+| Feature | Depends On |
+|---|---|
+| F0: Design System | None |
+| F1: Daily View | F0, F3 |
+| F2: Child Name + Photo | F0 |
+| F3: Treatment Food Data Model | F0 |
+| F4: Medications on Daily View | F1 |
+| F5: Recommended Foods Screen | F0 |
+| F6: History Screen | F0 |
+| F7: Settings Screen | F0, F2 |
+| F8: New Food Cycle Flow | F7, F3 |
+| F9: Onboarding Flow | F2 |
+| F10: Auth Screen | None |
+
+---
+
+### Definition of Done (Phase 3.5)
+- All 10 features pass QA
+- All UI features have explicit Dan sign-off
+- Daily view, History, Recommended Foods, Settings, New Food Cycle, Onboarding, and Auth screens match approved mockups in `plans/DESIGN-SPEC.md`
+- Per-food week/day tracking logic verified: skipped foods stay behind, global counter always reflects slowest food, buffer days correct
+- Medications appear in daily AM/PM list, not on Recommended Foods screen
+- No regressions in dose logging, week advancement, skip logic, or push notifications
+
+---
+
+### Web Layout Constraint
+
+The web app at tippal.behrman.dev shares the same codebase as the native iOS app. No separate web build is needed — Phase 3.5 changes deploy to both simultaneously on every Vercel push.
+
+**Desktop viewport handling:** Apply a max-width container of `430px` centered on the page with a neutral background (`#f0ece8` or similar warm off-white) filling the remaining space. This renders the app as a centered mobile column on desktop — intentional, zero additional design work required.
+
+Implementation: wrap the root layout in a single container:
+
+```css
+.app-container {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background: var(--color-bg);
+  position: relative;
+}
+
+body {
+  background: #f0ece8;
+}
+```
+
+This is an F0 (Design System Foundation) task — one of the first things applied.
+
+---
 ## Phase 4 — Engagement 📋 Planned
 > First draft. Details locked after Phase 3 is confirmed.
 
