@@ -19,7 +19,6 @@ export default function RecommendedFoodsView({
   onUndo,
 }: RecommendedFoodsViewProps) {
   const recommendedFoods = schedule.recommendedFoods ?? []
-  const medications = schedule.medications ?? []
 
   return (
     <div className="max-w-lg mx-auto px-4 py-6 min-h-screen flex flex-col">
@@ -27,7 +26,7 @@ export default function RecommendedFoodsView({
         <Link href="/daily" className="text-sm text-slate-600 underline">
           ← Daily view
         </Link>
-        <h1 className="text-2xl font-bold mt-3">Recommended &amp; Medications</h1>
+        <h1 className="text-2xl font-bold mt-3">Recommended Foods</h1>
         <p className="text-sm text-gray-500 mt-1">Week {currentWeek}</p>
       </div>
 
@@ -84,30 +83,9 @@ export default function RecommendedFoodsView({
         </section>
       )}
 
-      {medications.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-base font-semibold text-gray-700 mb-3 uppercase tracking-wide text-xs">
-            Daily medications
-          </h2>
-          <div className="flex flex-col gap-3">
-            {medications.map((med) => (
-              <div
-                key={med.name}
-                className="bg-white border border-gray-200 rounded-xl p-4"
-              >
-                <p className="font-semibold text-slate-900">{med.name}</p>
-                <p className="text-sm text-gray-500">
-                  {med.dose} {med.unit} &middot; {med.frequency}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {recommendedFoods.length === 0 && medications.length === 0 && (
+      {recommendedFoods.length === 0 && (
         <p className="text-gray-500 text-sm">
-          No recommended foods or medications in your current schedule. Re-parse your plan of care to update.
+          No recommended foods in your current schedule. Re-parse your plan of care to update.
         </p>
       )}
     </div>
