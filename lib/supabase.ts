@@ -104,11 +104,11 @@ export async function fetchFamilyName(): Promise<string | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("families")
-    .select("name")
+    .select("child_name, name")
     .eq("id", familyId)
     .single()
   if (error) throw error
-  return (data.name as string | null) || null
+  return (data.child_name as string | null) || (data.name as string | null) || null
 }
 
 export async function fetchFoodGroups(): Promise<FoodGroup[]> {
@@ -138,7 +138,7 @@ export async function saveFamilyConfig(
   const familyId = await getFamilyId()
   const { error } = await getClient()
     .from("families")
-    .update({ name, next_appointment_date: appointmentDate })
+    .update({ name, child_name: name, next_appointment_date: appointmentDate })
     .eq("id", familyId)
   if (error) throw error
 }
@@ -150,6 +150,48 @@ export async function saveFamilyName(name: string): Promise<void> {
     .update({ name })
     .eq("id", familyId)
   if (error) throw error
+}
+
+export async function saveChildName(name: string): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ child_name: name })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function uploadChildPhoto(file: File): Promise<string> {
+  const familyId = await getFamilyId()
+  const ext = file.type === "image/png" ? "png" : "jpg"
+  const path = `${familyId}/avatar.${ext}`
+  const { error } = await getClient()
+    .storage
+    .from("avatars")
+    .upload(path, file, { upsert: true, contentType: file.type })
+  if (error) throw error
+  const { data } = getClient().storage.from("avatars").getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function saveChildPhotoUrl(url: string): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ child_photo_url: url })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function fetchChildPhotoUrl(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("child_photo_url")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return (data.child_photo_url as string | null) || null
 }
 
 export async function saveBulkCatchUpLog(toWeek: number, toDay: number): Promise<void> {
