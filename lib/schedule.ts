@@ -1,4 +1,4 @@
-import { ParsedSchedule, TreatmentFood, TreatmentWeek } from "./types"
+import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress } from "./types"
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -111,4 +111,63 @@ export function getTreatmentFoodsForWeek(
     const lastEntry = sortedWeeks[sortedWeeks.length - 1]
     return { food, weekEntry: lastEntry, isContinuing: true }
   })
+}
+
+export function getTreatmentFoodEntry(
+  food: TreatmentFood,
+  week: number
+): { weekEntry: TreatmentWeek; isContinuing: boolean } {
+  const exactEntry = food.weeks.find(w => w.week === week)
+  if (exactEntry) return { weekEntry: exactEntry, isContinuing: false }
+  const sortedWeeks = [...food.weeks].sort((a, b) => a.week - b.week)
+  const lastEntry = sortedWeeks[sortedWeeks.length - 1]
+  return { weekEntry: lastEntry, isContinuing: true }
+}
+
+export function getGlobalPosition(
+  progress: Map<string, FoodProgress>
+): { week: number; day: number } {
+  if (progress.size === 0) return { week: 1, day: 1 }
+  let minIndex = Infinity
+  let result = { week: 1, day: 1 }
+  for (const fp of progress.values()) {
+    const idx = (fp.week - 1) * 7 + (fp.day - 1)
+    if (idx < minIndex) {
+      minIndex = idx
+      result = { week: fp.week, day: fp.day }
+    }
+  }
+  return result
+}
+
+export function foodsAreInSync(progress: Map<string, FoodProgress>): boolean {
+  if (progress.size <= 1) return true
+  const values = [...progress.values()]
+  const first = values[0]
+  return values.every(fp => fp.week === first.week && fp.day === first.day)
+}
+
+export function calculateBufferFromProgress(
+  appointmentDateStr: string | null,
+  totalTreatmentWeeks: number,
+  slowestWeek: number,
+  slowestCompletedDays: number
+): BufferResult {
+  if (!appointmentDateStr || totalTreatmentWeeks === 0) return { kind: "hidden" }
+
+  const apptDate = parseDateOnly(appointmentDateStr)
+  const todayMidnight = parseDateOnly(todayDateString())
+  if (apptDate <= todayMidnight) return { kind: "past" }
+
+  // remainingDays = calendar days from today until the slowest food reaches its final Day 7
+  // Formula derived from: positionIndex(totalWeeks, 7) - positionIndex(slowestWeek, slowestDay)
+  // where slowestDay = slowestCompletedDays + 1
+  const remainingDays =
+    (totalTreatmentWeeks - slowestWeek) * 7 + (6 - slowestCompletedDays)
+  const finalDay7Date = parseDateOnly(addDays(todayDateString(), remainingDays))
+  const bufferDays =
+    Math.round((apptDate.getTime() - finalDay7Date.getTime()) / MS_PER_DAY) - 1
+
+  if (bufferDays < 0) return { kind: "behind", count: Math.abs(bufferDays) }
+  return { kind: "days", count: bufferDays }
 }

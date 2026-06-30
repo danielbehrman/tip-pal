@@ -85,3 +85,11 @@ export interface DayRecord {
   date: string
   skipped: boolean
 }
+
+export interface FoodProgress {
+  foodName: string
+  week: number
+  day: number
+  completedDays: number
+  lastCompletedAt: string | null
+}
