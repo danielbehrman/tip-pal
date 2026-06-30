@@ -10,7 +10,7 @@ const TABS = [
   { label: "Settings", href: "/settings", icon: "⚙" },
 ] as const
 
-const HIDDEN_ROUTES = new Set(["/login", "/setup", "/onboarding", "/"])
+const HIDDEN_ROUTES = new Set(["/login", "/setup", "/onboarding", "/", "/privacy", "/disclaimer"])
 
 export default function BottomNav() {
   const pathname = usePathname()
