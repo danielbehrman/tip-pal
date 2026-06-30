@@ -11,6 +11,7 @@ interface FoodItemProps {
   checked: boolean
   onChange: (checked: boolean) => void
   disabled?: boolean
+  weekBadge?: string
 }
 
 export default function FoodItem({
@@ -24,6 +25,7 @@ export default function FoodItem({
   checked,
   onChange,
   disabled = false,
+  weekBadge,
 }: FoodItemProps) {
   return (
     <label className={`flex items-start gap-4 py-3 min-h-[44px] ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
@@ -51,6 +53,14 @@ export default function FoodItem({
           )}
           {isContinuing && (
             <span className="text-xs text-gray-500 italic">Continuing final dose</span>
+          )}
+          {weekBadge && (
+            <span
+              className="text-[9px] font-medium px-1.5 py-0.5 rounded-[4px] ml-1"
+              style={{ background: "#f0eaff", color: "#7a4db8" }}
+            >
+              {weekBadge}
+            </span>
           )}
         </div>
         <div className={`text-sm ${checked ? "text-gray-400" : "text-gray-700"}`}>

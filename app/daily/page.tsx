@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ParsedSchedule, DoseState, DayRecord, FoodGroup } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
 import {
   fetchSchedule,
   fetchDoseState,
@@ -20,8 +20,11 @@ import {
   fetchVisitNumber,
   saveTimezone,
   getSession,
+  fetchFoodProgress,
+  saveFoodProgress,
+  seedFoodProgress,
 } from "@/lib/supabase"
-import { todayDateString, addDays, getTreatmentFoodsForWeek } from "@/lib/schedule"
+import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 export default function DailyPage() {
@@ -36,11 +39,13 @@ export default function DailyPage() {
   const [previousDayIncomplete, setPreviousDayIncomplete] = useState(false)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [visitNumber, setVisitNumber] = useState<string | null>(null)
+  const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
   // treatmentAnchor holds the current treatment day position, computed live from
   // cycle_start_date + skip_count. Set from doseState on load — never advanced
   // locally except by re-fetching doseState after a write that re-anchors it
   // (Settings, Skip Day does NOT re-anchor — see handleSkipDay).
   const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
+  const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
 
   useEffect(() => {
     async function load() {
@@ -67,7 +72,7 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups, vNum] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
@@ -75,6 +80,7 @@ export default function DailyPage() {
           fetchDayRecords().catch(() => new Map<string, DayRecord>()),
           fetchFoodGroups().catch(() => []),
           fetchVisitNumber().catch(() => null),
+          fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -89,9 +95,37 @@ export default function DailyPage() {
           floorWeek: 1,
           floorDay: 1,
         }
+
+        // Seed food progress on first load if the table is empty for this family
+        let progress = rawProgress
+        if (progress.size === 0 && s.treatmentFoods.length > 0) {
+          try {
+            progress = await seedFoodProgress(
+              s.treatmentFoods,
+              initialState.currentWeek,
+              initialState.currentDay
+            )
+          } catch {
+            // Seed failed — continue with empty progress; app still functional
+          }
+        }
+
+        // Override global week/day from food progress (per-food counters are authoritative)
+        const globalPos = progress.size > 0
+          ? getGlobalPosition(progress)
+          : { week: initialState.currentWeek, day: initialState.currentDay }
+
+        const stateWithGlobalPos: DoseState = {
+          ...initialState,
+          currentWeek: globalPos.week,
+          currentDay: globalPos.day,
+        }
+
         setSchedule(s)
-        setDoseState(initialState)
-        setTreatmentAnchor({ week: initialState.currentWeek, day: initialState.currentDay })
+        setDoseState(stateWithGlobalPos)
+        setFoodProgress(progress)
+        foodProgressRef.current = progress
+        setTreatmentAnchor({ week: globalPos.week, day: globalPos.day })
         setAppointmentDate(apptDate)
         setFamilyName(name)
         setCompletedPositions(positions)
@@ -177,24 +211,60 @@ export default function DailyPage() {
     const current = doseStateRef.current
     if (!current || !hydrated) return
 
-    const { currentWeek, currentDay, checkedFoods } = current
+    const { checkedFoods } = current
+    const foodProgress = foodProgressRef.current
     const completedAt = new Date().toISOString()
 
+    // Advance per-food progress for every checked evening treatment food
+    const updatedProgress = new Map(foodProgress)
+    const currentSchedule = schedule!
+    for (const food of currentSchedule.treatmentFoods) {
+      const key = `evening-${food.name}`
+      if (!checkedFoods[key]) continue
+      const fp = updatedProgress.get(food.name)
+      if (!fp) continue
+      const newCompletedDays = fp.completedDays + 1
+      if (newCompletedDays >= 7) {
+        updatedProgress.set(food.name, { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: completedAt })
+      } else {
+        updatedProgress.set(food.name, { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt })
+      }
+    }
+
+    // Log uses the global position BEFORE advancement (the position just completed)
+    const globalBefore = getGlobalPosition(foodProgress)
+
     try {
-      await saveDoseLog(currentWeek, currentDay, checkedFoods, completedAt, schedule!)
+      await saveFoodProgress(updatedProgress)
+    } catch {
+      // Save failed — continue; local state still reflects progress
+    }
+
+    try {
+      await saveDoseLog(globalBefore.week, globalBefore.day, checkedFoods, completedAt, currentSchedule)
     } catch {
       // Log failed — local state still reflects the checked foods either way
     }
 
+    const newGlobal = getGlobalPosition(updatedProgress)
+
+    setFoodProgress(updatedProgress)
+    foodProgressRef.current = updatedProgress
+    setDoseState(prev => {
+      if (!prev) return prev
+      return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day }
+    })
+    setTreatmentAnchor(newGlobal)
+
     setCompletedPositions(prev => {
       const next = new Set(prev)
-      next.add(`${currentWeek}-${currentDay}`)
+      next.add(`${globalBefore.week}-${globalBefore.day}`)
       return next
     })
 
     setDayRecords(prev => {
       const next = new Map(prev)
-      next.set(`${currentWeek}-${currentDay}`, { date: completedAt, skipped: false })
+      next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false })
       return next
     })
   }
@@ -259,6 +329,7 @@ export default function DailyPage() {
       foodGroups={foodGroups}
       visitNumber={visitNumber}
       isAppointmentDay={isAppointmentDay}
+      foodProgress={foodProgress}
     />
   )
 }

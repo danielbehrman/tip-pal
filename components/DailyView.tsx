@@ -1,7 +1,7 @@
 "use client"
 
-import { ParsedSchedule, DoseState, DayRecord, FoodGroup } from "@/lib/types"
-import { getTreatmentFoodsForWeek, getTotalTreatmentWeeks, calculateBuffer } from "@/lib/schedule"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
+import { getTotalTreatmentWeeks, calculateBufferFromProgress } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -22,6 +22,7 @@ interface DailyViewProps {
   foodGroups: FoodGroup[]
   visitNumber: string | null
   isAppointmentDay: boolean
+  foodProgress: Map<string, FoodProgress>
 }
 
 function formatDateLabel(date: Date): string {
@@ -44,16 +45,32 @@ export default function DailyView({
   foodGroups,
   visitNumber,
   isAppointmentDay,
+  foodProgress,
 }: DailyViewProps) {
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
-  const bufferResult = calculateBuffer(
+  const totalTreatmentWeeks = getTotalTreatmentWeeks(schedule)
+
+  // Find the slowest food's completedDays for buffer projection
+  let slowestCompletedDays = 0
+  if (foodProgress.size > 0) {
+    let minIdx = Infinity
+    for (const fp of foodProgress.values()) {
+      const idx = (fp.week - 1) * 7 + (fp.day - 1)
+      if (idx < minIdx) {
+        minIdx = idx
+        slowestCompletedDays = fp.completedDays
+      }
+    }
+  }
+
+  const bufferResult = calculateBufferFromProgress(
     appointmentDate,
-    getTotalTreatmentWeeks(schedule),
-    doseState.cycleStartDate,
-    doseState.skipCount
+    totalTreatmentWeeks,
+    doseState.currentWeek,
+    slowestCompletedDays
   )
-  const eveningItems = getTreatmentFoodsForWeek(schedule, currentWeek)
+  const eveningItems = schedule.treatmentFoods
 
   const viewSeq = (currentWeek - 1) * 7 + currentDay
   const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
@@ -85,7 +102,7 @@ export default function DailyView({
     if (val && key.startsWith("evening-") && !isFutureDay && eveningItems.length > 0) {
       const updatedChecked = { ...checkedFoods, [key]: val }
       const allEveningChecked = eveningItems.every(
-        ({ food }) => !!updatedChecked[`evening-${food.name}`]
+        food => !!updatedChecked[`evening-${food.name}`]
       )
       if (allEveningChecked) {
         onCompleteDay()
@@ -252,6 +269,7 @@ export default function DailyView({
             isFutureDay={isFutureDay}
             isCurrentTreatmentDay={isCurrentTreatmentDay}
             isSkipped={isSkipped}
+            foodProgress={foodProgress}
           />
         </>
       )}

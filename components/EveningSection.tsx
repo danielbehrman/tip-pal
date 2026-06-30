@@ -1,9 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { ParsedSchedule } from "@/lib/types"
+import { ParsedSchedule, FoodProgress } from "@/lib/types"
 import FoodItem from "./FoodItem"
-import { getTreatmentFoodsForWeek } from "@/lib/schedule"
+import { getTreatmentFoodEntry, foodsAreInSync } from "@/lib/schedule"
 
 interface EveningSectionProps {
   schedule: ParsedSchedule
@@ -14,6 +14,7 @@ interface EveningSectionProps {
   isFutureDay: boolean
   isCurrentTreatmentDay: boolean
   isSkipped: boolean
+  foodProgress: Map<string, FoodProgress>
 }
 
 export default function EveningSection({
@@ -25,14 +26,17 @@ export default function EveningSection({
   isFutureDay,
   isCurrentTreatmentDay,
   isSkipped,
+  foodProgress,
 }: EveningSectionProps) {
-  const treatmentItems = getTreatmentFoodsForWeek(schedule, currentWeek)
   const [confirming, setConfirming] = useState(false)
 
-  const allChecked = treatmentItems.length > 0 && treatmentItems.every(
-    ({ food }) => !!checkedFoods[`evening-${food.name}`]
+  const inSync = foodsAreInSync(foodProgress)
+  const treatmentFoods = schedule.treatmentFoods
+
+  const allChecked = treatmentFoods.length > 0 && treatmentFoods.every(
+    food => !!checkedFoods[`evening-${food.name}`]
   )
-  const canSkip = isCurrentTreatmentDay && !isFutureDay && !allChecked && treatmentItems.length > 0 && !isSkipped
+  const canSkip = isCurrentTreatmentDay && !isFutureDay && !allChecked && treatmentFoods.length > 0 && !isSkipped
 
   return (
     <section className="mb-6">
@@ -49,20 +53,27 @@ export default function EveningSection({
       ) : (
         <>
           <div className="divide-y divide-gray-100">
-            {treatmentItems.map(({ food, weekEntry, isContinuing }) => (
-              <FoodItem
-                key={`evening-${food.name}`}
-                name={food.name}
-                dose={weekEntry.dose}
-                unit={weekEntry.unit}
-                prepNote={null}
-                capped={false}
-                isWeekly={false}
-                isContinuing={isContinuing}
-                checked={!!checkedFoods[`evening-${food.name}`]}
-                onChange={(val) => onCheck(`evening-${food.name}`, val)}
-              />
-            ))}
+            {treatmentFoods.map(food => {
+              const fp = foodProgress.get(food.name)
+              const foodWeek = fp?.week ?? currentWeek
+              const { weekEntry, isContinuing } = getTreatmentFoodEntry(food, foodWeek)
+              const weekBadge = !inSync && fp ? `Wk ${fp.week}` : undefined
+              return (
+                <FoodItem
+                  key={`evening-${food.name}`}
+                  name={food.name}
+                  dose={weekEntry.dose}
+                  unit={weekEntry.unit}
+                  prepNote={null}
+                  capped={false}
+                  isWeekly={false}
+                  isContinuing={isContinuing}
+                  checked={!!checkedFoods[`evening-${food.name}`]}
+                  onChange={val => onCheck(`evening-${food.name}`, val)}
+                  weekBadge={weekBadge}
+                />
+              )
+            })}
           </div>
 
           {canSkip && (
