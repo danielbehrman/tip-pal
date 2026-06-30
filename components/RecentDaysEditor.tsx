@@ -88,6 +88,7 @@ export default function RecentDaysEditor({ schedule, days, onToggle }: RecentDay
                       unit={f.unit}
                       prepNote={f.prepNote}
                       capped={f.capped}
+                      session="morning"
                       isWeekly={f.isWeekly}
                       isContinuing={f.isContinuing}
                       checked={!!entry.checkedFoods[f.key]}
@@ -110,6 +111,7 @@ export default function RecentDaysEditor({ schedule, days, onToggle }: RecentDay
                       unit={f.unit}
                       prepNote={f.prepNote}
                       capped={f.capped}
+                      session="evening"
                       isWeekly={f.isWeekly}
                       isContinuing={f.isContinuing}
                       checked={!!entry.checkedFoods[f.key]}

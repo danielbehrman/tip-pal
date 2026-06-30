@@ -259,6 +259,25 @@ export async function saveSkipDay(week: number, day: number): Promise<void> {
   if (incrementError) throw incrementError
 }
 
+export async function saveSkipMorning(week: number, day: number): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .upsert(
+      {
+        family_id: familyId,
+        week,
+        day,
+        session: "morning",
+        is_skipped: true,
+        checked_foods: {},
+        completed_at: new Date().toISOString(),
+      },
+      { onConflict: "family_id,week,day,session" }
+    )
+  if (error) throw error
+}
+
 export async function fetchCompletedPositions(): Promise<Set<string>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()

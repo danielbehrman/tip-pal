@@ -1,8 +1,10 @@
 "use client"
 
-import { ParsedSchedule, FoodGroup, MaintenanceFood, WeeklyFood } from "@/lib/types"
+import { ParsedSchedule, FoodGroup, MaintenanceFood, WeeklyFood, Medication } from "@/lib/types"
+import { getMedicationSessions } from "@/lib/schedule"
 import FoodItem from "./FoodItem"
 import FoodGroupRow from "./FoodGroupRow"
+import SectionHeader from "./ui/SectionHeader"
 
 interface MorningSectionProps {
   schedule: ParsedSchedule
@@ -24,19 +26,15 @@ function buildMorningItems(
   showWeekly: boolean,
   groups: FoodGroup[]
 ): MorningItem[] {
-  // Build a lookup: foodName → group (for foods that appear in any group)
   const foodToGroup = new Map<string, FoodGroup>()
   for (const group of groups) {
-    for (const name of group.foodNames) {
-      foodToGroup.set(name, group)
-    }
+    for (const name of group.foodNames) foodToGroup.set(name, group)
   }
 
-  // For each group, collect its resolved foods in schedule order (maintenance first, then weekly)
   const groupFoodsMap = new Map<string, Array<{ food: MaintenanceFood | WeeklyFood; prefix: "morning" | "morning-weekly" }>>()
   const emittedGroups = new Set<string>()
 
-  function getGroupFoods(group: FoodGroup): Array<{ food: MaintenanceFood | WeeklyFood; prefix: "morning" | "morning-weekly" }> {
+  function getGroupFoods(group: FoodGroup) {
     if (groupFoodsMap.has(group.id)) return groupFoodsMap.get(group.id)!
     const result: Array<{ food: MaintenanceFood | WeeklyFood; prefix: "morning" | "morning-weekly" }> = []
     for (const food of maintenanceFoods) {
@@ -53,25 +51,19 @@ function buildMorningItems(
 
   const items: MorningItem[] = []
 
-  // Walk maintenance foods in schedule order
   for (const food of maintenanceFoods) {
     const group = foodToGroup.get(food.name)
     if (group) {
       if (!emittedGroups.has(group.id)) {
-        // First member of this group in schedule order — emit the group row
         emittedGroups.add(group.id)
         const foods = getGroupFoods(group)
-        if (foods.length > 0) {
-          items.push({ type: "group", group, foods })
-        }
+        if (foods.length > 0) items.push({ type: "group", group, foods })
       }
-      // Non-first members: skip (already included in the group row above)
     } else {
       items.push({ type: "standalone", food, prefix: "morning" })
     }
   }
 
-  // Walk weekly foods (Day 7 only)
   if (showWeekly) {
     for (const food of weeklyFoods) {
       const group = foodToGroup.get(food.name)
@@ -79,9 +71,7 @@ function buildMorningItems(
         if (!emittedGroups.has(group.id)) {
           emittedGroups.add(group.id)
           const foods = getGroupFoods(group)
-          if (foods.length > 0) {
-            items.push({ type: "group", group, foods })
-          }
+          if (foods.length > 0) items.push({ type: "group", group, foods })
         }
       } else {
         items.push({ type: "weekly", food, prefix: "morning-weekly" })
@@ -90,6 +80,11 @@ function buildMorningItems(
   }
 
   return items
+}
+
+function getMorningMedications(medications: Medication[] | undefined): Medication[] {
+  if (!medications?.length) return []
+  return medications.filter(med => getMedicationSessions(med.frequency).includes("morning"))
 }
 
 export default function MorningSection({
@@ -107,12 +102,16 @@ export default function MorningSection({
     showWeekly,
     foodGroups
   )
+  const morningMeds = getMorningMedications(schedule.medications)
+
+  // Count: all food items (groups count as 1) + medications
+  const itemCount = items.length + morningMeds.length
 
   return (
-    <section className="mb-6">
-      <h2 className="text-xl font-bold mb-2">Morning</h2>
-      <div className="divide-y divide-gray-100">
-        {items.map((item) => {
+    <section className="mb-5">
+      <SectionHeader session="morning" label="Morning" count={itemCount} />
+      <div>
+        {items.map(item => {
           if (item.type === "group") {
             return (
               <FoodGroupRow
@@ -126,19 +125,38 @@ export default function MorningSection({
             )
           }
           const isWeekly = item.type === "weekly"
+          const key = `${item.prefix}-${item.food.name}`
           return (
             <FoodItem
-              key={`${item.prefix}-${item.food.name}`}
+              key={key}
               name={item.food.name}
               dose={item.food.dose}
               unit={item.food.unit}
               prepNote={item.food.prepNote ?? null}
               capped={"capped" in item.food ? item.food.capped : false}
+              session="morning"
               isWeekly={isWeekly}
               isContinuing={false}
-              checked={!!checkedFoods[`${item.prefix}-${item.food.name}`]}
+              checked={!!checkedFoods[key]}
               disabled={isFutureDay}
-              onChange={(val) => onCheck(`${item.prefix}-${item.food.name}`, val)}
+              onChange={val => onCheck(key, val)}
+            />
+          )
+        })}
+        {morningMeds.map(med => {
+          const key = `morning-med-${med.name}`
+          return (
+            <FoodItem
+              key={key}
+              name={med.name}
+              dose={med.dose}
+              unit={med.unit}
+              prepNote={null}
+              capped={false}
+              session="med"
+              checked={!!checkedFoods[key]}
+              disabled={isFutureDay}
+              onChange={val => onCheck(key, val)}
             />
           )
         })}

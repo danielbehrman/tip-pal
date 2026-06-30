@@ -10,6 +10,7 @@ import {
   saveCheckedState,
   saveDoseLog,
   saveSkipDay,
+  saveSkipMorning,
   fetchCompletedPositions,
   fetchDayRecords,
   fetchDateHasDayRecord,
@@ -295,6 +296,16 @@ export default function DailyPage() {
     })
   }
 
+  async function handleSkipMorning() {
+    if (!hydrated || !treatmentAnchor) return
+    const { week, day } = treatmentAnchor
+    try {
+      await saveSkipMorning(week, day)
+    } catch {
+      // Silent — informational log, failure is non-critical
+    }
+  }
+
   if (!schedule || !doseState || !treatmentAnchor) return null
 
   const isAppointmentDay = !!appointmentDate && appointmentDate === todayDateString()
@@ -306,7 +317,7 @@ export default function DailyPage() {
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
       onSkipDay={handleSkipDay}
-      onSkipMorning={() => {}}
+      onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
       familyName={familyName}
       completedPositions={completedPositions}

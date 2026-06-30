@@ -1,9 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { ParsedSchedule, FoodProgress } from "@/lib/types"
+import { ParsedSchedule, FoodProgress, Medication } from "@/lib/types"
+import { getMedicationSessions, getTreatmentFoodEntry, foodsAreInSync } from "@/lib/schedule"
 import FoodItem from "./FoodItem"
-import { getTreatmentFoodEntry, foodsAreInSync } from "@/lib/schedule"
+import SectionHeader from "./ui/SectionHeader"
+import CTAButton from "./ui/CTAButton"
 
 interface EveningSectionProps {
   schedule: ParsedSchedule
@@ -11,12 +13,17 @@ interface EveningSectionProps {
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
   onSkipDay: () => void
-  onSkipMorning?: () => void
+  onSkipMorning: () => void
   onCompleteDay: () => void
   isFutureDay: boolean
   isCurrentTreatmentDay: boolean
   isSkipped: boolean
   foodProgress: Map<string, FoodProgress>
+}
+
+function getEveningMedications(medications: Medication[] | undefined): Medication[] {
+  if (!medications?.length) return []
+  return medications.filter(med => getMedicationSessions(med.frequency).includes("evening"))
 }
 
 export default function EveningSection({
@@ -25,98 +32,145 @@ export default function EveningSection({
   checkedFoods,
   onCheck,
   onSkipDay,
+  onSkipMorning,
   onCompleteDay,
   isFutureDay,
   isCurrentTreatmentDay,
   isSkipped,
   foodProgress,
 }: EveningSectionProps) {
-  const [confirming, setConfirming] = useState(false)
+  const [confirmingSkip, setConfirmingSkip] = useState(false)
 
   const inSync = foodsAreInSync(foodProgress)
   const treatmentFoods = schedule.treatmentFoods
+  const eveningMeds = getEveningMedications(schedule.medications)
 
-  const allChecked = treatmentFoods.length > 0 && treatmentFoods.every(
-    food => !!checkedFoods[`evening-${food.name}`]
-  )
-  const canSkip = isCurrentTreatmentDay && !isFutureDay && !allChecked && treatmentFoods.length > 0 && !isSkipped
+  const allTreatmentChecked =
+    treatmentFoods.length > 0 &&
+    treatmentFoods.every(food => !!checkedFoods[`evening-${food.name}`])
+
+  // Count: treatment foods + medications
+  const itemCount = treatmentFoods.length + eveningMeds.length
+
+  const showActions = isCurrentTreatmentDay && !isFutureDay && !isSkipped
 
   return (
     <section className="mb-6">
-      <h2 className="text-xl font-bold mb-1">Evening</h2>
-      <p className="text-xs text-gray-500 mb-2">
-        4 hrs after morning · 15 min between foods · 1 hr rest after
-      </p>
+      <SectionHeader session="evening" label="Evening" count={itemCount} />
+
       {isFutureDay ? (
-        <div className="mt-2 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
-          <p className="text-sm text-amber-900 font-medium">
+        <div
+          className="px-4 py-3 rounded-xl"
+          style={{ background: "#fff8e1", border: "0.5px solid #ffe082" }}
+        >
+          <p className="text-sm font-medium" style={{ color: "#795548" }}>
             You haven&apos;t reached this treatment day yet
           </p>
         </div>
       ) : (
         <>
-          <div className="divide-y divide-gray-100">
-            {treatmentFoods.map(food => {
-              const fp = foodProgress.get(food.name)
-              const foodWeek = fp?.week ?? currentWeek
-              const { weekEntry, isContinuing } = getTreatmentFoodEntry(food, foodWeek)
-              const weekBadge = !inSync && fp ? `Wk ${fp.week} · Day ${fp.day}` : undefined
-              return (
-                <FoodItem
-                  key={`evening-${food.name}`}
-                  name={food.name}
-                  dose={weekEntry.dose}
-                  unit={weekEntry.unit}
-                  prepNote={null}
-                  capped={false}
-                  isWeekly={false}
-                  isContinuing={isContinuing}
-                  checked={!!checkedFoods[`evening-${food.name}`]}
-                  onChange={val => onCheck(`evening-${food.name}`, val)}
-                  weekBadge={weekBadge}
-                />
-              )
-            })}
-          </div>
+          {/* Treatment foods */}
+          {treatmentFoods.map(food => {
+            const fp = foodProgress.get(food.name)
+            const foodWeek = fp?.week ?? currentWeek
+            const { weekEntry, isContinuing } = getTreatmentFoodEntry(food, foodWeek)
+            const weekBadge = !inSync && fp ? `Wk ${fp.week} · Day ${fp.day}` : undefined
+            const key = `evening-${food.name}`
+            return (
+              <FoodItem
+                key={key}
+                name={food.name}
+                dose={weekEntry.dose}
+                unit={weekEntry.unit}
+                prepNote={null}
+                capped={false}
+                session="evening"
+                isContinuing={isContinuing}
+                checked={!!checkedFoods[key]}
+                onChange={val => onCheck(key, val)}
+                weekBadge={weekBadge}
+              />
+            )
+          })}
 
-          {allChecked && isCurrentTreatmentDay && !isFutureDay && !isSkipped && (
-            <button
-              className="mt-4 w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl"
-              onClick={onCompleteDay}
-            >
-              Complete Day
-            </button>
+          {/* Evening medications */}
+          {eveningMeds.map(med => {
+            const key = `evening-med-${med.name}`
+            return (
+              <FoodItem
+                key={key}
+                name={med.name}
+                dose={med.dose}
+                unit={med.unit}
+                prepNote={null}
+                capped={false}
+                session="med"
+                checked={!!checkedFoods[key]}
+                onChange={val => onCheck(key, val)}
+              />
+            )
+          })}
+
+          {/* Complete Day — always visible; disabled until all treatment foods checked */}
+          {showActions && (
+            <div className="mt-4">
+              <CTAButton
+                disabled={!allTreatmentChecked}
+                onClick={onCompleteDay}
+              >
+                Complete Day
+              </CTAButton>
+            </div>
           )}
 
-          {canSkip && (
-            confirming ? (
-              <div className="mt-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl">
-                <p className="text-sm font-medium mb-3">
-                  Skip this day? Tomorrow will repeat the same week and day. This can&apos;t be undone.
-                </p>
-                <div className="flex gap-3">
-                  <button
-                    className="flex-1 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg"
-                    onClick={() => { setConfirming(false); onSkipDay() }}
-                  >
-                    Yes — skip
-                  </button>
-                  <button
-                    className="flex-1 py-2 bg-gray-200 text-gray-800 text-sm font-semibold rounded-lg"
-                    onClick={() => setConfirming(false)}
-                  >
-                    Cancel
-                  </button>
+          {/* Skip links */}
+          {showActions && (
+            <div className="mt-3 flex flex-col items-center gap-1">
+              {/* Skip evening — position freeze; only when not all checked */}
+              {!allTreatmentChecked && !confirmingSkip && (
+                <button
+                  className="text-sm underline"
+                  style={{ color: "#c4927a" }}
+                  onClick={() => setConfirmingSkip(true)}
+                >
+                  Skip evening
+                </button>
+              )}
+              {confirmingSkip && (
+                <div
+                  className="w-full px-4 py-3 rounded-xl"
+                  style={{ background: "#f5efe9", border: "0.5px solid #f0ddd4" }}
+                >
+                  <p className="text-sm font-medium mb-3" style={{ color: "#2d1a0e" }}>
+                    Skip this day? Tomorrow will repeat the same week and day. This can&apos;t be undone.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      className="flex-1 py-2 text-sm font-semibold rounded-lg"
+                      style={{ background: "#ff6b35", color: "#fff" }}
+                      onClick={() => { setConfirmingSkip(false); onSkipDay() }}
+                    >
+                      Yes — skip
+                    </button>
+                    <button
+                      className="flex-1 py-2 text-sm font-semibold rounded-lg"
+                      style={{ background: "#f0ddd4", color: "#2d1a0e" }}
+                      onClick={() => setConfirmingSkip(false)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ) : (
+              )}
+              {/* Skip morning — informational log only */}
               <button
-                className="mt-3 text-sm underline text-gray-500"
-                onClick={() => setConfirming(true)}
+                className="text-sm underline"
+                style={{ color: "#c4927a" }}
+                onClick={onSkipMorning}
               >
-                Skip Day
+                Skip morning
               </button>
-            )
+            </div>
           )}
         </>
       )}
