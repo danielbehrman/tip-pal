@@ -129,7 +129,7 @@ export default function OnboardingPage() {
 
   return (
     <main className="max-w-sm mx-auto px-4 py-12 min-h-screen flex flex-col">
-      <h1 className="text-2xl font-bold mb-2">Welcome to TIP Pal</h1>
+      <h1 className="text-2xl font-bold mb-2">Welcome to Tip Pal</h1>
       <p className="text-gray-500 text-sm mb-8">Set up your family profile to get started.</p>
 
       <div className="flex flex-col gap-5">

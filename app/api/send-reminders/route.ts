@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
     try {
       await webpush.sendNotification(
         { endpoint: sub.endpoint as string, keys: { p256dh: sub.p256dh as string, auth: sub.auth as string } },
-        JSON.stringify({ title: "TIP Pal", body, url: "/daily" })
+        JSON.stringify({ title: "Tip Pal", body, url: "/daily" })
       )
       sent++
     } catch {
