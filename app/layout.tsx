@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0f172a",
+  themeColor: "#ff6b35",
 }
 
 export default function RootLayout({
@@ -30,10 +30,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-white text-gray-900">
+      <body>
         <ServiceWorkerRegister />
-        <SignOutButton />
-        {children}
+        <div className="app-container">
+          <SignOutButton />
+          {children}
+        </div>
       </body>
     </html>
   )
