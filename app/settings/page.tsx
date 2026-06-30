@@ -11,7 +11,10 @@ import {
   fetchDoseState,
   fetchNotificationSettings,
   fetchFoodGroups,
-  saveFamilyName,
+  saveChildName,
+  uploadChildPhoto,
+  saveChildPhotoUrl,
+  fetchChildPhotoUrl,
   saveAppointmentDate,
   saveDoseState,
   saveBulkCatchUpLog,
@@ -39,7 +42,10 @@ function urlBase64ToBuffer(base64String: string): ArrayBuffer {
 export default function SettingsPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [familyName, setFamilyName] = useState("")
+  const [childName, setChildName] = useState("")
+  const [childPhotoUrl, setChildPhotoUrl] = useState<string | null>(null)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const [appointmentDate, setAppointmentDate] = useState("")
   const [week, setWeek] = useState(1)
   const [day, setDay] = useState(1)
@@ -73,12 +79,13 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, ds, notifSettings, groups, sched] = await Promise.all([
+        const [name, ds, notifSettings, groups, sched, photoUrl] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
           fetchFoodGroups().catch(() => []),
           fetchSchedule().catch(() => null),
+          fetchChildPhotoUrl().catch(() => null),
         ])
         // Load appointment date separately so we know if it succeeded
         try {
@@ -88,7 +95,8 @@ export default function SettingsPage() {
         } catch {
           // Don't update appointmentDateLoaded — prevents overwriting DB value on save
         }
-        if (name) setFamilyName(name)
+        if (name) setChildName(name)
+        setChildPhotoUrl(photoUrl)
         if (ds) {
           setWeek(ds.currentWeek)
           setDay(ds.currentDay)
@@ -168,11 +176,26 @@ export default function SettingsPage() {
     }
   }
 
+  async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    try {
+      const url = await uploadChildPhoto(file)
+      await saveChildPhotoUrl(url)
+      setChildPhotoUrl(url)
+    } catch {
+      // Silent — photo upload failure is non-critical
+    } finally {
+      setPhotoUploading(false)
+    }
+  }
+
   async function saveAll(withCatchup: boolean) {
     setSaving(true)
     setSaveError(null)
     try {
-      await saveFamilyName(familyName.trim())
+      await saveChildName(childName.trim())
       if (appointmentDateLoaded.current) {
         await saveAppointmentDate(appointmentDate || null)
       }
@@ -205,7 +228,7 @@ export default function SettingsPage() {
   }
 
   function handleSave() {
-    if (!familyName.trim()) { setNameError(true); return }
+    if (!childName.trim()) { setNameError(true); return }
     const positionChanged = week !== originalWeek || day !== originalDay
     const aheadOfStart = week > 1 || day > 1
     if (aheadOfStart && positionChanged) {
@@ -225,17 +248,54 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-5">
+        {/* Child photo */}
+        <div className="flex flex-col items-center mb-6">
+          <button
+            type="button"
+            className="relative"
+            onClick={() => photoInputRef.current?.click()}
+            aria-label="Change child photo"
+          >
+            <div
+              className="rounded-full overflow-hidden flex items-center justify-center"
+              style={{ width: 80, height: 80, background: "#fff3ec", fontSize: 32 }}
+            >
+              {childPhotoUrl ? (
+                <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
+              ) : (
+                "🧒"
+              )}
+            </div>
+            <div
+              className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
+              style={{ width: 24, height: 24, background: "#ff6b35", fontSize: 13 }}
+            >
+              {photoUploading ? "…" : "✎"}
+            </div>
+          </button>
+          <p className="text-xs mt-2" style={{ color: "#9a6a55" }}>
+            {photoUploading ? "Uploading…" : "Tap to change photo"}
+          </p>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handlePhotoChange}
+          />
+        </div>
+
         <div>
           <label className="block text-sm text-gray-500 mb-1">
-            Child's name <span className="text-red-500">*</span>
+            Child&apos;s name <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
-            value={familyName}
-            onChange={e => { setFamilyName(e.target.value); setNameError(false) }}
+            value={childName}
+            onChange={e => { setChildName(e.target.value); setNameError(false) }}
             className={`border rounded-xl px-4 py-3 text-base w-full ${nameError ? "border-red-400" : "border-gray-300"}`}
           />
-          {nameError && <p className="text-red-600 text-sm mt-1">Child's name is required.</p>}
+          {nameError && <p className="text-red-600 text-sm mt-1">Child&apos;s name is required.</p>}
         </div>
 
         <div>
