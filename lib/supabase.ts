@@ -622,3 +622,27 @@ export async function seedFoodProgress(
   await saveFoodProgress(progress)
   return progress
 }
+
+export async function resetFoodProgress(week: number, day: number): Promise<void> {
+  const familyId = await getFamilyId()
+  const { data: existing, error: fetchError } = await getClient()
+    .from("treatment_food_progress")
+    .select("food_name")
+    .eq("family_id", familyId)
+  if (fetchError) throw fetchError
+  if (!existing || existing.length === 0) return
+  const now = new Date().toISOString()
+  const rows = existing.map(row => ({
+    family_id: familyId,
+    food_name: row.food_name as string,
+    week,
+    day,
+    completed_days: day - 1,
+    last_completed_at: null as string | null,
+    updated_at: now,
+  }))
+  const { error } = await getClient()
+    .from("treatment_food_progress")
+    .upsert(rows, { onConflict: "family_id,food_name" })
+  if (error) throw error
+}

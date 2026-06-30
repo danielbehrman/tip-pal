@@ -215,6 +215,9 @@ export default function DailyPage() {
     const foodProgress = foodProgressRef.current
     const completedAt = new Date().toISOString()
 
+    // Guard: if progress is empty but foods exist, seed hasn't completed yet — bail to avoid logging 1-1
+    if (foodProgress.size === 0 && schedule!.treatmentFoods.length > 0) return
+
     // Advance per-food progress for every checked evening treatment food
     const updatedProgress = new Map(foodProgress)
     const currentSchedule = schedule!

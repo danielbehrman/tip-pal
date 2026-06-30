@@ -19,6 +19,7 @@ import {
   savePushSubscription,
   deletePushSubscription,
   saveFoodGroups,
+  resetFoodProgress,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
 import { DoseState, ParsedSchedule, FoodGroup } from "@/lib/types"
@@ -188,6 +189,7 @@ export default function SettingsPage() {
           floorWeek: week,
           floorDay: day,
         })
+        await resetFoodProgress(week, day)
         setOriginalWeek(week)
         setOriginalDay(day)
       }
