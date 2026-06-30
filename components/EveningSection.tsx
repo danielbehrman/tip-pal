@@ -11,6 +11,7 @@ interface EveningSectionProps {
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
   onSkipDay: () => void
+  onCompleteDay: () => void
   isFutureDay: boolean
   isCurrentTreatmentDay: boolean
   isSkipped: boolean
@@ -23,6 +24,7 @@ export default function EveningSection({
   checkedFoods,
   onCheck,
   onSkipDay,
+  onCompleteDay,
   isFutureDay,
   isCurrentTreatmentDay,
   isSkipped,
@@ -57,7 +59,7 @@ export default function EveningSection({
               const fp = foodProgress.get(food.name)
               const foodWeek = fp?.week ?? currentWeek
               const { weekEntry, isContinuing } = getTreatmentFoodEntry(food, foodWeek)
-              const weekBadge = !inSync && fp ? `Wk ${fp.week}` : undefined
+              const weekBadge = !inSync && fp ? `Wk ${fp.week} · Day ${fp.day}` : undefined
               return (
                 <FoodItem
                   key={`evening-${food.name}`}
@@ -75,6 +77,15 @@ export default function EveningSection({
               )
             })}
           </div>
+
+          {allChecked && isCurrentTreatmentDay && !isFutureDay && !isSkipped && (
+            <button
+              className="mt-4 w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl"
+              onClick={onCompleteDay}
+            >
+              Complete Day
+            </button>
+          )}
 
           {canSkip && (
             confirming ? (

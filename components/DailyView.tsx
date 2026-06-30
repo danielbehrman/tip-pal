@@ -266,6 +266,7 @@ export default function DailyView({
             checkedFoods={checkedFoods}
             onCheck={handleCheck}
             onSkipDay={onSkipDay}
+            onCompleteDay={onCompleteDay}
             isFutureDay={isFutureDay}
             isCurrentTreatmentDay={isCurrentTreatmentDay}
             isSkipped={isSkipped}
