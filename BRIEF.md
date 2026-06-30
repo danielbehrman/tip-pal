@@ -4,11 +4,11 @@
 TIP Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 3 — App Store Launch
+Phase: Phase 3.5 — Mobile UI Redesign
 Mode: Active Build
-Last Updated: 2026-06-26
+Last Updated: 2026-06-29
 Blocker: .env.local overwritten during food grouping deploy — restore from 1Password before local dev. Production unaffected.
-Next Action: Begin Phase 3.5 F0 (Design System Foundation). After completion go back to Phase 3 to continue to F7 (App Store submission)
+Next Action: Dan UI checkpoint on F0 (bottom nav, warm background, /foods route). After sign-off: begin F3 (per-food week/day data model migration).
 
 ---
 
