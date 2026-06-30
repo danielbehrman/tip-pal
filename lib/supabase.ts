@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress, TreatmentFood } from "./types"
 import { getCalendarPosition, todayDateString } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
@@ -562,4 +562,63 @@ export async function archiveAndStartNewCycle(
       { onConflict: "family_id" }
     )
   if (doseError) throw doseError
+}
+
+export async function fetchFoodProgress(): Promise<Map<string, FoodProgress>> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("treatment_food_progress")
+    .select("food_name, week, day, completed_days, last_completed_at")
+    .eq("family_id", familyId)
+  if (error) throw error
+  const map = new Map<string, FoodProgress>()
+  for (const row of data ?? []) {
+    map.set(row.food_name as string, {
+      foodName: row.food_name as string,
+      week: row.week as number,
+      day: row.day as number,
+      completedDays: row.completed_days as number,
+      lastCompletedAt: row.last_completed_at as string | null,
+    })
+  }
+  return map
+}
+
+export async function saveFoodProgress(
+  progress: Map<string, FoodProgress>
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const now = new Date().toISOString()
+  const rows = [...progress.values()].map(fp => ({
+    family_id: familyId,
+    food_name: fp.foodName,
+    week: fp.week,
+    day: fp.day,
+    completed_days: fp.completedDays,
+    last_completed_at: fp.lastCompletedAt,
+    updated_at: now,
+  }))
+  const { error } = await getClient()
+    .from("treatment_food_progress")
+    .upsert(rows, { onConflict: "family_id,food_name" })
+  if (error) throw error
+}
+
+export async function seedFoodProgress(
+  treatmentFoods: TreatmentFood[],
+  week: number,
+  day: number
+): Promise<Map<string, FoodProgress>> {
+  const progress = new Map<string, FoodProgress>()
+  for (const food of treatmentFoods) {
+    progress.set(food.name, {
+      foodName: food.name,
+      week,
+      day,
+      completedDays: day - 1,
+      lastCompletedAt: null,
+    })
+  }
+  await saveFoodProgress(progress)
+  return progress
 }
