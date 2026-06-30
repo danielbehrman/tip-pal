@@ -83,13 +83,11 @@ export default function FoodsPage() {
 
   if (!hydrated || !schedule) return null
 
-  const weekCounts = counts[String(currentWeek)] ?? {}
-
   return (
     <RecommendedFoodsView
       schedule={schedule}
       currentWeek={currentWeek}
-      weekCounts={weekCounts}
+      counts={counts}
       onGive={handleGive}
       onUndo={handleUndo}
     />
