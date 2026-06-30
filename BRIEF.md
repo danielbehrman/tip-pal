@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3.5 — Mobile UI Redesign
 Mode: Active Build
-Last Updated: 2026-06-29
-Blocker: None. Apply production migration before Vercel deploy: `supabase db query --linked < supabase/migrations/20260629_treatment_food_progress.sql`
-Next Action: (1) Apply migration to production Supabase. (2) Dan UI checkpoint on F0 (bottom nav, /foods, warm bg). (3) Deploy F3. (4) Begin F1 (Daily View Redesign) after F0 sign-off.
+Last Updated: 2026-06-30
+Blocker: None
+Next Action: F1 complete — deployed to tippal.behrman.dev for Dan UI review. F2 (Child Name + Photo) is next after F1 approved.
 
 ---
 
