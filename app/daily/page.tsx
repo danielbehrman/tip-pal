@@ -14,7 +14,6 @@ import {
   fetchDayRecords,
   fetchDateHasDayRecord,
   fetchAppointmentDate,
-  saveAppointmentDate,
   fetchFamilyName,
   fetchFoodGroups,
   fetchVisitNumber,
@@ -296,21 +295,6 @@ export default function DailyPage() {
     })
   }
 
-  const appointmentDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function handleAppointmentChange(value: string) {
-    const normalized = value.trim() === "" ? null : value
-    setAppointmentDate(normalized)
-    if (appointmentDebounceRef.current) clearTimeout(appointmentDebounceRef.current)
-    appointmentDebounceRef.current = setTimeout(async () => {
-      try {
-        await saveAppointmentDate(normalized)
-      } catch {
-        // Save failed silently — server state wins on next refresh.
-      }
-    }, 300)
-  }
-
   if (!schedule || !doseState || !treatmentAnchor) return null
 
   const isAppointmentDay = !!appointmentDate && appointmentDate === todayDateString()
@@ -322,8 +306,8 @@ export default function DailyPage() {
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
       onSkipDay={handleSkipDay}
+      onSkipMorning={() => {}}
       appointmentDate={appointmentDate}
-      onAppointmentChange={handleAppointmentChange}
       familyName={familyName}
       completedPositions={completedPositions}
       dayRecords={dayRecords}

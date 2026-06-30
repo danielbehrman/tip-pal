@@ -11,6 +11,7 @@ interface EveningSectionProps {
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
   onSkipDay: () => void
+  onSkipMorning?: () => void
   onCompleteDay: () => void
   isFutureDay: boolean
   isCurrentTreatmentDay: boolean

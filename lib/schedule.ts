@@ -150,3 +150,30 @@ export function calculateBufferFromProgress(
   if (bufferDays < 0) return { kind: "behind", count: Math.abs(bufferDays) }
   return { kind: "days", count: bufferDays }
 }
+
+export function getVisitIndex(visitNumber: string | null): number {
+  if (!visitNumber) return 0
+  const v = visitNumber.toLowerCase().trim()
+  if (v === "launch") return 0
+  if (v.startsWith("tolerance")) return v.includes("2") ? 22 : 21
+  if (v.includes("annual")) return 24
+  if (v.startsWith("remission")) return 23
+  const n = parseInt(v, 10)
+  return isNaN(n) ? 0 : Math.min(n, 20)
+}
+
+// Maps a medication frequency string to which sessions it should appear in.
+// Defaults to morning for once-daily medications.
+export function getMedicationSessions(frequency: string): ("morning" | "evening")[] {
+  const f = frequency.toLowerCase()
+  if (
+    f.includes("twice") || f.includes("bid") ||
+    f.includes("2x") || f.includes("2 times") || f.includes("twice daily")
+  ) {
+    return ["morning", "evening"]
+  }
+  if (f.includes("evening") || f.includes("pm") || f.includes("night") || f.includes("bedtime")) {
+    return ["evening"]
+  }
+  return ["morning"]
+}

@@ -1,7 +1,8 @@
 "use client"
 
+import { useState } from "react"
 import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
-import { getTotalTreatmentWeeks, calculateBufferFromProgress } from "@/lib/schedule"
+import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -12,8 +13,8 @@ interface DailyViewProps {
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCompleteDay: () => void
   onSkipDay: () => void
+  onSkipMorning: () => void
   appointmentDate: string | null
-  onAppointmentChange: (value: string) => void
   familyName: string | null
   completedPositions: Set<string>
   dayRecords: Map<string, DayRecord>
@@ -29,14 +30,31 @@ function formatDateLabel(date: Date): string {
   return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
+function getDaysToAppointment(appointmentDate: string | null): number | null {
+  if (!appointmentDate) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const appt = new Date(appointmentDate + "T00:00:00")
+  const diff = Math.round((appt.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+  return diff > 0 ? diff : null
+}
+
+const CIRCUMFERENCE = 2 * Math.PI * 26 // ≈ 163.4
+
+const BUFFER_INFO_COPY =
+  "Buffer days are the days between completing your final week of dosing and your next clinic appointment. " +
+  "Your program requires at least 7 days on the final week's dose before your visit. " +
+  "Buffer days show how much cushion you have — so you know you're on track. " +
+  "Note: The day of your appointment and the day before (for travel) are not counted as buffer days."
+
 export default function DailyView({
   schedule,
   doseState,
   onStateChange,
   onCompleteDay,
   onSkipDay,
+  onSkipMorning,
   appointmentDate,
-  onAppointmentChange,
   familyName,
   completedPositions,
   dayRecords,
@@ -47,11 +65,11 @@ export default function DailyView({
   isAppointmentDay,
   foodProgress,
 }: DailyViewProps) {
+  const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
   const totalTreatmentWeeks = getTotalTreatmentWeeks(schedule)
 
-  // Find the slowest food's completedDays for buffer projection
   let slowestCompletedDays = 0
   if (foodProgress.size > 0) {
     let minIdx = Infinity
@@ -70,226 +88,303 @@ export default function DailyView({
     doseState.currentWeek,
     slowestCompletedDays
   )
-  const eveningItems = schedule.treatmentFoods
+
+  const bufferDisplay =
+    bufferResult.kind === "days" ? `${bufferResult.count}` :
+    bufferResult.kind === "behind" ? `-${bufferResult.count}` :
+    "—"
 
   const viewSeq = (currentWeek - 1) * 7 + currentDay
   const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
   const floorSeq = (floorWeek - 1) * 7 + floorDay
   const isFutureDay = viewSeq > anchorSeq
   const isCurrentTreatmentDay = viewSeq === anchorSeq
-  const isPastDay = viewSeq < anchorSeq
 
   const posKey = `${currentWeek}-${currentDay}`
   const record = dayRecords.get(posKey)
   const projectedDate = new Date()
   projectedDate.setDate(projectedDate.getDate() + (viewSeq - anchorSeq))
   const isSkipped = record?.skipped === true
-  // Date always comes from the calendar formula, never from dose_log's completed_at.
-  // A position's date and its dose_log record's timestamp can diverge (bulk catch-up
-  // actions, pre-F0.1 history, resets) — the formula is the single source of truth
-  // for "what date is this position" under calendar-anchored dating. record is used
-  // only to determine isSkipped above, never for what date to display.
   const dateLabel = formatDateLabel(projectedDate)
-  const showPreviousDayWarning = isCurrentTreatmentDay && previousDayIncomplete
+  const isToday = viewSeq === anchorSeq && !isSkipped
+
+  // Visit ring
+  const visitIdx = getVisitIndex(visitNumber)
+  const visitProgress = visitIdx / 25
+  const strokeDashoffset = CIRCUMFERENCE * (1 - visitProgress)
+
+  // Appointment bubble
+  const daysToAppt = getDaysToAppointment(appointmentDate)
+
+  const leftDisabled = viewSeq <= floorSeq
+  const rightDisabled = !completedPositions.has(posKey)
+
+  function handleNavigate(delta: number) {
+    onStateChange(prev => {
+      let nextDay = prev.currentDay + delta
+      let nextWeek = prev.currentWeek
+      if (nextDay > 7) { nextWeek += 1; nextDay = 1 }
+      else if (nextDay < 1) { nextWeek -= 1; nextDay = 7 }
+      if (nextWeek < 1) return prev
+      const nextSeq = (nextWeek - 1) * 7 + nextDay
+      const fSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
+      if (nextSeq < fSeq) return prev
+      const completedDays = { ...(prev.completedDays ?? {}), [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods }
+      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
+      return { ...prev, currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
+    })
+  }
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
-
-    // Auto-complete fires on any non-future day, not just the live current day —
-    // finishing a previous day's evening checkboxes after it's auto-advanced past
-    // (e.g. correcting via trailing edit) retroactively logs the completion,
-    // consistent with checking the boxes on the day itself.
-    if (val && key.startsWith("evening-") && !isFutureDay && eveningItems.length > 0) {
+    if (val && key.startsWith("evening-") && !isFutureDay && schedule.treatmentFoods.length > 0) {
       const updatedChecked = { ...checkedFoods, [key]: val }
-      const allEveningChecked = eveningItems.every(
+      const allEveningChecked = schedule.treatmentFoods.every(
         food => !!updatedChecked[`evening-${food.name}`]
       )
-      if (allEveningChecked) {
-        onCompleteDay()
-      }
+      if (allEveningChecked) onCompleteDay()
     }
   }
 
-  function handleWeekChange(delta: number) {
-    onStateChange(prev => {
-      const nextWeek = prev.currentWeek + delta
-      if (nextWeek < 1) return prev
-      const nextSeq = (nextWeek - 1) * 7 + prev.currentDay
-      const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
-      if (nextSeq < floorSeq) return prev
-      const completedDays = {
-        ...(prev.completedDays ?? {}),
-        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
-      }
-      const restored = completedDays[`${nextWeek}-${prev.currentDay}`] ?? {}
-      return { ...prev, currentWeek: nextWeek, checkedFoods: restored, completedDays }
-    })
-  }
-
-  function handleDayChange(delta: number) {
-    onStateChange(prev => {
-      const nextDay = prev.currentDay + delta
-      if (nextDay < 1 || nextDay > 7) return prev
-      const nextSeq = (prev.currentWeek - 1) * 7 + nextDay
-      const floorSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
-      if (nextSeq < floorSeq) return prev
-      const completedDays = {
-        ...(prev.completedDays ?? {}),
-        [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods,
-      }
-      const restored = completedDays[`${prev.currentWeek}-${nextDay}`] ?? {}
-      return { ...prev, currentDay: nextDay, checkedFoods: restored, completedDays }
-    })
-  }
-
   return (
-    <div className="max-w-lg mx-auto px-4 py-6 min-h-screen flex flex-col">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
+    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+      {/* Orange header */}
+      <header style={{ background: "#ff6b35" }}>
+        <div className="px-4 pt-5 pb-3 flex items-center gap-3">
+          {/* Avatar with SVG progress ring */}
+          <div className="relative flex-shrink-0" style={{ width: 58, height: 58 }}>
+            <svg width="58" height="58" viewBox="0 0 58 58" style={{ position: "absolute", inset: 0 }}>
+              <circle
+                cx="29" cy="29" r="26"
+                fill="none"
+                stroke="rgba(255,255,255,0.22)"
+                strokeWidth="5"
+              />
+              <circle
+                cx="29" cy="29" r="26"
+                fill="none"
+                stroke="#4fc3f7"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray={`${CIRCUMFERENCE}`}
+                strokeDashoffset={`${strokeDashoffset}`}
+                transform="rotate(-90 29 29)"
+              />
+            </svg>
+            {/* Avatar inner — emoji placeholder until F2 adds photo */}
+            <div
+              className="absolute rounded-full flex items-center justify-center"
+              style={{ inset: 6, background: "#fff3ec", fontSize: 20 }}
+            >
+              🧒
+            </div>
+          </div>
+
+          {/* Text stack */}
+          <div className="flex-1 min-w-0">
             {familyName && (
-              <p className="text-sm text-gray-500 mb-0.5">{familyName}&apos;s Tip Pal</p>
+              <p className="text-xs" style={{ color: "rgba(255,255,255,0.85)" }}>
+                {familyName}&apos;s Tip Pal
+              </p>
             )}
-            <h1 className="text-2xl font-bold">
-              {isSkipped ? "Skipped" : `Week ${currentWeek}, Day ${currentDay}`} · {dateLabel}
-            </h1>
+            <p className="font-semibold text-white" style={{ fontSize: 15 }}>
+              {visitNumber ? `Visit ${visitNumber} · ` : ""}Week {treatmentAnchor.week}, Day {treatmentAnchor.day}
+            </p>
+            {daysToAppt !== null && (
+              <span
+                className="inline-block text-white mt-0.5"
+                style={{
+                  background: "rgba(255,255,255,0.20)",
+                  borderRadius: 9999,
+                  padding: "3px 10px",
+                  fontSize: 11,
+                  fontWeight: 400,
+                }}
+              >
+                {daysToAppt} days to appointment
+              </span>
+            )}
           </div>
         </div>
 
-        {showPreviousDayWarning && (
-          <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl">
-            <p className="text-sm text-amber-900 font-medium">
+        {/* Buffer days row */}
+        <div
+          className="flex items-center"
+          style={{ padding: "2px 16px 12px" }}
+        >
+          <span style={{ fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.85)" }}>
+            Buffer days
+          </span>
+          <span className="ml-1" style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+            {bufferDisplay}
+          </span>
+          <button
+            className="ml-auto flex items-center justify-center italic"
+            style={{
+              width: 18,
+              height: 18,
+              border: "1.5px solid rgba(255,255,255,0.5)",
+              borderRadius: "50%",
+              fontSize: 10,
+              color: "#fff",
+              fontFamily: "serif",
+              background: "transparent",
+            }}
+            onClick={() => setInfoSheetOpen(true)}
+            aria-label="Buffer days info"
+          >
+            i
+          </button>
+        </div>
+      </header>
+
+      {/* Day navigator strip */}
+      <div
+        className="flex items-center justify-between px-4"
+        style={{
+          background: "#fff8f5",
+          borderBottom: "0.5px solid #f0ddd4",
+          minHeight: 52,
+        }}
+      >
+        <button
+          onClick={() => handleNavigate(-1)}
+          disabled={leftDisabled}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            background: "#fff",
+            border: "0.5px solid #f0ddd4",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: leftDisabled ? 0.3 : 1,
+          }}
+          aria-label="Previous day"
+        >
+          <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+            <path d="M7 1L1 6.5L7 12" stroke="#2d1a0e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+
+        <div className="text-center">
+          <p className="font-medium" style={{ fontSize: 13, color: "#2d1a0e" }}>
+            {isSkipped ? "Skipped" : dateLabel}
+          </p>
+          {isToday && (
+            <p style={{ fontSize: 11, color: "#9a6a55" }}>Today</p>
+          )}
+        </div>
+
+        <button
+          onClick={() => handleNavigate(1)}
+          disabled={rightDisabled}
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: "50%",
+            background: "#fff",
+            border: "0.5px solid #f0ddd4",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: rightDisabled ? 0.3 : 1,
+          }}
+          aria-label="Next day"
+        >
+          <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
+            <path d="M1 1L7 6.5L1 12" stroke="#2d1a0e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 px-4 pt-4 pb-24">
+        {previousDayIncomplete && isCurrentTreatmentDay && (
+          <div
+            className="mb-4 px-4 py-3 rounded-xl"
+            style={{ background: "#fff8e1", border: "0.5px solid #ffe082" }}
+          >
+            <p className="text-sm font-medium" style={{ color: "#795548" }}>
               Yesterday wasn&apos;t completed — you can still check off today&apos;s foods.
             </p>
           </div>
         )}
 
-        <div className="flex gap-6">
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 w-10">Week</span>
-            <button
-              onClick={() => handleWeekChange(-1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentWeek <= 1 || viewSeq - 7 < floorSeq}
-            >
-              −
-            </button>
-            <span className="text-lg font-semibold w-6 text-center">{currentWeek}</span>
-            <button
-              onClick={() => handleWeekChange(1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold"
-            >
-              +
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500 w-8">Day</span>
-            <button
-              onClick={() => handleDayChange(-1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay <= 1 || viewSeq - 1 < floorSeq}
-            >
-              −
-            </button>
-            <span className="text-lg font-semibold w-6 text-center">{currentDay}</span>
-            <button
-              onClick={() => handleDayChange(1)}
-              className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30"
-              disabled={currentDay >= 7 || !completedPositions.has(`${currentWeek}-${currentDay}`)}
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm text-gray-500 mb-1" htmlFor="next-appointment">
-          {visitNumber ? `Next appointment, Visit ${visitNumber}` : "Next appointment"}
-        </label>
-        <input
-          id="next-appointment"
-          type="date"
-          className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-full"
-          value={appointmentDate ?? ""}
-          onChange={(e) => onAppointmentChange(e.target.value)}
-        />
-        {bufferResult.kind === "days" && (
-          <p className="mt-2 text-sm text-gray-600">
-            {bufferResult.count} buffer day{bufferResult.count !== 1 ? "s" : ""} after completing protocol
-          </p>
-        )}
-        {bufferResult.kind === "behind" && (
-          <p className="mt-2 text-sm text-amber-700 font-medium">
-            {bufferResult.count} day{bufferResult.count !== 1 ? "s" : ""} short — appointment falls within the protocol period
-          </p>
-        )}
-        {bufferResult.kind === "past" && (
-          <p className="mt-2 text-sm text-amber-700 font-medium">
-            Appointment date has passed — please update
-          </p>
-        )}
-      </div>
-
-      {isAppointmentDay && isCurrentTreatmentDay ? (
-        <div className="rounded-xl bg-blue-50 border border-blue-200 px-4 py-6 mb-4 flex flex-col gap-3">
-          <div>
-            <p className="text-base font-semibold text-blue-900">
-              {visitNumber ? `Today is Visit ${visitNumber}.` : "Today is your appointment."}
-            </p>
-            <p className="text-sm text-blue-800 mt-1">
-              When you&apos;re ready, start your new food cycle to load your updated schedule.
-            </p>
-          </div>
-          <Link
-            href="/new-cycle"
-            className="inline-block text-center w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl"
+        {isAppointmentDay && isCurrentTreatmentDay ? (
+          <div
+            className="rounded-xl px-4 py-6 mb-4 flex flex-col gap-3"
+            style={{ background: "#e8f4fd", border: "0.5px solid #bdddf5" }}
           >
-            Start new food cycle
-          </Link>
-        </div>
-      ) : (
-        <>
-          <MorningSection
-            schedule={schedule}
-            currentDay={currentDay}
-            checkedFoods={checkedFoods}
-            onCheck={handleCheck}
-            isFutureDay={isFutureDay}
-            foodGroups={foodGroups}
-          />
-
-          <EveningSection
-            schedule={schedule}
-            currentWeek={currentWeek}
-            checkedFoods={checkedFoods}
-            onCheck={handleCheck}
-            onSkipDay={onSkipDay}
-            onCompleteDay={onCompleteDay}
-            isFutureDay={isFutureDay}
-            isCurrentTreatmentDay={isCurrentTreatmentDay}
-            isSkipped={isSkipped}
-            foodProgress={foodProgress}
-          />
-        </>
-      )}
-
-      <div className="mt-auto pt-4">
-        <div className="flex justify-center gap-6 pb-4">
-          {((schedule.recommendedFoods?.length ?? 0) > 0 || (schedule.medications?.length ?? 0) > 0) && (
-            <Link href="/foods" className="text-sm text-gray-400 underline">
-              Recommended
+            <div>
+              <p className="text-base font-semibold" style={{ color: "#1a5276" }}>
+                {visitNumber ? `Today is Visit ${visitNumber}.` : "Today is your appointment."}
+              </p>
+              <p className="text-sm mt-1" style={{ color: "#2980b9" }}>
+                When you&apos;re ready, start your new food cycle to load your updated schedule.
+              </p>
+            </div>
+            <Link
+              href="/new-cycle"
+              className="block text-center w-full py-3 text-white text-sm font-semibold rounded-[16px]"
+              style={{ background: "#ff6b35" }}
+            >
+              Start new food cycle
             </Link>
-          )}
-          <Link href="/history" className="text-sm text-gray-400 underline">
-            Dose history
-          </Link>
-          <Link href="/settings" className="text-sm text-gray-400 underline">
-            Settings
-          </Link>
-        </div>
+          </div>
+        ) : (
+          <>
+            <MorningSection
+              schedule={schedule}
+              currentDay={currentDay}
+              checkedFoods={checkedFoods}
+              onCheck={handleCheck}
+              isFutureDay={isFutureDay}
+              foodGroups={foodGroups}
+            />
+            <EveningSection
+              schedule={schedule}
+              currentWeek={currentWeek}
+              checkedFoods={checkedFoods}
+              onCheck={handleCheck}
+              onSkipDay={onSkipDay}
+              onSkipMorning={onSkipMorning}
+              onCompleteDay={onCompleteDay}
+              isFutureDay={isFutureDay}
+              isCurrentTreatmentDay={isCurrentTreatmentDay}
+              isSkipped={isSkipped}
+              foodProgress={foodProgress}
+            />
+          </>
+        )}
       </div>
+
+      {/* ⓘ info sheet overlay */}
+      {infoSheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end"
+          style={{ background: "rgba(0,0,0,0.3)" }}
+          onClick={() => setInfoSheetOpen(false)}
+        >
+          <div
+            className="w-full mx-auto rounded-t-2xl px-6 pt-6 pb-10 shadow-xl"
+            style={{ maxWidth: 430, background: "#fff" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-sm leading-relaxed" style={{ color: "#4a3728" }}>
+              {BUFFER_INFO_COPY}
+            </p>
+            <button
+              className="mt-5 w-full py-3 rounded-xl text-sm font-medium"
+              style={{ background: "#f5efe9", color: "#2d1a0e" }}
+              onClick={() => setInfoSheetOpen(false)}
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
