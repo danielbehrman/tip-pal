@@ -1,11 +1,16 @@
 "use client"
 
+import FoodCard from "./ui/FoodCard"
+import CheckCircle from "./ui/CheckCircle"
+import Badge from "./ui/Badge"
+
 interface FoodItemProps {
   name: string
-  dose: number
+  dose: number | string
   unit: string
   prepNote: string | null
   capped: boolean
+  session: "morning" | "evening" | "med"
   isWeekly?: boolean
   isContinuing?: boolean
   checked: boolean
@@ -20,6 +25,7 @@ export default function FoodItem({
   unit,
   prepNote,
   capped,
+  session,
   isWeekly = false,
   isContinuing = false,
   checked,
@@ -28,48 +34,48 @@ export default function FoodItem({
   weekBadge,
 }: FoodItemProps) {
   return (
-    <label className={`flex items-start gap-4 py-3 min-h-[44px] ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
-      <input
-        type="checkbox"
-        className="w-6 h-6 mt-0.5 shrink-0 accent-slate-900"
-        checked={checked}
-        disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      <div className="flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-base font-medium ${checked ? "line-through text-gray-400" : ""}`}>
-            {name}
-          </span>
-          {capped && (
-            <span className="bg-red-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
-              CAPPED
-            </span>
-          )}
-          {isWeekly && (
-            <span className="bg-teal-600 text-white text-xs px-2 py-0.5 rounded-full font-semibold">
-              Weekly
-            </span>
-          )}
-          {isContinuing && (
-            <span className="text-xs text-gray-500 italic">Continuing final dose</span>
-          )}
-          {weekBadge && (
+    <FoodCard checked={checked} session={session}>
+      <div className="flex items-center gap-3">
+        <CheckCircle
+          checked={checked}
+          session={session}
+          onClick={() => !disabled && onChange(!checked)}
+          disabled={disabled}
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span
-              className="text-[9px] font-medium px-1.5 py-0.5 rounded-[4px] ml-1"
-              style={{ background: "#f0eaff", color: "#7a4db8" }}
+              className="font-medium"
+              style={{
+                fontSize: 13,
+                color: checked ? "#c4927a" : "#2d1a0e",
+                textDecoration: checked ? "line-through" : "none",
+              }}
             >
-              {weekBadge}
+              {name}
             </span>
-          )}
+            {capped && <Badge variant="capped" />}
+            {isWeekly && (
+              <span
+                className="font-semibold"
+                style={{ fontSize: 9, background: "#e6f4f1", color: "#2a7a6b", padding: "2px 6px", borderRadius: 4 }}
+              >
+                Weekly
+              </span>
+            )}
+            {weekBadge && <Badge variant="week" label={weekBadge} />}
+            {isContinuing && (
+              <span className="italic" style={{ fontSize: 9, color: "#c4927a" }}>
+                Final dose
+              </span>
+            )}
+          </div>
+          <p style={{ fontSize: 11, color: "#9a6a55", marginTop: 1 }}>
+            {dose} {unit}
+            {prepNote ? ` · ${prepNote}` : ""}
+          </p>
         </div>
-        <div className={`text-sm ${checked ? "text-gray-400" : "text-gray-700"}`}>
-          {dose} {unit}
-        </div>
-        {prepNote && (
-          <div className="text-xs text-gray-500 mt-0.5">{prepNote}</div>
-        )}
       </div>
-    </label>
+    </FoodCard>
   )
 }
