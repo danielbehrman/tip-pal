@@ -23,6 +23,7 @@ import {
   fetchFoodProgress,
   saveFoodProgress,
   seedFoodProgress,
+  fetchChildPhotoUrl,
 } from "@/lib/supabase"
 import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
@@ -40,6 +41,7 @@ export default function DailyPage() {
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [visitNumber, setVisitNumber] = useState<string | null>(null)
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
+  const [childPhotoUrl, setChildPhotoUrl] = useState<string | null>(null)
   // treatmentAnchor holds the current treatment day position, computed live from
   // cycle_start_date + skip_count. Set from doseState on load — never advanced
   // locally except by re-fetching doseState after a write that re-anchors it
@@ -72,7 +74,7 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
@@ -81,6 +83,7 @@ export default function DailyPage() {
           fetchFoodGroups().catch(() => []),
           fetchVisitNumber().catch(() => null),
           fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
+          fetchChildPhotoUrl().catch(() => null),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -132,6 +135,7 @@ export default function DailyPage() {
         setDayRecords(records)
         setFoodGroups(groups)
         setVisitNumber(vNum)
+        setChildPhotoUrl(photoUrl)
 
         const yesterday = addDays(todayDateString(), -1)
         if (initialState.cycleStartDate < todayDateString()) {
@@ -328,6 +332,7 @@ export default function DailyPage() {
       visitNumber={visitNumber}
       isAppointmentDay={isAppointmentDay}
       foodProgress={foodProgress}
+      childPhotoUrl={childPhotoUrl}
     />
   )
 }

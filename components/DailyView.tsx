@@ -24,6 +24,7 @@ interface DailyViewProps {
   visitNumber: string | null
   isAppointmentDay: boolean
   foodProgress: Map<string, FoodProgress>
+  childPhotoUrl: string | null
 }
 
 function formatDateLabel(date: Date): string {
@@ -64,6 +65,7 @@ export default function DailyView({
   visitNumber,
   isAppointmentDay,
   foodProgress,
+  childPhotoUrl,
 }: DailyViewProps) {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
@@ -171,13 +173,22 @@ export default function DailyView({
                 transform="rotate(-90 29 29)"
               />
             </svg>
-            {/* Avatar inner — emoji placeholder until F2 adds photo */}
-            <div
-              className="absolute rounded-full flex items-center justify-center"
-              style={{ inset: 6, background: "#fff3ec", fontSize: 20 }}
-            >
-              🧒
-            </div>
+            {/* Avatar inner — child photo or emoji fallback */}
+            {childPhotoUrl ? (
+              <img
+                src={childPhotoUrl}
+                alt="Child"
+                className="absolute rounded-full object-cover"
+                style={{ inset: 6 }}
+              />
+            ) : (
+              <div
+                className="absolute rounded-full flex items-center justify-center"
+                style={{ inset: 6, background: "#fff3ec", fontSize: 20 }}
+              >
+                🧒
+              </div>
+            )}
           </div>
 
           {/* Text stack */}
