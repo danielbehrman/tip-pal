@@ -8,7 +8,7 @@ Phase: Phase 3.5 — Mobile UI Redesign
 Mode: Active Build
 Last Updated: 2026-06-30
 Blocker: None
-Next Action: F1 complete — deployed to tippal.behrman.dev for Dan UI review. F2 (Child Name + Photo) is next after F1 approved.
+Next Action: F2 complete — migration must be applied to Supabase before deploy. Push to tippal.behrman.dev for Dan UI review. F3 (already complete) — F4 (Medications) is next if F3 was already merged.
 
 ---
 
