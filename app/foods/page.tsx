@@ -11,7 +11,7 @@ import {
 } from "@/lib/supabase"
 import RecommendedFoodsView from "@/components/RecommendedFoodsView"
 
-export default function RecommendedPage() {
+export default function FoodsPage() {
   const router = useRouter()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [currentWeek, setCurrentWeek] = useState(1)
