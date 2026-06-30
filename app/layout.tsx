@@ -2,9 +2,10 @@ import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import SignOutButton from "@/components/SignOutButton"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
+import BottomNav from "@/components/BottomNav"
 
 export const metadata: Metadata = {
-  title: "TIP Pal",
+  title: "Tip Pal",
   manifest: "/manifest.json",
   icons: {
     icon: "/icons/icon-192.webp",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "TIP Pal",
+    title: "Tip Pal",
   },
 }
 
@@ -34,7 +35,10 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <div className="app-container">
           <SignOutButton />
-          {children}
+          <div style={{ paddingBottom: 72 }}>
+            {children}
+          </div>
+          <BottomNav />
         </div>
       </body>
     </html>
