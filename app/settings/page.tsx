@@ -268,7 +268,7 @@ export default function SettingsPage() {
             </div>
             <div
               className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
-              style={{ width: 24, height: 24, background: "#ff6b35", fontSize: 13 }}
+              style={{ width: 24, height: 24, background: "#ff6b35", color: "#fff", fontSize: 13 }}
             >
               {photoUploading ? "…" : "✎"}
             </div>
