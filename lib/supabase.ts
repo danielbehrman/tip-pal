@@ -555,6 +555,15 @@ export async function fetchVisitNumber(): Promise<string | null> {
   return (data.visit_number as string | null) ?? null
 }
 
+export async function saveVisitNumber(visitNumber: string | null): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ visit_number: visitNumber })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
 export async function archiveAndStartNewCycle(
   currentSchedule: ParsedSchedule | null,
   newSchedule: ParsedSchedule,
