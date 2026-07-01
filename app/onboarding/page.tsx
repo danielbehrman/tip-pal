@@ -154,12 +154,14 @@ export default function OnboardingPage() {
       setSaving(false)
     } finally {
       setShowCatchup(false)
+      setSaving(false)
     }
   }
 
   // Buffer calculation for step 4
+  const maxWeek = schedule ? getMaxWeek(schedule) : 99
   const bufferResult = schedule
-    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(schedule), week, day - 1)
+    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, week, day - 1)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days"
@@ -418,8 +420,9 @@ export default function OnboardingPage() {
               </button>
               <span className="text-base font-medium" style={{ color: "#2d1a0e" }}>Week {week}</span>
               <button
-                onClick={() => setWeek(w => w + 1)}
-                className="flex items-center justify-center text-lg font-bold"
+                onClick={() => setWeek(w => Math.min(maxWeek, w + 1))}
+                disabled={week >= maxWeek}
+                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
                 style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
               >
                 +
