@@ -23,11 +23,14 @@ import {
   deletePushSubscription,
   saveFoodGroups,
   resetFoodProgress,
+  signOut,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
 import { DoseState, ParsedSchedule, FoodGroup } from "@/lib/types"
 import GroupsManager from "@/components/GroupsManager"
 import { cycleStartDateForPosition } from "@/lib/schedule"
+
+const APP_VERSION = "0.1.0"
 
 function urlBase64ToBuffer(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -37,6 +40,10 @@ function urlBase64ToBuffer(base64String: string): ArrayBuffer {
   const view = new Uint8Array(buffer)
   for (let i = 0; i < rawData.length; i++) view[i] = rawData.charCodeAt(i)
   return buffer
+}
+
+function RowDivider() {
+  return <div style={{ height: "0.5px", background: "#f0ddd4", marginLeft: 16 }} />
 }
 
 export default function SettingsPage() {
@@ -87,14 +94,11 @@ export default function SettingsPage() {
           fetchSchedule().catch(() => null),
           fetchChildPhotoUrl().catch(() => null),
         ])
-        // Load appointment date separately so we know if it succeeded
         try {
           const apptDate = await fetchAppointmentDate()
           setAppointmentDate(apptDate ?? "")
           appointmentDateLoaded.current = true
-        } catch {
-          // Don't update appointmentDateLoaded — prevents overwriting DB value on save
-        }
+        } catch {}
         if (name) setChildName(name)
         setChildPhotoUrl(photoUrl)
         if (ds) {
@@ -111,9 +115,7 @@ export default function SettingsPage() {
         setFoodGroups(groups)
         if (sched) setSchedule(sched)
         setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
-      } catch {
-        // proceed with defaults
-      }
+      } catch {}
       setLoading(false)
 
       if ("serviceWorker" in navigator && "PushManager" in window) {
@@ -144,9 +146,7 @@ export default function SettingsPage() {
         auth: json.keys!.auth,
       })
       setPushSubscribed(true)
-    } catch {
-      // Permission denied or subscription failed
-    }
+    } catch {}
     setSubscribing(false)
   }
 
@@ -171,9 +171,7 @@ export default function SettingsPage() {
       setGroupsSaved(true)
       if (groupsSavedTimerRef.current) clearTimeout(groupsSavedTimerRef.current)
       groupsSavedTimerRef.current = setTimeout(() => setGroupsSaved(false), 2000)
-    } catch {
-      // Silent fail — state is updated locally; will sync on next load
-    }
+    } catch {}
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -184,9 +182,7 @@ export default function SettingsPage() {
       const url = await uploadChildPhoto(file)
       await saveChildPhotoUrl(url)
       setChildPhotoUrl(url)
-    } catch {
-      // Silent — photo upload failure is non-critical
-    } finally {
+    } catch {} finally {
       setPhotoUploading(false)
     }
   }
@@ -238,203 +234,344 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSignOut() {
+    try { await signOut() } catch {}
+    router.replace("/login")
+  }
+
   if (loading) return null
 
   return (
-    <main className="max-w-sm mx-auto px-4 py-8 min-h-screen flex flex-col">
-      <div className="mb-6">
-        <Link href="/daily" className="text-sm text-gray-400 underline">← Daily view</Link>
-        <h1 className="text-2xl font-bold mt-3">Settings</h1>
-      </div>
+    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+      {/* Orange header */}
+      <header
+        className="px-4 pt-5 pb-4"
+        style={{ background: "#ff6b35" }}
+      >
+        <h1 className="text-xl font-semibold text-white">Settings</h1>
+      </header>
 
-      <div className="flex flex-col gap-5">
-        {/* Child photo */}
-        <div className="flex flex-col items-center mb-6">
-          <button
-            type="button"
-            className="relative"
-            onClick={() => photoInputRef.current?.click()}
-            aria-label="Change child photo"
-          >
-            <div
-              className="rounded-full overflow-hidden flex items-center justify-center"
-              style={{ width: 80, height: 80, background: "#fff3ec", fontSize: 32 }}
-            >
-              {childPhotoUrl ? (
-                <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
-              ) : (
-                "🧒"
-              )}
-            </div>
-            <div
-              className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
-              style={{ width: 24, height: 24, background: "#ff6b35", color: "#fff", fontSize: 13 }}
-            >
-              {photoUploading ? "…" : "✎"}
-            </div>
-          </button>
-          <p className="text-xs mt-2" style={{ color: "#9a6a55" }}>
-            {photoUploading ? "Uploading…" : "Tap to change photo"}
+      <div className="px-4 pt-6 pb-24 flex flex-col gap-6">
+        {/* Child */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+            Child
           </p>
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handlePhotoChange}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-500 mb-1">
-            Child&apos;s name <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={childName}
-            onChange={e => { setChildName(e.target.value); setNameError(false) }}
-            className={`border rounded-xl px-4 py-3 text-base w-full ${nameError ? "border-red-400" : "border-gray-300"}`}
-          />
-          {nameError && <p className="text-red-600 text-sm mt-1">Child&apos;s name is required.</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-500 mb-1">Next appointment</label>
-          <input
-            type="date"
-            value={appointmentDate}
-            onChange={e => setAppointmentDate(e.target.value)}
-            className="border border-gray-300 rounded-xl px-4 py-3 text-base w-full"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm text-gray-500 mb-2">Current position in protocol</label>
-          <div className="flex gap-6">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 w-10">Week</span>
-              <button onClick={() => setWeek(w => Math.max(1, w - 1))} disabled={week <= 1}
-                className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30">−</button>
-              <span className="text-lg font-semibold w-6 text-center">{week}</span>
-              <button onClick={() => setWeek(w => w + 1)}
-                className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold">+</button>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-500 w-8">Day</span>
-              <button onClick={() => setDay(d => Math.max(1, d - 1))} disabled={day <= 1}
-                className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30">−</button>
-              <span className="text-lg font-semibold w-6 text-center">{day}</span>
-              <button onClick={() => setDay(d => Math.min(7, d + 1))} disabled={day >= 7}
-                className="w-10 h-10 flex items-center justify-center bg-gray-100 rounded-lg text-xl font-bold disabled:opacity-30">+</button>
+          <div
+            className="bg-white rounded-xl overflow-hidden"
+            style={{ border: "0.5px solid #f0ddd4" }}
+          >
+            <div className="p-4 flex items-center gap-4">
+              {/* Avatar */}
+              <button
+                type="button"
+                className="relative shrink-0"
+                onClick={() => photoInputRef.current?.click()}
+                aria-label="Change child photo"
+              >
+                <div
+                  className="rounded-full overflow-hidden flex items-center justify-center"
+                  style={{ width: 60, height: 60, background: "#fff3ec", fontSize: 26 }}
+                >
+                  {childPhotoUrl ? (
+                    <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
+                  ) : (
+                    "🧒"
+                  )}
+                </div>
+                <div
+                  className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
+                  style={{ width: 20, height: 20, background: "#ff6b35", color: "#fff", fontSize: 11 }}
+                >
+                  {photoUploading ? "…" : "✎"}
+                </div>
+              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handlePhotoChange}
+              />
+              {/* Name */}
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={childName}
+                  onChange={e => { setChildName(e.target.value); setNameError(false) }}
+                  placeholder="Child's name"
+                  className="w-full text-base bg-transparent outline-none"
+                  style={{
+                    color: nameError ? "#dc2626" : "#2d1a0e",
+                    borderBottom: `1px solid ${nameError ? "#dc2626" : "#f0ddd4"}`,
+                    paddingBottom: 4,
+                  }}
+                />
+                {nameError && (
+                  <p className="text-xs mt-1" style={{ color: "#dc2626" }}>
+                    Name is required
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {!isNative() && <div className="border-t border-gray-100 pt-5">
-          <p className="text-sm font-medium text-gray-700 mb-3">Reminders</p>
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-500 w-16">Morning</label>
+        {/* Program */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+            Program
+          </p>
+          <div
+            className="bg-white rounded-xl overflow-hidden"
+            style={{ border: "0.5px solid #f0ddd4" }}
+          >
+            {/* Appointment date */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Next appointment</span>
               <input
-                type="time"
-                value={morningReminder}
-                onChange={e => setMorningReminder(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                type="date"
+                value={appointmentDate}
+                onChange={e => setAppointmentDate(e.target.value)}
+                className="text-sm bg-transparent text-right outline-none border-none"
+                style={{ color: "#9a6a55" }}
               />
             </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-gray-500 w-16">Evening</label>
-              <input
-                type="time"
-                value={eveningReminder}
-                onChange={e => setEveningReminder(e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
-              />
+            <RowDivider />
+            {/* Week stepper */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Week</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setWeek(w => Math.max(1, w - 1))}
+                  disabled={week <= 1}
+                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                >
+                  −
+                </button>
+                <span className="text-base font-semibold w-6 text-center" style={{ color: "#2d1a0e" }}>
+                  {week}
+                </span>
+                <button
+                  onClick={() => setWeek(w => w + 1)}
+                  className="flex items-center justify-center text-lg font-bold"
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                >
+                  +
+                </button>
+              </div>
             </div>
-            <p className="text-xs text-gray-400">Timezone: {timezone}</p>
+            <RowDivider />
+            {/* Day stepper */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Day</span>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setDay(d => Math.max(1, d - 1))}
+                  disabled={day <= 1}
+                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                >
+                  −
+                </button>
+                <span className="text-base font-semibold w-6 text-center" style={{ color: "#2d1a0e" }}>
+                  {day}
+                </span>
+                <button
+                  onClick={() => setDay(d => Math.min(7, d + 1))}
+                  disabled={day >= 7}
+                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            {schedule && (
+              <>
+                <RowDivider />
+                <div className="px-4 py-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <p className="text-sm" style={{ color: "#2d1a0e" }}>Food groups</p>
+                    {groupsSaved && (
+                      <span className="text-xs" style={{ color: "#22c55e" }}>Saved</span>
+                    )}
+                  </div>
+                  <GroupsManager
+                    schedule={schedule}
+                    groups={foodGroups}
+                    onChange={handleGroupsChange}
+                  />
+                </div>
+              </>
+            )}
+            <RowDivider />
+            {/* New food cycle */}
+            <Link href="/new-cycle" className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>New food cycle</span>
+              <span style={{ color: "#c4927a" }}>›</span>
+            </Link>
+            <RowDivider />
+            {/* Re-parse schedule */}
+            <Link href="/setup" className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Re-parse schedule</span>
+              <span style={{ color: "#c4927a" }}>›</span>
+            </Link>
           </div>
+        </div>
 
-          {pushAvailable ? (
-            <button
-              className="mt-3 text-sm underline text-gray-500 disabled:opacity-40"
-              onClick={pushSubscribed ? handleUnsubscribe : handleSubscribe}
-              disabled={subscribing}
-            >
-              {pushSubscribed ? "Disable notifications" : "Enable notifications"}
-            </button>
-          ) : pushSupported && !vapidPublicKey ? (
-            <p className="mt-3 text-xs text-gray-400">Notifications not configured — VAPID key missing.</p>
-          ) : !pushSupported ? (
-            <p className="mt-3 text-xs text-gray-400">
-              Notifications require adding this app to your Home Screen on iOS.
+        {/* Notifications (non-native only) */}
+        {!isNative() && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+              Notifications
             </p>
-          ) : null}
-        </div>}
-
-        <div className="border-t border-gray-100 pt-5 flex flex-col gap-3">
-          <Link href="/new-cycle" className="text-sm text-gray-500 underline">
-            New food cycle
-          </Link>
-          <Link href="/setup" className="text-sm text-gray-500 underline">
-            Re-parse schedule
-          </Link>
-        </div>
-
-        {schedule && (
-          <div className="border-t border-gray-100 pt-5">
-            <div className="flex items-center gap-2 mb-3">
-              <p className="text-sm font-medium text-gray-700">Food groups</p>
-              {groupsSaved && <span className="text-xs text-green-600">Saved</span>}
+            <div
+              className="bg-white rounded-xl overflow-hidden"
+              style={{ border: "0.5px solid #f0ddd4" }}
+            >
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm" style={{ color: "#2d1a0e" }}>Morning reminder</span>
+                <input
+                  type="time"
+                  value={morningReminder}
+                  onChange={e => setMorningReminder(e.target.value)}
+                  className="text-sm bg-transparent outline-none border-none text-right"
+                  style={{ color: "#9a6a55" }}
+                />
+              </div>
+              <RowDivider />
+              <div className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm" style={{ color: "#2d1a0e" }}>Evening reminder</span>
+                <input
+                  type="time"
+                  value={eveningReminder}
+                  onChange={e => setEveningReminder(e.target.value)}
+                  className="text-sm bg-transparent outline-none border-none text-right"
+                  style={{ color: "#9a6a55" }}
+                />
+              </div>
+              <RowDivider />
+              <div className="px-4 py-3">
+                {pushAvailable ? (
+                  <button
+                    onClick={pushSubscribed ? handleUnsubscribe : handleSubscribe}
+                    disabled={subscribing}
+                    className="text-sm disabled:opacity-40"
+                    style={{ color: pushSubscribed ? "#dc2626" : "#ff6b35" }}
+                  >
+                    {pushSubscribed ? "Disable push notifications" : "Enable push notifications"}
+                  </button>
+                ) : !pushSupported ? (
+                  <p className="text-xs" style={{ color: "#c4927a" }}>
+                    Add to Home Screen to enable push notifications.
+                  </p>
+                ) : (
+                  <p className="text-xs" style={{ color: "#c4927a" }}>
+                    Notifications not configured.
+                  </p>
+                )}
+                <p className="text-xs mt-1" style={{ color: "#c4927a" }}>
+                  Timezone: {timezone}
+                </p>
+              </div>
             </div>
-            <GroupsManager
-              schedule={schedule}
-              groups={foodGroups}
-              onChange={handleGroupsChange}
-            />
           </div>
         )}
+
+        {/* Account */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+            Account
+          </p>
+          <div
+            className="bg-white rounded-xl overflow-hidden"
+            style={{ border: "0.5px solid #f0ddd4" }}
+          >
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center px-4 py-3 text-left"
+            >
+              <span className="text-sm font-medium" style={{ color: "#dc2626" }}>
+                Sign out
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Legal */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+            Legal
+          </p>
+          <div
+            className="bg-white rounded-xl overflow-hidden"
+            style={{ border: "0.5px solid #f0ddd4" }}
+          >
+            <Link href="/privacy" className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Privacy policy</span>
+              <span style={{ color: "#c4927a" }}>›</span>
+            </Link>
+            <RowDivider />
+            <Link href="/disclaimer" className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Medical disclaimer</span>
+              <span style={{ color: "#c4927a" }}>›</span>
+            </Link>
+          </div>
+        </div>
 
         {saveError && (
-          <p className="text-red-600 text-sm">{saveError}</p>
+          <p className="text-sm" style={{ color: "#dc2626" }}>{saveError}</p>
         )}
 
-        {showCatchup ? (
-          <div className="px-4 py-4 bg-gray-50 border border-gray-200 rounded-xl">
-            <p className="text-sm font-medium mb-3">
+        {/* Save */}
+        <button
+          className="w-full py-4 text-white text-base font-semibold rounded-xl disabled:opacity-50"
+          style={{ background: "#ff6b35" }}
+          onClick={handleSave}
+          disabled={saving}
+        >
+          {saved ? "Saved ✓" : saving ? "Saving…" : "Save"}
+        </button>
+
+        {/* Version */}
+        <p className="text-center text-xs" style={{ color: "#c4927a" }}>
+          Tip Pal v{APP_VERSION}
+        </p>
+      </div>
+
+      {/* Catchup bottom-sheet modal */}
+      {showCatchup && (
+        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="bg-white w-full rounded-t-2xl p-6">
+            <p className="text-base font-semibold mb-1" style={{ color: "#2d1a0e" }}>
+              Update dose history?
+            </p>
+            <p className="text-sm mb-5" style={{ color: "#9a6a55" }}>
               Mark all days from Week 1, Day 1 up to your current position as complete in the log?
             </p>
             <div className="flex gap-3">
               <button
-                className="flex-1 py-3 bg-slate-900 text-white text-sm font-semibold rounded-lg disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
+                style={{ background: "#ff6b35", color: "#fff" }}
                 onClick={() => saveAll(true)}
                 disabled={saving}
               >
                 Yes — add to log
               </button>
               <button
-                className="flex-1 py-3 bg-gray-200 text-gray-800 text-sm font-semibold rounded-lg disabled:opacity-50"
+                className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
+                style={{ background: "#f0ddd4", color: "#2d1a0e" }}
                 onClick={() => saveAll(false)}
                 disabled={saving}
               >
-                No — skip history
+                No — skip
               </button>
             </div>
           </div>
-        ) : (
-          <button
-            className="w-full py-4 bg-slate-900 text-white text-lg font-semibold rounded-xl disabled:opacity-50"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saved ? "Saved" : saving ? "Saving…" : "Save"}
-          </button>
-        )}
-      </div>
-
-      <div className="flex justify-center gap-6 pt-2 pb-4">
-        <Link href="/privacy" className="text-xs text-gray-400 underline">Privacy</Link>
-        <Link href="/disclaimer" className="text-xs text-gray-400 underline">Disclaimer</Link>
-      </div>
-    </main>
+        </div>
+      )}
+    </div>
   )
 }
