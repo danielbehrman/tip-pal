@@ -39,6 +39,7 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+    setLoading(false)
     router.replace("/daily")
   }
 
@@ -52,6 +53,7 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+    setLoading(false)
     router.replace("/setup")
   }
 
