@@ -183,7 +183,7 @@ export default function OnboardingPage() {
               width: step === n ? 8 : 6,
               height: step === n ? 8 : 6,
               borderRadius: "50%",
-              background: step >= n ? "#fff" : "rgba(255,255,255,0.4)",
+              background: step === n ? "#fff" : "rgba(255,255,255,0.4)",
               transition: "all 0.2s",
             }}
           />
@@ -505,8 +505,8 @@ export default function OnboardingPage() {
           {/* Schedule parsed badge */}
           {schedule && (
             <div className="flex items-center gap-1.5">
-              <span className="text-sm" style={{ color: "#22c55e" }}>✓</span>
               <span className="text-sm" style={{ color: "#9a6a55" }}>Schedule parsed</span>
+              <span className="text-sm" style={{ color: "#22c55e" }}>✓</span>
             </div>
           )}
 
