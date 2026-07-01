@@ -213,14 +213,15 @@ export default function SettingsPage() {
         setOriginalDay(day)
       }
       if (withCatchup) await saveBulkCatchUpLog(week, day)
-      setShowCatchup(false)
       setSaved(true)
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
+    } finally {
+      setShowCatchup(false)
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   function handleSave() {
