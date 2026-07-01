@@ -1,34 +1,137 @@
 "use client"
 
+import { useState } from "react"
 import { ParsedSchedule, DoseLogDay } from "@/lib/types"
 import { getTreatmentFoodsForWeek } from "@/lib/schedule"
-import Link from "next/link"
 
 interface DoseHistoryLogProps {
   schedule: ParsedSchedule
   days: DoseLogDay[]
 }
 
-function formatDate(isoString: string): string {
-  return new Date(isoString).toLocaleDateString("en-US", {
+type DayStatus = "complete" | "am-skipped" | "pm-skipped" | "both-skipped"
+
+const STATUS_CONFIG: Record<DayStatus, { label: string; dotColor: string }> = {
+  "complete":      { label: "Complete",     dotColor: "#22c55e" },
+  "am-skipped":    { label: "AM skipped",   dotColor: "#ff6b35" },
+  "pm-skipped":    { label: "PM skipped",   dotColor: "#9b6fd4" },
+  "both-skipped":  { label: "Both skipped", dotColor: "#9a6a55" },
+}
+
+function getDayStatus(entry: DoseLogDay): DayStatus {
+  if (entry.morningSkipped && entry.eveningSkipped) return "both-skipped"
+  if (entry.morningSkipped) return "am-skipped"
+  if (entry.eveningSkipped) return "pm-skipped"
+  return "complete"
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
     day: "numeric",
   })
 }
 
-function FoodRow({ name, dose, unit, given }: { name: string; dose: number; unit: string; given: boolean }) {
+function formatVisitNumber(vn: string): string {
+  const asNum = parseInt(vn.trim(), 10)
+  if (!isNaN(asNum) && asNum.toString() === vn.trim()) return `Visit ${vn}`
+  return vn
+}
+
+function getMorningText(entry: DoseLogDay, schedule: ParsedSchedule): string {
+  if (entry.morningSkipped) return "Skipped"
+  const s = entry.scheduleSnapshot ?? schedule
+  const foods = [
+    ...s.maintenanceFoods.map(f => ({ key: `morning-${f.name}`, name: f.name })),
+    ...(entry.day === 7
+      ? s.weeklyFoods.map(f => ({ key: `morning-weekly-${f.name}`, name: f.name }))
+      : []),
+  ]
+  const given = foods.filter(f => entry.checkedFoods[f.key]).map(f => f.name)
+  return given.length > 0 ? given.join(", ") : "None logged"
+}
+
+function getEveningText(entry: DoseLogDay, schedule: ParsedSchedule): string {
+  if (entry.eveningSkipped) return "Skipped"
+  const s = entry.scheduleSnapshot ?? schedule
+  const foods = getTreatmentFoodsForWeek(s, entry.week).map(({ food }) => ({
+    key: `evening-${food.name}`,
+    name: food.name,
+  }))
+  const given = foods.filter(f => entry.checkedFoods[f.key]).map(f => f.name)
+  return given.length > 0 ? given.join(", ") : "None logged"
+}
+
+function DayRow({
+  entry,
+  schedule,
+}: {
+  entry: DoseLogDay
+  schedule: ParsedSchedule
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const status = getDayStatus(entry)
+  const { label, dotColor } = STATUS_CONFIG[status]
+  const morningText = getMorningText(entry, schedule)
+  const eveningText = getEveningText(entry, schedule)
+
   return (
-    <div className={`flex items-center justify-between py-1.5 text-sm ${given ? "text-gray-800" : "text-gray-400"}`}>
-      <span>{name}</span>
-      <span className="flex items-center gap-2">
-        <span>{dose} {unit}</span>
-        {given ? (
-          <span className="text-green-600 font-medium">✓</span>
-        ) : (
-          <span className="text-gray-400 text-xs">Not given</span>
-        )}
-      </span>
+    <div style={{ borderBottom: "0.5px solid #f0ddd4" }}>
+      <button
+        className="w-full flex items-center justify-between px-4 py-3 bg-white"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <p className="text-sm font-medium text-left" style={{ color: "#2d1a0e" }}>
+          {formatDate(entry.completedAt)} · Day {entry.day}
+        </p>
+        <div className="flex items-center gap-2 shrink-0">
+          <div
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              background: dotColor,
+            }}
+          />
+          <span className="text-xs" style={{ color: "#9a6a55" }}>
+            {label}
+          </span>
+          <span style={{ color: "#c4927a", fontSize: 10 }}>
+            {expanded ? "▲" : "▼"}
+          </span>
+        </div>
+      </button>
+
+      {expanded && (
+        <div
+          className="px-4 py-3 flex flex-col gap-3"
+          style={{ background: "#fffbf7" }}
+        >
+          <div className="flex items-start gap-3">
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded shrink-0"
+              style={{ background: "#ff6b35", color: "#fff", marginTop: 1 }}
+            >
+              AM
+            </span>
+            <p className="text-sm" style={{ color: "#2d1a0e" }}>
+              {morningText}
+            </p>
+          </div>
+          <div className="flex items-start gap-3">
+            <span
+              className="text-xs font-semibold px-2 py-0.5 rounded shrink-0"
+              style={{ background: "#9b6fd4", color: "#fff", marginTop: 1 }}
+            >
+              PM
+            </span>
+            <p className="text-sm" style={{ color: "#2d1a0e" }}>
+              {eveningText}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -36,98 +139,39 @@ function FoodRow({ name, dose, unit, given }: { name: string; dose: number; unit
 export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) {
   if (days.length === 0) {
     return (
-      <div className="mt-8 text-center">
-        <p className="text-gray-500 text-sm">No doses logged yet.</p>
-        <p className="text-gray-400 text-xs mt-1">
-          Completed days will appear here after you tap Complete Day.
-        </p>
-      </div>
+      <p className="px-4 pt-6 text-sm" style={{ color: "#9a6a55" }}>
+        No doses logged yet. Completed days will appear here.
+      </p>
     )
   }
 
+  // Group by week, preserving most-recent-first insertion order
+  const weekGroups = new Map<number, DoseLogDay[]>()
+  for (const day of days) {
+    if (!weekGroups.has(day.week)) weekGroups.set(day.week, [])
+    weekGroups.get(day.week)!.push(day)
+  }
+
   return (
-    <div className="flex flex-col gap-4">
-      {days.map(entry => {
-        const s = entry.scheduleSnapshot ?? schedule
-        const morningFoods = [
-          ...s.maintenanceFoods.map(f => ({
-            key: `morning-${f.name}`,
-            name: f.name,
-            dose: f.dose,
-            unit: f.unit,
-          })),
-          ...(entry.day === 7
-            ? s.weeklyFoods.map(f => ({
-                key: `morning-weekly-${f.name}`,
-                name: f.name,
-                dose: f.dose,
-                unit: f.unit,
-              }))
-            : []),
-        ]
-
-        const eveningFoods = getTreatmentFoodsForWeek(s, entry.week).map(
-          ({ food, weekEntry }) => ({
-            key: `evening-${food.name}`,
-            name: food.name,
-            dose: weekEntry.dose,
-            unit: weekEntry.unit,
-          })
-        )
-
+    <div className="flex flex-col pb-24">
+      {[...weekGroups.entries()].map(([week, weekDays]) => {
+        const firstDay = weekDays[0]
+        const vn = firstDay.scheduleSnapshot?.visitNumber
+        const visitPart = vn ? ` · ${formatVisitNumber(vn)}` : ""
+        const sectionLabel = `Week ${week}${visitPart}`
         return (
-          <div key={entry.id} className="border border-gray-200 rounded-xl overflow-hidden">
-            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between">
-              <span className="font-semibold text-base">
-                Week {entry.week}, Day {entry.day}
-              </span>
-              <span className="text-sm text-gray-500">{formatDate(entry.completedAt)}</span>
-            </div>
-
-            <div className="px-4 pt-3 pb-2">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Morning</p>
-              {entry.morningSkipped ? (
-                <p className="text-sm text-gray-400 italic mb-3">Skipped</p>
-              ) : (
-                <div className="divide-y divide-gray-100 mb-3">
-                  {morningFoods.map(f => (
-                    <FoodRow
-                      key={f.key}
-                      name={f.name}
-                      dose={f.dose}
-                      unit={f.unit}
-                      given={!!entry.checkedFoods[f.key]}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Evening</p>
-              {entry.eveningSkipped ? (
-                <p className="text-sm text-gray-400 italic mb-2">Skipped</p>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {eveningFoods.map(f => (
-                    <FoodRow
-                      key={f.key}
-                      name={f.name}
-                      dose={f.dose}
-                      unit={f.unit}
-                      given={!!entry.checkedFoods[f.key]}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="px-4 pb-3 flex justify-end">
-              <Link
-                href={`/history/edit`}
-                className="text-xs text-gray-400 underline"
+          <div key={week}>
+            <div className="px-4 py-2" style={{ background: "#fff8f5" }}>
+              <p
+                className="text-xs font-semibold uppercase tracking-wide"
+                style={{ color: "#9a6a55" }}
               >
-                Edit
-              </Link>
+                {sectionLabel}
+              </p>
             </div>
+            {weekDays.map(entry => (
+              <DayRow key={entry.id} entry={entry} schedule={schedule} />
+            ))}
           </div>
         )
       })}

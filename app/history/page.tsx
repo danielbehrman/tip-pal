@@ -47,17 +47,21 @@ export default function HistoryPage() {
   if (loading || !schedule) return null
 
   return (
-    <main className="max-w-lg mx-auto px-4 py-6 min-h-screen">
-      <div className="flex items-center gap-3 mb-2">
-        <Link href="/daily" className="text-gray-500 text-sm underline">
-          ← Back
+    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+      <header
+        className="flex items-center justify-between px-4 pt-5 pb-4"
+        style={{ background: "#ff6b35" }}
+      >
+        <h1 className="text-xl font-semibold text-white">History</h1>
+        <Link
+          href="/history/edit"
+          className="text-sm font-medium"
+          style={{ color: "rgba(255,255,255,0.85)" }}
+        >
+          Edit
         </Link>
-        <h1 className="text-2xl font-bold">Dose History</h1>
-      </div>
-      <p className="text-sm text-gray-500 mb-6">
-        {days.length > 0 ? `${days.length} completed day${days.length !== 1 ? "s" : ""} logged` : ""}
-      </p>
+      </header>
       <DoseHistoryLog schedule={schedule} days={days} />
-    </main>
+    </div>
   )
 }
