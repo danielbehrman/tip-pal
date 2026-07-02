@@ -169,7 +169,7 @@ export async function uploadChildPhoto(file: File): Promise<string> {
     .storage
     .from("avatars")
     .upload(path, file, { upsert: true, contentType: file.type })
-  if (error) throw error
+  if (error) throw new Error(`storage: ${error.message}`)
   const { data } = getClient().storage.from("avatars").getPublicUrl(path)
   return data.publicUrl
 }
@@ -180,7 +180,7 @@ export async function saveChildPhotoUrl(url: string): Promise<void> {
     .from("families")
     .update({ child_photo_url: url })
     .eq("id", familyId)
-  if (error) throw error
+  if (error) throw new Error(`families: ${error.message}`)
 }
 
 export async function fetchChildPhotoUrl(): Promise<string | null> {
