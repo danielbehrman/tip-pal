@@ -46,6 +46,7 @@ export default function OnboardingPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [nameError, setNameError] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
 
   // Schedule (loaded on init)
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
@@ -102,12 +103,13 @@ export default function OnboardingPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoUploading(true)
+    setPhotoError(null)
     try {
       const url = await uploadChildPhoto(file)
       await saveChildPhotoUrl(url)
       setChildPhotoUrl(url)
-    } catch {
-      // photo is optional; proceed without it
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Photo upload failed")
     } finally {
       setPhotoUploading(false)
     }
@@ -295,6 +297,9 @@ export default function OnboardingPage() {
             >
               {photoUploading ? "Uploading…" : "Skip photo for now"}
             </button>
+            {photoError && (
+              <p className="text-xs text-center" style={{ color: "#dc2626" }}>{photoError}</p>
+            )}
             <input
               ref={photoInputRef}
               type="file"

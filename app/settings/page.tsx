@@ -52,6 +52,7 @@ export default function SettingsPage() {
   const [childName, setChildName] = useState("")
   const [childPhotoUrl, setChildPhotoUrl] = useState<string | null>(null)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [appointmentDate, setAppointmentDate] = useState("")
   const [week, setWeek] = useState(1)
@@ -178,11 +179,14 @@ export default function SettingsPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoUploading(true)
+    setPhotoError(null)
     try {
       const url = await uploadChildPhoto(file)
       await saveChildPhotoUrl(url)
       setChildPhotoUrl(url)
-    } catch {} finally {
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "Photo upload failed")
+    } finally {
       setPhotoUploading(false)
     }
   }
@@ -315,6 +319,9 @@ export default function SettingsPage() {
                 )}
               </div>
             </div>
+            {photoError && (
+              <p className="px-4 pb-3 text-xs" style={{ color: "#dc2626" }}>{photoError}</p>
+            )}
           </div>
         </div>
 
