@@ -163,15 +163,14 @@ export async function saveChildName(name: string): Promise<void> {
 
 export async function uploadChildPhoto(file: File): Promise<string> {
   const familyId = await getFamilyId()
-  const ext = file.type === "image/png" ? "png" : "jpg"
-  const path = `${familyId}/avatar.${ext}`
-  const { error } = await getClient()
-    .storage
-    .from("avatars")
-    .upload(path, file, { upsert: true, contentType: file.type })
-  if (error) throw new Error(`storage: ${error.message}`)
-  const { data } = getClient().storage.from("avatars").getPublicUrl(path)
-  return data.publicUrl
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ""
+  const form = new FormData()
+  form.append("file", file)
+  form.append("familyId", familyId)
+  const res = await fetch(`${apiBase}/api/upload-photo`, { method: "POST", body: form })
+  const data = await res.json()
+  if (!res.ok || data.error) throw new Error(data.error ?? "Upload failed")
+  return data.url as string
 }
 
 export async function saveChildPhotoUrl(url: string): Promise<void> {
@@ -180,7 +179,7 @@ export async function saveChildPhotoUrl(url: string): Promise<void> {
     .from("families")
     .update({ child_photo_url: url })
     .eq("id", familyId)
-  if (error) throw new Error(`families: ${error.message}`)
+  if (error) throw error
 }
 
 export async function fetchChildPhotoUrl(): Promise<string | null> {
