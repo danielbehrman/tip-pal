@@ -75,8 +75,8 @@ export default function LoginPage() {
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Orange hero */}
       <div
-        className="flex flex-col items-center px-6 pt-20 pb-12 gap-3"
-        style={{ background: "#ff6b35" }}
+        className="flex flex-col items-center px-6 pb-12 gap-3"
+        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 5rem)" }}
       >
         <Image
           src="/apple-touch-icon.png"

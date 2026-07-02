@@ -1,3 +1,76 @@
+# Phase 3.5 F8: New Food Cycle Flow Redesign — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Redesign the 4-step New Food Cycle flow: Confirm → Paste → Review (with editable appointment date) → Cycle started (animated SVG ring).
+
+**Architecture:** Full replacement of `app/new-cycle/page.tsx`. All logic inlined — `PasteInput` and `NewCycleReview` components are no longer imported (they become orphaned but stay on disk). Key additions: editable `appointmentDate` state in step 3; step 4 "success" view with animated SVG ring using CSS transitions; `childPhotoUrl` loaded on init. `archiveAndStartNewCycle` now receives the user-edited appointment date, not `parsedSchedule.appointmentDate` directly.
+
+**Tech Stack:** Next.js, React hooks, Tailwind + inline styles, SVG animation via CSS transitions
+
+## Global Constraints
+
+- App name "Tip Pal" — never "TIP Pal"
+- Colors: `#ff6b35` orange header/CTAs, `#ff9966` ghost arc (55% opacity), `#4fc3f7` animated arc, `#fffbf7` bg, `#fff` card bg, `#f0ddd4` borders/dividers, `#2d1a0e` primary, `#9a6a55` secondary, `#c4927a` tertiary
+- Step 4 ring: radius 50, SVG 120×120, strokeWidth 8, CIRCUM = 2π×50 ≈ 314.16
+- Ring animation: CSS `transition: stroke-dashoffset 1.4s ease`, triggered 100ms after view = "success"
+- `process.env.NEXT_PUBLIC_API_BASE_URL ?? ""` prefix on all `/api/*` fetch calls
+- `npm run build` must pass with zero TypeScript errors
+
+---
+
+## File Map
+
+| File | Change |
+|---|---|
+| `app/new-cycle/page.tsx` | Full replacement |
+| `components/PasteInput.tsx` | Unchanged (orphaned — no longer imported) |
+| `components/NewCycleReview.tsx` | Unchanged (orphaned — no longer imported) |
+
+---
+
+## Key Data Model Notes
+
+```ts
+// archiveAndStartNewCycle signature (lib/supabase.ts:558):
+archiveAndStartNewCycle(
+  currentSchedule: ParsedSchedule | null,
+  newSchedule: ParsedSchedule,
+  visitNumber: string | null,
+  newAppointmentDate: string | null   // ← pass the editable appointmentDate state
+): Promise<void>
+
+// calculateBufferFromProgress (lib/schedule.ts:129):
+calculateBufferFromProgress(
+  appointmentDateStr: string | null,
+  totalTreatmentWeeks: number,
+  slowestWeek: number,          // ← 1 for fresh start
+  slowestCompletedDays: number  // ← 0 for fresh start
+): BufferResult  // { kind: "days" | "behind" | "past" | "hidden"; count?: number }
+
+// getVisitIndex (lib/schedule.ts:154) — returns 0–24 integer
+getVisitIndex(visitNumber: string | null): number
+```
+
+---
+
+### Task 1: New Food Cycle Flow Redesign
+
+**Files:**
+- Modify: `app/new-cycle/page.tsx` — full replacement
+
+**Imports needed:**
+```ts
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ParsedSchedule } from "@/lib/types"
+import { fetchSchedule, fetchChildPhotoUrl, archiveAndStartNewCycle, getSession } from "@/lib/supabase"
+import { getVisitIndex, calculateBufferFromProgress } from "@/lib/schedule"
+```
+
+- [ ] **Step 1: Write the complete replacement for `app/new-cycle/page.tsx`**
+
+```tsx
 "use client"
 
 import { useEffect, useState } from "react"
@@ -149,8 +222,8 @@ export default function NewCyclePage() {
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Header */}
       <header
-        className="flex items-center justify-between px-4 pb-4"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        className="flex items-center justify-between px-4 pt-5 pb-4"
+        style={{ background: "#ff6b35" }}
       >
         {showBack ? (
           <button
@@ -500,3 +573,27 @@ export default function NewCyclePage() {
     </div>
   )
 }
+```
+
+- [ ] **Step 2: TypeScript check**
+
+```bash
+npx tsc --noEmit 2>&1 | head -20
+```
+
+Expected: zero errors.
+
+- [ ] **Step 3: Full build**
+
+```bash
+npm run build 2>&1 | tail -8
+```
+
+Expected: `✓ Compiled successfully`.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add app/new-cycle/page.tsx
+git commit -m "feat(f8): redesign New Food Cycle flow — 4 steps with animated ring"
+```

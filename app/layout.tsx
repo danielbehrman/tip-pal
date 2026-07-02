@@ -21,6 +21,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
   themeColor: "#ff6b35",
 }
 
@@ -35,7 +36,7 @@ export default function RootLayout({
         <ServiceWorkerRegister />
         <div className="app-container">
           <SignOutButton />
-          <div style={{ paddingBottom: 72 }}>
+          <div style={{ paddingBottom: 90 }}>
             {children}
           </div>
           <BottomNav />

@@ -24,7 +24,8 @@ export default function BottomNav() {
         maxWidth: 430,
         background: "#fff",
         borderTop: "0.5px solid #f0ddd4",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingTop: 8,
+        paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
         zIndex: 50,
       }}
     >
@@ -34,14 +35,14 @@ export default function BottomNav() {
           <Link
             key={tab.href}
             href={tab.href}
-            className="flex-1 flex flex-col items-center gap-0.5 py-2 no-underline"
+            className="flex-1 flex flex-col items-center gap-1 py-2 no-underline"
             style={{
               color: active ? "#ff6b35" : "#e0c4b8",
               fontWeight: active ? 500 : 400,
-              fontSize: 10,
+              fontSize: 12,
             }}
           >
-            <span style={{ fontSize: 18 }}>{tab.icon}</span>
+            <span style={{ fontSize: 24 }}>{tab.icon}</span>
             {tab.label}
           </Link>
         )

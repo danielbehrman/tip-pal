@@ -1,3 +1,117 @@
+# Phase 3.5 F9: Onboarding Flow Redesign — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Redesign the onboarding flow from a single-page form to a 4-step warm-design flow: Child setup → Appointment date → Position (Visit/Week/Day) → Summary with progress dots in the orange header.
+
+**Architecture:** Full replacement of `app/onboarding/page.tsx`. Add `saveVisitNumber` export to `lib/supabase.ts` (the only lib change — no schema migration needed, `families.visit_number` column already exists). The visit number is stored as the raw string (e.g. "Launch", "1"–"20", "Tolerance 1", "Tolerance 2", "Remission 1", "Annual Remission") and read back by `fetchVisitNumber()` in the daily view. All existing save/load functions are reused. Catchup modal keeps the fixed bottom-sheet style from F7 Settings.
+
+**Tech Stack:** Next.js, React hooks, Tailwind + inline styles, SVG progress dots
+
+## Global Constraints
+
+- App name "Tip Pal" — never "TIP Pal"
+- Colors: `#ff6b35` orange header/CTAs, `#fffbf7` bg, `#fff` cards, `#f0ddd4` borders/dividers, `#2d1a0e` primary, `#9a6a55` secondary, `#c4927a` tertiary
+- Progress dots in orange header: active dot = white 8×8, inactive = rgba(255,255,255,0.4) 6×6
+- `process.env.NEXT_PUBLIC_API_BASE_URL ?? ""` prefix on all `/api/*` fetch calls
+- `npm run build` must pass with zero TypeScript errors
+- `families.visit_number` column already exists — no migration needed
+
+---
+
+## File Map
+
+| File | Change |
+|---|---|
+| `lib/supabase.ts` | Add `saveVisitNumber` export after `fetchVisitNumber` (line 556) |
+| `app/onboarding/page.tsx` | Full replacement — 4-step flow |
+
+---
+
+## Key Data Model Notes
+
+```ts
+// Visit sequence (25 values, index 0–24):
+const VISIT_SEQUENCE = [
+  "Launch",
+  "1","2","3","4","5","6","7","8","9","10",
+  "11","12","13","14","15","16","17","18","19","20",
+  "Tolerance 1","Tolerance 2","Remission 1","Annual Remission",
+]
+// Display labels: pure integer strings → "Visit N"; others → pass-through
+function visitLabel(raw: string): string {
+  const n = parseInt(raw, 10)
+  return !isNaN(n) && n.toString() === raw ? `Visit ${raw}` : raw
+}
+
+// saveVisitNumber to add to lib/supabase.ts:
+export async function saveVisitNumber(visitNumber: string | null): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ visit_number: visitNumber })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+// Buffer calculation for step 4 (same helper as F8):
+function getMaxWeek(schedule: ParsedSchedule): number {
+  const weeks = schedule.treatmentFoods.flatMap(f => f.weeks.map(w => w.week))
+  return weeks.length ? Math.max(...weeks) : 0
+}
+// Call: calculateBufferFromProgress(appointmentDate || null, getMaxWeek(schedule), week, day - 1)
+// week = current week (1+), day - 1 = completed days in current week
+
+// saveDoseState signature uses cycleStartDateForPosition(week, day) for cycleStartDate
+```
+
+---
+
+### Task 1: Onboarding Flow Redesign
+
+**Files:**
+- Modify: `lib/supabase.ts` — insert `saveVisitNumber` after line 556
+- Modify: `app/onboarding/page.tsx` — full replacement
+
+**Imports for `app/onboarding/page.tsx`:**
+```ts
+import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
+import {
+  getSession,
+  fetchSchedule,
+  fetchFamilyName,
+  fetchDoseState,
+  fetchAppointmentDate,
+  saveFamilyConfig,
+  saveDoseState,
+  saveVisitNumber,
+  saveBulkCatchUpLog,
+  uploadChildPhoto,
+  saveChildPhotoUrl,
+} from "@/lib/supabase"
+import { ParsedSchedule, DoseState } from "@/lib/types"
+import { cycleStartDateForPosition, calculateBufferFromProgress } from "@/lib/schedule"
+```
+
+- [ ] **Step 1: Add `saveVisitNumber` to `lib/supabase.ts`**
+
+Insert after `fetchVisitNumber` (after line 556, before `archiveAndStartNewCycle`):
+
+```ts
+export async function saveVisitNumber(visitNumber: string | null): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ visit_number: visitNumber })
+    .eq("id", familyId)
+  if (error) throw error
+}
+```
+
+- [ ] **Step 2: Write the complete replacement for `app/onboarding/page.tsx`**
+
+```tsx
 "use client"
 
 import { useEffect, useRef, useState } from "react"
@@ -46,7 +160,6 @@ export default function OnboardingPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [nameError, setNameError] = useState(false)
-  const [photoError, setPhotoError] = useState<string | null>(null)
 
   // Schedule (loaded on init)
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
@@ -103,13 +216,12 @@ export default function OnboardingPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setPhotoUploading(true)
-    setPhotoError(null)
     try {
       const url = await uploadChildPhoto(file)
       await saveChildPhotoUrl(url)
       setChildPhotoUrl(url)
-    } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : "Photo upload failed")
+    } catch {
+      // photo is optional; proceed without it
     } finally {
       setPhotoUploading(false)
     }
@@ -156,14 +268,12 @@ export default function OnboardingPage() {
       setSaving(false)
     } finally {
       setShowCatchup(false)
-      setSaving(false)
     }
   }
 
   // Buffer calculation for step 4
-  const maxWeek = schedule ? getMaxWeek(schedule) : 99
   const bufferResult = schedule
-    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, week, day - 1)
+    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(schedule), week, day - 1)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days"
@@ -187,7 +297,7 @@ export default function OnboardingPage() {
               width: step === n ? 8 : 6,
               height: step === n ? 8 : 6,
               borderRadius: "50%",
-              background: step === n ? "#fff" : "rgba(255,255,255,0.4)",
+              background: step >= n ? "#fff" : "rgba(255,255,255,0.4)",
               transition: "all 0.2s",
             }}
           />
@@ -200,8 +310,8 @@ export default function OnboardingPage() {
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Orange header */}
       <header
-        className="px-4 pb-4 flex flex-col gap-3"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        className="px-4 pt-5 pb-4 flex flex-col gap-3"
+        style={{ background: "#ff6b35" }}
       >
         <div className="flex items-center justify-between">
           {step > 1 ? (
@@ -297,9 +407,6 @@ export default function OnboardingPage() {
             >
               {photoUploading ? "Uploading…" : "Skip photo for now"}
             </button>
-            {photoError && (
-              <p className="text-xs text-center" style={{ color: "#dc2626" }}>{photoError}</p>
-            )}
             <input
               ref={photoInputRef}
               type="file"
@@ -425,9 +532,8 @@ export default function OnboardingPage() {
               </button>
               <span className="text-base font-medium" style={{ color: "#2d1a0e" }}>Week {week}</span>
               <button
-                onClick={() => setWeek(w => Math.min(maxWeek, w + 1))}
-                disabled={week >= maxWeek}
-                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                onClick={() => setWeek(w => w + 1)}
+                className="flex items-center justify-center text-lg font-bold"
                 style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
               >
                 +
@@ -513,8 +619,8 @@ export default function OnboardingPage() {
           {/* Schedule parsed badge */}
           {schedule && (
             <div className="flex items-center gap-1.5">
-              <span className="text-sm" style={{ color: "#9a6a55" }}>Schedule parsed</span>
               <span className="text-sm" style={{ color: "#22c55e" }}>✓</span>
+              <span className="text-sm" style={{ color: "#9a6a55" }}>Schedule parsed</span>
             </div>
           )}
 
@@ -564,3 +670,27 @@ export default function OnboardingPage() {
     </div>
   )
 }
+```
+
+- [ ] **Step 3: TypeScript check**
+
+```bash
+npx tsc --noEmit 2>&1 | head -20
+```
+
+Expected: zero errors.
+
+- [ ] **Step 4: Full build**
+
+```bash
+npm run build 2>&1 | tail -8
+```
+
+Expected: `✓ Compiled successfully`.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add lib/supabase.ts app/onboarding/page.tsx
+git commit -m "feat(f9): redesign Onboarding flow — 4-step warm design with visit stepper and summary"
+```

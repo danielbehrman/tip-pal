@@ -76,8 +76,8 @@ export default function SetupPage() {
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Orange header with empty ring avatar */}
       <header
-        className="flex items-center gap-4 px-4 pt-5 pb-4"
-        style={{ background: "#ff6b35" }}
+        className="flex items-center gap-4 px-4 pb-4"
+        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         {/* Empty progress ring avatar */}
         <div className="relative flex items-center justify-center shrink-0" style={{ width: 60, height: 60 }}>

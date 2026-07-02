@@ -49,6 +49,15 @@
 
   /* Font */
   --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif;
+
+  /* Override Tailwind text scale for mobile readability (Apple HIG targets) */
+  --text-xs: 0.8125rem;   /* 13px */
+  --text-sm: 0.9375rem;   /* 15px */
+  --text-base: 1.0625rem; /* 17px */
+  --text-lg: 1.1875rem;   /* 19px */
+  --text-xl: 1.3125rem;   /* 21px */
+  --text-2xl: 1.5rem;     /* 24px */
+  --text-3xl: 1.875rem;   /* 30px */
 }
 
 /* Typography scale — not in @theme to avoid overriding Tailwind's built-in text-* scale on existing screens */

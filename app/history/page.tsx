@@ -49,8 +49,8 @@ export default function HistoryPage() {
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       <header
-        className="flex items-center justify-between px-4 pt-5 pb-4"
-        style={{ background: "#ff6b35" }}
+        className="flex items-center justify-between px-4 pb-4"
+        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <h1 className="text-xl font-semibold text-white">History</h1>
         <Link

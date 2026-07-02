@@ -92,7 +92,7 @@ export default function RecommendedFoodsView({
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Orange header */}
-      <header style={{ background: "#ff6b35" }}>
+      <header style={{ background: "#ff6b35", paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-4 pt-5 pb-0">
           <h1 className="text-xl font-semibold text-white">Recommended Foods</h1>
         </div>

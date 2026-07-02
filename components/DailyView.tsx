@@ -151,7 +151,7 @@ export default function DailyView({
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
       {/* Orange header */}
-      <header style={{ background: "#ff6b35" }}>
+      <header style={{ background: "#ff6b35", paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-4 pt-5 pb-3 flex items-center gap-3">
           {/* Avatar with SVG progress ring */}
           <div className="relative flex-shrink-0" style={{ width: 58, height: 58 }}>
