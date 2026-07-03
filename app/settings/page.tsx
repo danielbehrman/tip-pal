@@ -551,8 +551,8 @@ export default function SettingsPage() {
 
       {/* Catchup bottom-sheet modal */}
       {showCatchup && (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
-          <div className="bg-white w-full rounded-t-2xl p-6">
+        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
+          <div className="bg-white w-full rounded-t-2xl px-6 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
             <p className="text-base font-semibold mb-1" style={{ color: "#2d1a0e" }}>
               Update dose history?
             </p>

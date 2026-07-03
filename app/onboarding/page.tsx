@@ -535,7 +535,7 @@ export default function OnboardingPage() {
 
       {/* Catchup modal — fixed bottom sheet */}
       {showCatchup && (
-        <div className="fixed inset-0 z-50 flex items-end" style={{ background: "rgba(45,26,14,0.4)" }}>
+        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(45,26,14,0.4)" }}>
           <div className="w-full bg-white rounded-t-2xl px-4 pt-6 pb-10 flex flex-col gap-4">
             <p className="text-sm font-medium" style={{ color: "#2d1a0e" }}>
               Mark all days from Week 1, Day 1 up to your current position as complete in the log?

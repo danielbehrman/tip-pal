@@ -158,7 +158,8 @@ export function getVisitIndex(visitNumber: string | null): number {
   if (v.startsWith("tolerance")) return v.includes("2") ? 22 : 21
   if (v.includes("annual")) return 24
   if (v.startsWith("remission")) return 23
-  const n = parseInt(v, 10)
+  const numeric = v.startsWith("visit ") ? v.slice(6).trim() : v
+  const n = parseInt(numeric, 10)
   return isNaN(n) ? 0 : Math.min(n, 20)
 }
 
