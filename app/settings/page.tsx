@@ -24,6 +24,8 @@ import {
   saveFoodGroups,
   resetFoodProgress,
   signOut,
+  fetchVisitNumber,
+  saveVisitNumber,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
 import { DoseState, ParsedSchedule, FoodGroup } from "@/lib/types"
@@ -73,6 +75,7 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appointmentDateLoaded = useRef(false)
+  const [visitNumber, setVisitNumber] = useState<string>("")
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [groupsSaved, setGroupsSaved] = useState(false)
@@ -87,13 +90,14 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, ds, notifSettings, groups, sched, photoUrl] = await Promise.all([
+        const [name, ds, notifSettings, groups, sched, photoUrl, vNum] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
           fetchFoodGroups().catch(() => []),
           fetchSchedule().catch(() => null),
           fetchChildPhotoUrl().catch(() => null),
+          fetchVisitNumber().catch(() => null),
         ])
         try {
           const apptDate = await fetchAppointmentDate()
@@ -115,6 +119,7 @@ export default function SettingsPage() {
         }
         setFoodGroups(groups)
         if (sched) setSchedule(sched)
+        if (vNum) setVisitNumber(vNum)
         setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone)
       } catch {}
       setLoading(false)
@@ -199,6 +204,7 @@ export default function SettingsPage() {
       if (appointmentDateLoaded.current) {
         await saveAppointmentDate(appointmentDate || null)
       }
+      await saveVisitNumber(visitNumber.trim() || null)
       await saveNotificationSettings(morningReminder, eveningReminder, timezone)
       const positionChanged = week !== originalWeek || day !== originalDay
       if (positionChanged || !existingDoseState) {
@@ -395,6 +401,19 @@ export default function SettingsPage() {
                   +
                 </button>
               </div>
+            </div>
+            <RowDivider />
+            {/* Visit number */}
+            <div className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "#2d1a0e" }}>Visit number</span>
+              <input
+                type="text"
+                value={visitNumber}
+                onChange={e => setVisitNumber(e.target.value)}
+                placeholder="e.g. 8"
+                className="text-sm bg-transparent text-right outline-none border-none w-28"
+                style={{ color: "#9a6a55" }}
+              />
             </div>
             {schedule && (
               <>

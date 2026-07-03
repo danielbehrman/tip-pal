@@ -82,18 +82,23 @@
 }
 
 body {
-  background: var(--color-bg);
+  margin: 0;
+  padding: 0;
+  background: #ff6b35;
   color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
 
-/* Desktop: warm gutter fills the viewport outside the mobile column */
+/* Orange fills any gap above the header (safe-area, desktop gutter) */
 html {
-  background: #f0ece8;
+  margin: 0;
+  padding: 0;
+  background: #ff6b35;
 }
 
 /* Mobile-first max-width container — applied in layout.tsx */
 .app-container {
+  width: 100%;
   max-width: 430px;
   margin: 0 auto;
   min-height: 100vh;

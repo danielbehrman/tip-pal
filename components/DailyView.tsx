@@ -110,10 +110,11 @@ export default function DailyView({
   const dateLabel = formatDateLabel(projectedDate)
   const isToday = viewSeq === anchorSeq && !isSkipped
 
-  // Visit ring
+  // Visit ring — minimum 10% arc when progress > 0 so it's always visible
   const visitIdx = getVisitIndex(visitNumber)
   const visitProgress = visitIdx / 25
-  const strokeDashoffset = CIRCUMFERENCE * (1 - visitProgress)
+  const arcFraction = visitProgress > 0 ? Math.max(visitProgress, 0.1) : 0
+  const strokeDashoffset = CIRCUMFERENCE * (1 - arcFraction)
 
   // Appointment bubble
   const daysToAppt = getDaysToAppointment(appointmentDate)
@@ -165,12 +166,11 @@ export default function DailyView({
               <circle
                 cx="29" cy="29" r="26"
                 fill="none"
-                stroke="#4fc3f7"
-                strokeWidth="5"
                 strokeLinecap="round"
                 strokeDasharray={`${CIRCUMFERENCE}`}
                 strokeDashoffset={`${strokeDashoffset}`}
                 transform="rotate(-90 29 29)"
+                style={{ stroke: "#4fc3f7", strokeWidth: 5 }}
               />
             </svg>
             {/* Avatar inner — child photo or emoji fallback */}
