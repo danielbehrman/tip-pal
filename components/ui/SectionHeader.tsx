@@ -16,8 +16,8 @@ export default function SectionHeader({ session, label, count }: SectionHeaderPr
           {isMorning ? "☀️" : "🌙"}
         </span>
         <span
-          className="text-xs font-medium uppercase tracking-[0.04em]"
-          style={{ color: "#6b4c3b" }}
+          className="font-medium uppercase tracking-[0.04em]"
+          style={{ fontSize: 13, color: "#6b4c3b" }}
         >
           {label}
         </span>

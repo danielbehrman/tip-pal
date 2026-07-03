@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
-import SignOutButton from "@/components/SignOutButton"
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister"
 import BottomNav from "@/components/BottomNav"
 
@@ -13,7 +12,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Tip Pal",
   },
 }
@@ -35,7 +34,6 @@ export default function RootLayout({
       <body>
         <ServiceWorkerRegister />
         <div className="app-container">
-          <SignOutButton />
           <div style={{ paddingBottom: 90 }}>
             {children}
           </div>

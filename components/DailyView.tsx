@@ -175,12 +175,16 @@ export default function DailyView({
             </svg>
             {/* Avatar inner — child photo or emoji fallback */}
             {childPhotoUrl ? (
-              <img
-                src={childPhotoUrl}
-                alt="Child"
-                className="absolute rounded-full object-cover"
+              <div
+                className="absolute rounded-full overflow-hidden"
                 style={{ inset: 6 }}
-              />
+              >
+                <img
+                  src={childPhotoUrl}
+                  alt="Child"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
             ) : (
               <div
                 className="absolute rounded-full flex items-center justify-center"
@@ -223,10 +227,10 @@ export default function DailyView({
           className="flex items-center"
           style={{ padding: "2px 16px 12px" }}
         >
-          <span style={{ fontSize: 13, fontWeight: 400, color: "rgba(255,255,255,0.85)" }}>
+          <span style={{ fontSize: 14, fontWeight: 400, color: "rgba(255,255,255,0.85)" }}>
             Buffer days
           </span>
-          <span className="ml-1" style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+          <span className="ml-1" style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>
             {bufferDisplay}
           </span>
           <button

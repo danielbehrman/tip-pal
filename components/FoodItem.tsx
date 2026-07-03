@@ -47,7 +47,7 @@ export default function FoodItem({
             <span
               className="font-medium"
               style={{
-                fontSize: 13,
+                fontSize: 15,
                 color: checked ? "#c4927a" : "#2d1a0e",
                 textDecoration: checked ? "line-through" : "none",
               }}
@@ -70,7 +70,7 @@ export default function FoodItem({
               </span>
             )}
           </div>
-          <p style={{ fontSize: 11, color: "#9a6a55", marginTop: 1 }}>
+          <p style={{ fontSize: 13, color: "#9a6a55", marginTop: 1 }}>
             {dose} {unit}
             {prepNote ? ` · ${prepNote}` : ""}
           </p>
