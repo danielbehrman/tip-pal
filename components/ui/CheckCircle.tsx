@@ -9,19 +9,19 @@ interface CheckCircleProps {
 
 const SESSION_STYLES = {
   morning: {
-    unchecked: { border: "2px solid #e8cfc4" },
-    checked: { background: "#ff6b35", border: "2px solid #ff6b35" },
-    partial: { border: "2px dashed #ff6b35", background: "transparent" },
+    unchecked: { border: "2px solid var(--color-primary-border)" },
+    checked: { background: "var(--color-primary-mid)", border: "2px solid var(--color-primary-mid)" },
+    partial: { border: "2px dashed var(--color-primary-mid)", background: "transparent" },
   },
   evening: {
-    unchecked: { border: "2px solid #d4bef0" },
-    checked: { background: "#9b6fd4", border: "2px solid #9b6fd4" },
-    partial: { border: "2px dashed #9b6fd4", background: "transparent" },
+    unchecked: { border: "2px solid var(--color-treatment-border)" },
+    checked: { background: "var(--color-treatment-check)", border: "2px solid var(--color-treatment-check)" },
+    partial: { border: "2px dashed var(--color-treatment-check)", background: "transparent" },
   },
   med: {
-    unchecked: { border: "2px solid #d4bef0" },
-    checked: { background: "#9b6fd4", border: "2px solid #9b6fd4" },
-    partial: { border: "2px dashed #9b6fd4", background: "transparent" },
+    unchecked: { border: "2px solid var(--color-med-border)" },
+    checked: { background: "var(--color-med-check)", border: "2px solid var(--color-med-check)" },
+    partial: { border: "2px dashed var(--color-med-check)", background: "transparent" },
   },
 }
 

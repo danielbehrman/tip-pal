@@ -6,34 +6,34 @@ interface FoodCardProps {
 }
 
 const SESSION_CHECKED_STYLES = {
-  morning: "bg-[#fff8f5]",
-  evening: "bg-[#faf8ff]",
-  med: "bg-[#faf8ff]",
+  morning: "bg-[var(--color-primary-pale)]",
+  evening: "bg-[var(--color-treatment-bg-checked)]",
+  med: "bg-[var(--color-med-bg-checked)]",
 }
 
 const SESSION_DEFAULT_STYLES = {
   morning: "bg-white",
-  evening: "bg-white",
-  med: "bg-[#f5f0ff]",
+  evening: "bg-[var(--color-treatment-bg)]",
+  med: "bg-[var(--color-med-bg)]",
 }
 
 const SESSION_CHECKED_BORDER_COLOR = {
-  morning: "#ffb899",
-  evening: "#c4a8f0",
-  med: "#c4a8f0",
+  morning: "var(--color-primary-checked)",
+  evening: "var(--color-treatment-border-checked)",
+  med: "var(--color-med-border-checked)",
 }
 
 const SESSION_DEFAULT_BORDER_COLOR = {
-  morning: "#f0ddd4",
-  evening: "#f0ddd4",
-  med: "#e8dff5",
+  morning: "var(--color-primary-border)",
+  evening: "var(--color-treatment-border)",
+  med: "var(--color-med-border)",
 }
 
 export default function FoodCard({ children, checked, session, partial }: FoodCardProps) {
   const partialStyle: React.CSSProperties = {
     borderWidth: "1.5px",
     borderStyle: "dashed",
-    borderColor: "#ff6b35",
+    borderColor: "var(--color-primary-mid)",
   }
   const checkedStyle: React.CSSProperties = {
     borderWidth: "0.5px",
