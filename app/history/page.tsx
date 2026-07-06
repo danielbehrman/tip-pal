@@ -47,10 +47,10 @@ export default function HistoryPage() {
   if (loading || !schedule) return null
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       <header
         className="flex items-center justify-between px-4 pb-4"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <h1 className="text-xl font-semibold text-white">History</h1>
         <Link
