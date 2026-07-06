@@ -197,11 +197,11 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Orange header */}
       <header
         className="px-4 pb-4 flex flex-col gap-3"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <div className="flex items-center justify-between">
           {step > 1 ? (
@@ -240,7 +240,7 @@ export default function OnboardingPage() {
           <div className="flex items-center gap-3">
             <div
               className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
-              style={{ width: 36, height: 36, background: "#fff3ec", fontSize: 18 }}
+              style={{ width: 36, height: 36, background: "var(--color-primary-light)", fontSize: 18 }}
             >
               {childPhotoUrl ? (
                 <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
@@ -272,7 +272,7 @@ export default function OnboardingPage() {
             >
               <div
                 className="rounded-full overflow-hidden flex items-center justify-center"
-                style={{ width: 80, height: 80, background: "#fff3ec", fontSize: 32 }}
+                style={{ width: 80, height: 80, background: "var(--color-primary-light)", fontSize: 32 }}
               >
                 {childPhotoUrl ? (
                   <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
@@ -283,7 +283,7 @@ export default function OnboardingPage() {
               {!childPhotoUrl && !photoUploading && (
                 <div
                   className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
-                  style={{ width: 24, height: 24, background: "#ff6b35", fontSize: 14, color: "#fff" }}
+                  style={{ width: 24, height: 24, background: "var(--color-primary-mid)", fontSize: 14, color: "#fff" }}
                 >
                   +
                 </div>
@@ -292,7 +292,7 @@ export default function OnboardingPage() {
             <button
               type="button"
               className="text-sm"
-              style={{ color: "#9a6a55" }}
+              style={{ color: "var(--color-text-secondary)" }}
               onClick={handleStep1Continue}
             >
               {photoUploading ? "Uploading…" : "Skip photo for now"}
@@ -311,7 +311,7 @@ export default function OnboardingPage() {
 
           {/* Name */}
           <div>
-            <p className="text-sm font-medium mb-1" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm font-medium mb-1" style={{ color: "var(--color-text-primary)" }}>
               Child&apos;s name
             </p>
             <input
@@ -321,8 +321,8 @@ export default function OnboardingPage() {
               onChange={e => { setChildName(e.target.value); setNameError(false) }}
               className="w-full px-4 py-3 text-base rounded-xl outline-none"
               style={{
-                border: nameError ? "1.5px solid #dc2626" : "0.5px solid #f0ddd4",
-                color: "#2d1a0e",
+                border: nameError ? "1.5px solid #dc2626" : "0.5px solid var(--color-primary-border)",
+                color: "var(--color-text-primary)",
                 background: "#fff",
               }}
             />
@@ -335,7 +335,7 @@ export default function OnboardingPage() {
 
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={handleStep1Continue}
           >
             Continue
@@ -348,23 +348,23 @@ export default function OnboardingPage() {
         <div className="px-4 pt-8 pb-24 flex flex-col gap-6">
           <div
             className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
-            <span className="text-sm" style={{ color: "#2d1a0e" }}>Appointment date</span>
+            <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Appointment date</span>
             <input
               type="date"
               value={appointmentDate}
               onChange={e => setAppointmentDate(e.target.value)}
               className="text-sm bg-transparent outline-none border-none text-right"
-              style={{ color: "#9a6a55" }}
+              style={{ color: "var(--color-text-secondary)" }}
             />
           </div>
-          <p className="text-sm text-center" style={{ color: "#c4927a" }}>
+          <p className="text-sm text-center" style={{ color: "var(--color-text-muted)" }}>
             Tap to pick a date from the calendar.
           </p>
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={() => setStep(3)}
           >
             Continue
@@ -377,29 +377,29 @@ export default function OnboardingPage() {
         <div className="px-4 pt-8 pb-24 flex flex-col gap-6">
           {/* Visit stepper */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "#9a6a55" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
               Visit
             </p>
             <div
               className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ border: "0.5px solid #f0ddd4" }}
+              style={{ border: "0.5px solid var(--color-primary-border)" }}
             >
               <button
                 onClick={() => setVisitIdx(i => Math.max(0, i - 1))}
                 disabled={visitIdx <= 0}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 −
               </button>
-              <span className="text-base font-medium" style={{ color: "#2d1a0e" }}>
+              <span className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>
                 {visitLabel(currentVisitRaw)}
               </span>
               <button
                 onClick={() => setVisitIdx(i => Math.min(VISIT_SEQUENCE.length - 1, i + 1))}
                 disabled={visitIdx >= VISIT_SEQUENCE.length - 1}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 +
               </button>
@@ -408,27 +408,27 @@ export default function OnboardingPage() {
 
           {/* Week stepper */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "#9a6a55" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
               Week
             </p>
             <div
               className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ border: "0.5px solid #f0ddd4" }}
+              style={{ border: "0.5px solid var(--color-primary-border)" }}
             >
               <button
                 onClick={() => setWeek(w => Math.max(1, w - 1))}
                 disabled={week <= 1}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 −
               </button>
-              <span className="text-base font-medium" style={{ color: "#2d1a0e" }}>Week {week}</span>
+              <span className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>Week {week}</span>
               <button
                 onClick={() => setWeek(w => Math.min(maxWeek, w + 1))}
                 disabled={week >= maxWeek}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 +
               </button>
@@ -437,27 +437,27 @@ export default function OnboardingPage() {
 
           {/* Day stepper */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "#9a6a55" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
               Day
             </p>
             <div
               className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ border: "0.5px solid #f0ddd4" }}
+              style={{ border: "0.5px solid var(--color-primary-border)" }}
             >
               <button
                 onClick={() => setDay(d => Math.max(1, d - 1))}
                 disabled={day <= 1}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 −
               </button>
-              <span className="text-base font-medium" style={{ color: "#2d1a0e" }}>Day {day}</span>
+              <span className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>Day {day}</span>
               <button
                 onClick={() => setDay(d => Math.min(7, d + 1))}
                 disabled={day >= 7}
                 className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
               >
                 +
               </button>
@@ -466,7 +466,7 @@ export default function OnboardingPage() {
 
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={() => setStep(4)}
           >
             Continue
@@ -478,7 +478,7 @@ export default function OnboardingPage() {
       {step === 4 && (
         <div className="px-4 pt-8 pb-24 flex flex-col gap-5">
           {/* Summary card */}
-          <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid #f0ddd4" }}>
+          <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid var(--color-primary-border)" }}>
             {[
               { label: "Child", value: childName },
               {
@@ -500,10 +500,10 @@ export default function OnboardingPage() {
               <div
                 key={row.label}
                 className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: i < arr.length - 1 ? "0.5px solid #f0ddd4" : undefined }}
+                style={{ borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-primary-border)" : undefined }}
               >
-                <span className="text-sm" style={{ color: "#9a6a55" }}>{row.label}</span>
-                <span className="text-sm font-medium text-right" style={{ color: "#2d1a0e", maxWidth: "60%" }}>
+                <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{row.label}</span>
+                <span className="text-sm font-medium text-right" style={{ color: "var(--color-text-primary)", maxWidth: "60%" }}>
                   {row.value}
                 </span>
               </div>
@@ -513,7 +513,7 @@ export default function OnboardingPage() {
           {/* Schedule parsed badge */}
           {schedule && (
             <div className="flex items-center gap-1.5">
-              <span className="text-sm" style={{ color: "#9a6a55" }}>Schedule parsed</span>
+              <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>Schedule parsed</span>
               <span className="text-sm" style={{ color: "#22c55e" }}>✓</span>
             </div>
           )}
@@ -524,7 +524,7 @@ export default function OnboardingPage() {
 
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={handleConfirm}
             disabled={saving}
           >
@@ -535,15 +535,15 @@ export default function OnboardingPage() {
 
       {/* Catchup modal — fixed bottom sheet */}
       {showCatchup && (
-        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(45,26,14,0.4)" }}>
+        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(13,31,92,0.4)" }}>
           <div className="w-full bg-white rounded-t-2xl px-4 pt-6 pb-10 flex flex-col gap-4">
-            <p className="text-sm font-medium" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
               Mark all days from Week 1, Day 1 up to your current position as complete in the log?
             </p>
             <div className="flex flex-col gap-3">
               <button
                 className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-                style={{ background: "#ff6b35" }}
+                style={{ background: "var(--color-primary-mid)" }}
                 onClick={() => saveAndRedirect(true)}
                 disabled={saving}
               >
@@ -551,7 +551,7 @@ export default function OnboardingPage() {
               </button>
               <button
                 className="w-full py-4 rounded-xl text-base font-semibold disabled:opacity-50"
-                style={{ background: "#f0ddd4", color: "#2d1a0e" }}
+                style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
                 onClick={() => saveAndRedirect(false)}
                 disabled={saving}
               >
