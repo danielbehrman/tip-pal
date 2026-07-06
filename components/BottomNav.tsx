@@ -60,7 +60,7 @@ export default function BottomNav() {
       style={{
         maxWidth: 430,
         background: "#fff",
-        borderTop: "0.5px solid #f0ddd4",
+        borderTop: "0.5px solid var(--color-primary-border)",
         paddingTop: 8,
         paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 10px)",
         zIndex: 50,
@@ -74,7 +74,7 @@ export default function BottomNav() {
             href={tab.href}
             className="flex-1 flex flex-col items-center gap-1 py-2 no-underline"
             style={{
-              color: active ? "#ff6b35" : "#e0c4b8",
+              color: active ? "var(--color-primary-mid)" : "var(--color-primary-border)",
               fontWeight: active ? 500 : 400,
               fontSize: 12,
             }}
