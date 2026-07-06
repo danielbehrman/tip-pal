@@ -1,45 +1,49 @@
 @import "tailwindcss";
 
 @theme {
-  /* Brand colors — mapped to bg-primary, text-primary, border-primary, etc. */
-  --color-primary:        #ff6b35;
-  --color-primary-light:  #fff0e6;
-  --color-primary-pale:   #fff8f5;
-  --color-primary-border: #ffb899;
-  --color-primary-muted:  #f5e4dc;
+  /* Brand colors — navy/cyan/amber palette (Phase 3.6) */
+  --color-primary:              #0a1f6e;
+  --color-primary-mid:          #1a3a8a;
+  --color-primary-light:        #dde8ff;
+  --color-primary-pale:         #eef2ff;
+  --color-primary-border:       #c5d0f0;
+  --color-primary-checked:      #7a9ae8;
+  --color-primary-muted:        #c5d0f0;
+  --color-primary-text:         #5a78c4;
 
-  /* Evening / treatment */
-  --color-evening:        #9b6fd4;
-  --color-evening-light:  #f0eaff;
-  --color-evening-pale:   #faf8ff;
-  --color-evening-border: #c4a8f0;
+  --color-bg:                   #f0f4ff;
+  --color-bg-secondary:         #e8eeff;
+  --color-surface:              #ffffff;
 
-  /* Progress ring */
-  --color-ring-new:       #4fc3f7;
-  --color-ring-old:       #ff9966;
+  --color-text-primary:         #0d1f5c;
+  --color-text-secondary:       #3b5ab8;
+  --color-text-muted:           #5a78c4;
+  --color-text-section:         #1a3a8a;
+  --color-text-white:           #ffffff;
 
-  /* Medications */
-  --color-med:            #9b6fd4;
-  --color-med-light:      #f0eaff;
-  --color-med-check:      #9b6fd4;
+  --color-ring-new:             #01d4f1;
+  --color-ring-track:           rgba(255,255,255,0.18);
 
-  /* Surface */
-  --color-bg:             #fffbf7;
-  --color-bg-secondary:   #f5efe9;
-  --color-surface:        #ffffff;
+  /* Treatment foods — cyan */
+  --color-treatment-bg:              #e0f8fd;
+  --color-treatment-bg-checked:      #b8f0fa;
+  --color-treatment-border:          #00b8d9;
+  --color-treatment-border-checked:  #007a94;
+  --color-treatment-check:           #007a94;
+  --color-treatment-text:            #007a94;
+  --color-treatment-badge-bg:        #b8f0fa;
+  --color-treatment-badge-text:      #007a94;
+  --color-evening-icon-bg:           #d4f5fc;
 
-  /* Text */
-  --color-text-primary:   #2d1a0e;
-  --color-text-secondary: #9a6a55;
-  --color-text-muted:     #c4927a;
-  --color-text-section:   #a07060;
-  --color-text-white:     #ffffff;
+  /* Medications + SLIT — amber */
+  --color-med-bg:               #fff8e8;
+  --color-med-bg-checked:        #fef0c0;
+  --color-med-border:           #e8c240;
+  --color-med-border-checked:   #c49a00;
+  --color-med-check:            #c49a00;
+  --color-med-text:             #8a6a00;
 
-  /* Borders */
-  --color-border:         #f0ddd4;
-  --color-border-checked: #ffb899;
-
-  /* Status */
+  /* Status — unchanged from old palette */
   --color-complete:       #4caf50;
   --color-partial:        #e09a3a;
   --color-danger:         #e05252;
@@ -81,19 +85,22 @@
   --border-thin: 0.5px solid var(--color-border);
 }
 
-body {
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body, html {
   margin: 0;
   padding: 0;
-  background: #ff6b35;
+  background: var(--color-primary); /* #0a1f6e — mobile default, matches header, fills iOS safe-area gap */
   color: var(--color-text-primary);
   font-family: var(--font-sans);
 }
 
-/* Orange fills any gap above the header (safe-area, desktop gutter) */
-html {
-  margin: 0;
-  padding: 0;
-  background: #ff6b35;
+@media (min-width: 431px) {
+  body, html {
+    background: var(--color-bg-secondary); /* #e8eeff — desktop gutter, once viewport exceeds the 430px app-container */
+  }
 }
 
 /* Mobile-first max-width container — applied in layout.tsx */
