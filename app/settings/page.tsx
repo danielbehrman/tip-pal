@@ -45,7 +45,7 @@ function urlBase64ToBuffer(base64String: string): ArrayBuffer {
 }
 
 function RowDivider() {
-  return <div style={{ height: "0.5px", background: "#f0ddd4", marginLeft: 16 }} />
+  return <div style={{ height: "0.5px", background: "var(--color-primary-border)", marginLeft: 16 }} />
 }
 
 export default function SettingsPage() {
@@ -253,11 +253,11 @@ export default function SettingsPage() {
   if (loading) return null
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Orange header */}
       <header
         className="px-4 pb-4"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <h1 className="text-xl font-semibold text-white">Settings</h1>
       </header>
@@ -265,12 +265,12 @@ export default function SettingsPage() {
       <div className="px-4 pt-6 pb-24 flex flex-col gap-6">
         {/* Child */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Child
           </p>
           <div
             className="bg-white rounded-xl overflow-hidden"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
             <div className="p-4 flex items-center gap-4">
               {/* Avatar */}
@@ -282,7 +282,7 @@ export default function SettingsPage() {
               >
                 <div
                   className="rounded-full overflow-hidden flex items-center justify-center"
-                  style={{ width: 60, height: 60, background: "#fff3ec", fontSize: 26 }}
+                  style={{ width: 60, height: 60, background: "var(--color-primary-light)", fontSize: 26 }}
                 >
                   {childPhotoUrl ? (
                     <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
@@ -292,7 +292,7 @@ export default function SettingsPage() {
                 </div>
                 <div
                   className="absolute bottom-0 right-0 rounded-full flex items-center justify-center"
-                  style={{ width: 20, height: 20, background: "#ff6b35", color: "#fff", fontSize: 11 }}
+                  style={{ width: 20, height: 20, background: "var(--color-primary-mid)", color: "#fff", fontSize: 11 }}
                 >
                   {photoUploading ? "…" : "✎"}
                 </div>
@@ -313,8 +313,8 @@ export default function SettingsPage() {
                   placeholder="Child's name"
                   className="w-full text-base bg-transparent outline-none"
                   style={{
-                    color: nameError ? "#dc2626" : "#2d1a0e",
-                    borderBottom: `1px solid ${nameError ? "#dc2626" : "#f0ddd4"}`,
+                    color: nameError ? "#dc2626" : "var(--color-text-primary)",
+                    borderBottom: `1px solid ${nameError ? "#dc2626" : "var(--color-primary-border)"}`,
                     paddingBottom: 4,
                   }}
                 />
@@ -333,44 +333,44 @@ export default function SettingsPage() {
 
         {/* Program */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Program
           </p>
           <div
             className="bg-white rounded-xl overflow-hidden"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
             {/* Appointment date */}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Next appointment</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Next appointment</span>
               <input
                 type="date"
                 value={appointmentDate}
                 onChange={e => setAppointmentDate(e.target.value)}
                 className="text-sm bg-transparent text-right outline-none border-none"
-                style={{ color: "#9a6a55" }}
+                style={{ color: "var(--color-text-secondary)" }}
               />
             </div>
             <RowDivider />
             {/* Week stepper */}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Week</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Week</span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setWeek(w => Math.max(1, w - 1))}
                   disabled={week <= 1}
                   className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                 >
                   −
                 </button>
-                <span className="text-base font-semibold w-6 text-center" style={{ color: "#2d1a0e" }}>
+                <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
                   {week}
                 </span>
                 <button
                   onClick={() => setWeek(w => w + 1)}
                   className="flex items-center justify-center text-lg font-bold"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                 >
                   +
                 </button>
@@ -379,24 +379,24 @@ export default function SettingsPage() {
             <RowDivider />
             {/* Day stepper */}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Day</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Day</span>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setDay(d => Math.max(1, d - 1))}
                   disabled={day <= 1}
                   className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                 >
                   −
                 </button>
-                <span className="text-base font-semibold w-6 text-center" style={{ color: "#2d1a0e" }}>
+                <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
                   {day}
                 </span>
                 <button
                   onClick={() => setDay(d => Math.min(7, d + 1))}
                   disabled={day >= 7}
                   className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "#f0ddd4", border: "none", color: "#2d1a0e" }}
+                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                 >
                   +
                 </button>
@@ -405,14 +405,14 @@ export default function SettingsPage() {
             <RowDivider />
             {/* Visit number */}
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Visit number</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Visit number</span>
               <input
                 type="text"
                 value={visitNumber}
                 onChange={e => setVisitNumber(e.target.value)}
                 placeholder="e.g. 8"
                 className="text-sm bg-transparent text-right outline-none border-none w-28"
-                style={{ color: "#9a6a55" }}
+                style={{ color: "var(--color-text-secondary)" }}
               />
             </div>
             {schedule && (
@@ -420,7 +420,7 @@ export default function SettingsPage() {
                 <RowDivider />
                 <div className="px-4 py-3">
                   <div className="flex items-center gap-2 mb-2">
-                    <p className="text-sm" style={{ color: "#2d1a0e" }}>Food groups</p>
+                    <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>Food groups</p>
                     {groupsSaved && (
                       <span className="text-xs" style={{ color: "#22c55e" }}>Saved</span>
                     )}
@@ -436,14 +436,14 @@ export default function SettingsPage() {
             <RowDivider />
             {/* New food cycle */}
             <Link href="/new-cycle" className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>New food cycle</span>
-              <span style={{ color: "#c4927a" }}>›</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>New food cycle</span>
+              <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
             <RowDivider />
             {/* Re-parse schedule */}
             <Link href="/setup" className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Re-parse schedule</span>
-              <span style={{ color: "#c4927a" }}>›</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Re-parse schedule</span>
+              <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
           </div>
         </div>
@@ -451,32 +451,32 @@ export default function SettingsPage() {
         {/* Notifications (non-native only) */}
         {!isNative() && (
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+            <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
               Notifications
             </p>
             <div
               className="bg-white rounded-xl overflow-hidden"
-              style={{ border: "0.5px solid #f0ddd4" }}
+              style={{ border: "0.5px solid var(--color-primary-border)" }}
             >
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm" style={{ color: "#2d1a0e" }}>Morning reminder</span>
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Morning reminder</span>
                 <input
                   type="time"
                   value={morningReminder}
                   onChange={e => setMorningReminder(e.target.value)}
                   className="text-sm bg-transparent outline-none border-none text-right"
-                  style={{ color: "#9a6a55" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 />
               </div>
               <RowDivider />
               <div className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm" style={{ color: "#2d1a0e" }}>Evening reminder</span>
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Evening reminder</span>
                 <input
                   type="time"
                   value={eveningReminder}
                   onChange={e => setEveningReminder(e.target.value)}
                   className="text-sm bg-transparent outline-none border-none text-right"
-                  style={{ color: "#9a6a55" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 />
               </div>
               <RowDivider />
@@ -486,20 +486,20 @@ export default function SettingsPage() {
                     onClick={pushSubscribed ? handleUnsubscribe : handleSubscribe}
                     disabled={subscribing}
                     className="text-sm disabled:opacity-40"
-                    style={{ color: pushSubscribed ? "#dc2626" : "#ff6b35" }}
+                    style={{ color: pushSubscribed ? "#dc2626" : "var(--color-primary-mid)" }}
                   >
                     {pushSubscribed ? "Disable push notifications" : "Enable push notifications"}
                   </button>
                 ) : !pushSupported ? (
-                  <p className="text-xs" style={{ color: "#c4927a" }}>
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                     Add to Home Screen to enable push notifications.
                   </p>
                 ) : (
-                  <p className="text-xs" style={{ color: "#c4927a" }}>
+                  <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                     Notifications not configured.
                   </p>
                 )}
-                <p className="text-xs mt-1" style={{ color: "#c4927a" }}>
+                <p className="text-xs mt-1" style={{ color: "var(--color-text-muted)" }}>
                   Timezone: {timezone}
                 </p>
               </div>
@@ -509,12 +509,12 @@ export default function SettingsPage() {
 
         {/* Account */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Account
           </p>
           <div
             className="bg-white rounded-xl overflow-hidden"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
             <button
               onClick={handleSignOut}
@@ -529,21 +529,21 @@ export default function SettingsPage() {
 
         {/* Legal */}
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+          <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
             Legal
           </p>
           <div
             className="bg-white rounded-xl overflow-hidden"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
             <Link href="/privacy" className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Privacy policy</span>
-              <span style={{ color: "#c4927a" }}>›</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Privacy policy</span>
+              <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
             <RowDivider />
             <Link href="/disclaimer" className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "#2d1a0e" }}>Medical disclaimer</span>
-              <span style={{ color: "#c4927a" }}>›</span>
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Medical disclaimer</span>
+              <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
           </div>
         </div>
@@ -555,7 +555,7 @@ export default function SettingsPage() {
         {/* Save */}
         <button
           className="w-full py-4 text-white text-base font-semibold rounded-xl disabled:opacity-50"
-          style={{ background: "#ff6b35" }}
+          style={{ background: "var(--color-primary-mid)" }}
           onClick={handleSave}
           disabled={saving}
         >
@@ -563,7 +563,7 @@ export default function SettingsPage() {
         </button>
 
         {/* Version */}
-        <p className="text-center text-xs" style={{ color: "#c4927a" }}>
+        <p className="text-center text-xs" style={{ color: "var(--color-text-muted)" }}>
           Tip Pal v{APP_VERSION}
         </p>
       </div>
@@ -572,16 +572,16 @@ export default function SettingsPage() {
       {showCatchup && (
         <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
           <div className="bg-white w-full rounded-t-2xl px-6 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
-            <p className="text-base font-semibold mb-1" style={{ color: "#2d1a0e" }}>
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--color-text-primary)" }}>
               Update dose history?
             </p>
-            <p className="text-sm mb-5" style={{ color: "#9a6a55" }}>
+            <p className="text-sm mb-5" style={{ color: "var(--color-text-secondary)" }}>
               Mark all days from Week 1, Day 1 up to your current position as complete in the log?
             </p>
             <div className="flex gap-3">
               <button
                 className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
-                style={{ background: "#ff6b35", color: "#fff" }}
+                style={{ background: "var(--color-primary-mid)", color: "#fff" }}
                 onClick={() => saveAll(true)}
                 disabled={saving}
               >
@@ -589,7 +589,7 @@ export default function SettingsPage() {
               </button>
               <button
                 className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
-                style={{ background: "#f0ddd4", color: "#2d1a0e" }}
+                style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
                 onClick={() => saveAll(false)}
                 disabled={saving}
               >
