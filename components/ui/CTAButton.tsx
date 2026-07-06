@@ -7,8 +7,8 @@ interface CTAButtonProps {
 }
 
 const VARIANT_STYLES = {
-  primary: "bg-[#ff6b35] text-white disabled:bg-[#f5e4dc] disabled:text-[#c4927a]",
-  secondary: "bg-transparent text-[#c4927a] border border-[#f0ddd4]",
+  primary: "bg-[var(--color-primary-mid)] text-white disabled:bg-[var(--color-primary-muted)] disabled:text-[var(--color-text-muted)]",
+  secondary: "bg-transparent text-[var(--color-text-muted)] border border-[var(--color-primary-border)]",
   danger: "bg-white text-[#e05252] border border-[#f5c4c4]",
 }
 

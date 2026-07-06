@@ -8,7 +8,7 @@ export default function Badge({ variant, label }: BadgeProps) {
     return (
       <span
         className="text-[9px] font-semibold px-1.5 py-0.5 rounded-[4px]"
-        style={{ background: "#fff0e6", color: "#c45a1a" }}
+        style={{ background: "var(--color-primary-light)", color: "var(--color-primary-mid)" }}
       >
         CAPPED
       </span>
@@ -17,7 +17,7 @@ export default function Badge({ variant, label }: BadgeProps) {
   return (
     <span
       className="text-[9px] font-medium px-1.5 py-0.5 rounded-[4px]"
-      style={{ background: "#f0eaff", color: "#7a4db8" }}
+      style={{ background: "var(--color-treatment-bg)", color: "var(--color-treatment-text)" }}
     >
       {label ?? "Wk"}
     </span>

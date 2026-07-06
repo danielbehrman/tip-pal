@@ -11,18 +11,18 @@ export default function SectionHeader({ session, label, count }: SectionHeaderPr
       <div className="flex items-center gap-2">
         <span
           className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-sm"
-          style={{ background: isMorning ? "#fff0e6" : "#f0eaff" }}
+          style={{ background: isMorning ? "var(--color-primary-light)" : "var(--color-evening-icon-bg)" }}
         >
           {isMorning ? "☀️" : "🌙"}
         </span>
         <span
           className="font-medium uppercase tracking-[0.04em]"
-          style={{ fontSize: 13, color: "#6b4c3b" }}
+          style={{ fontSize: 13, color: "var(--color-text-section)" }}
         >
           {label}
         </span>
       </div>
-      <span className="text-xs" style={{ color: "#c4927a", fontSize: "11px" }}>
+      <span className="text-xs" style={{ color: "var(--color-text-muted)", fontSize: "11px" }}>
         {count}
       </span>
     </div>
