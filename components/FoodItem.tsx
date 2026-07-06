@@ -48,7 +48,7 @@ export default function FoodItem({
               className="font-medium"
               style={{
                 fontSize: 15,
-                color: checked ? "#c4927a" : "#2d1a0e",
+                color: checked ? "var(--color-text-muted)" : "var(--color-text-primary)",
                 textDecoration: checked ? "line-through" : "none",
               }}
             >
@@ -65,12 +65,12 @@ export default function FoodItem({
             )}
             {weekBadge && <Badge variant="week" label={weekBadge} />}
             {isContinuing && (
-              <span className="italic" style={{ fontSize: 9, color: "#c4927a" }}>
+              <span className="italic" style={{ fontSize: 9, color: "var(--color-text-muted)" }}>
                 Final dose
               </span>
             )}
           </div>
-          <p style={{ fontSize: 13, color: "#9a6a55", marginTop: 1 }}>
+          <p style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 1 }}>
             {dose} {unit}
             {prepNote ? ` · ${prepNote}` : ""}
           </p>

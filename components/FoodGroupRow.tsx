@@ -52,7 +52,7 @@ export default function FoodGroupRow({
               className="font-medium block"
               style={{
                 fontSize: 13,
-                color: allChecked ? "#c4927a" : "#2d1a0e",
+                color: allChecked ? "var(--color-text-muted)" : "var(--color-text-primary)",
                 textDecoration: allChecked ? "line-through" : "none",
               }}
             >
@@ -60,7 +60,7 @@ export default function FoodGroupRow({
             </span>
             <p
               className="truncate"
-              style={{ fontSize: 11, color: "#9a6a55", marginTop: 1 }}
+              style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 1 }}
             >
               {memberLabel}
             </p>
@@ -70,14 +70,14 @@ export default function FoodGroupRow({
             type="button"
             onClick={() => setExpanded(e => !e)}
             className="flex items-center justify-center ml-1 flex-shrink-0"
-            style={{ width: 28, height: 28, color: "#c4927a" }}
+            style={{ width: 28, height: 28, color: "var(--color-text-muted)" }}
             aria-expanded={expanded}
             aria-label={expanded ? "Collapse" : "Expand"}
           >
             <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
               <path
                 d={expanded ? "M1 5L5 1L9 5" : "M1 1L5 5L9 1"}
-                stroke="#c4927a"
+                stroke="var(--color-text-muted)"
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -97,7 +97,7 @@ export default function FoodGroupRow({
               <div
                 key={key}
                 className="flex items-center gap-3 py-2"
-                style={{ borderBottom: "0.5px solid #f0ddd4" }}
+                style={{ borderBottom: "0.5px solid var(--color-primary-border)" }}
               >
                 <CheckCircle
                   checked={isChecked}
@@ -107,10 +107,10 @@ export default function FoodGroupRow({
                   disabled={disabled}
                 />
                 <div className="flex-1 min-w-0">
-                  <span style={{ fontSize: 12, color: isChecked ? "#c4927a" : "#2d1a0e", textDecoration: isChecked ? "line-through" : "none" }}>
+                  <span style={{ fontSize: 12, color: isChecked ? "var(--color-text-muted)" : "var(--color-text-primary)", textDecoration: isChecked ? "line-through" : "none" }}>
                     {food.name}
                   </span>
-                  <p style={{ fontSize: 11, color: "#9a6a55" }}>
+                  <p style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
                     {food.dose} {food.unit}
                     {"prepNote" in food && food.prepNote ? ` · ${food.prepNote}` : ""}
                   </p>
