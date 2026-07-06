@@ -13,9 +13,9 @@ type DayStatus = "complete" | "am-skipped" | "pm-skipped" | "both-skipped"
 
 const STATUS_CONFIG: Record<DayStatus, { label: string; dotColor: string }> = {
   "complete":      { label: "Complete",     dotColor: "#22c55e" },
-  "am-skipped":    { label: "AM skipped",   dotColor: "#ff6b35" },
-  "pm-skipped":    { label: "PM skipped",   dotColor: "#9b6fd4" },
-  "both-skipped":  { label: "Both skipped", dotColor: "#9a6a55" },
+  "am-skipped":    { label: "AM skipped",   dotColor: "var(--color-primary-mid)" },
+  "pm-skipped":    { label: "PM skipped",   dotColor: "var(--color-treatment-check)" },
+  "both-skipped":  { label: "Both skipped", dotColor: "var(--color-text-secondary)" },
 }
 
 function getDayStatus(entry: DoseLogDay): DayStatus {
@@ -77,12 +77,12 @@ function DayRow({
   const eveningText = getEveningText(entry, schedule)
 
   return (
-    <div style={{ borderBottom: "0.5px solid #f0ddd4" }}>
+    <div style={{ borderBottom: "0.5px solid var(--color-primary-border)" }}>
       <button
         className="w-full flex items-center justify-between px-4 py-3 bg-white"
         onClick={() => setExpanded(e => !e)}
       >
-        <p className="text-sm font-medium text-left" style={{ color: "#2d1a0e" }}>
+        <p className="text-sm font-medium text-left" style={{ color: "var(--color-text-primary)" }}>
           {formatDate(entry.completedAt)} · Day {entry.day}
         </p>
         <div className="flex items-center gap-2 shrink-0">
@@ -94,10 +94,10 @@ function DayRow({
               background: dotColor,
             }}
           />
-          <span className="text-xs" style={{ color: "#9a6a55" }}>
+          <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
             {label}
           </span>
-          <span style={{ color: "#c4927a", fontSize: 10 }}>
+          <span style={{ color: "var(--color-text-muted)", fontSize: 10 }}>
             {expanded ? "▲" : "▼"}
           </span>
         </div>
@@ -106,27 +106,27 @@ function DayRow({
       {expanded && (
         <div
           className="px-4 py-3 flex flex-col gap-3"
-          style={{ background: "#fffbf7" }}
+          style={{ background: "var(--color-bg)" }}
         >
           <div className="flex items-start gap-3">
             <span
               className="text-xs font-semibold px-2 py-0.5 rounded shrink-0"
-              style={{ background: "#ff6b35", color: "#fff", marginTop: 1 }}
+              style={{ background: "var(--color-primary-mid)", color: "#fff", marginTop: 1 }}
             >
               AM
             </span>
-            <p className="text-sm" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>
               {morningText}
             </p>
           </div>
           <div className="flex items-start gap-3">
             <span
               className="text-xs font-semibold px-2 py-0.5 rounded shrink-0"
-              style={{ background: "#9b6fd4", color: "#fff", marginTop: 1 }}
+              style={{ background: "var(--color-treatment-check)", color: "#fff", marginTop: 1 }}
             >
               PM
             </span>
-            <p className="text-sm" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>
               {eveningText}
             </p>
           </div>
@@ -139,7 +139,7 @@ function DayRow({
 export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) {
   if (days.length === 0) {
     return (
-      <p className="px-4 pt-6 text-sm" style={{ color: "#9a6a55" }}>
+      <p className="px-4 pt-6 text-sm" style={{ color: "var(--color-text-secondary)" }}>
         No doses logged yet. Completed days will appear here.
       </p>
     )
@@ -161,10 +161,10 @@ export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) 
         const sectionLabel = `Week ${week}${visitPart}`
         return (
           <div key={week}>
-            <div className="px-4 py-2" style={{ background: "#fff8f5" }}>
+            <div className="px-4 py-2" style={{ background: "var(--color-bg-secondary)" }}>
               <p
                 className="text-xs font-semibold uppercase tracking-wide"
-                style={{ color: "#9a6a55" }}
+                style={{ color: "var(--color-text-secondary)" }}
               >
                 {sectionLabel}
               </p>
