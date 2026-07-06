@@ -150,9 +150,9 @@ export default function DailyView({
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Orange header */}
-      <header style={{ background: "#ff6b35", paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header style={{ background: "var(--color-primary)", paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-4 pt-5 pb-3 flex items-center gap-3">
           {/* Avatar with SVG progress ring */}
           <div className="relative flex-shrink-0" style={{ width: 58, height: 58 }}>
@@ -170,7 +170,7 @@ export default function DailyView({
                 strokeDasharray={`${CIRCUMFERENCE}`}
                 strokeDashoffset={`${strokeDashoffset}`}
                 transform="rotate(-90 29 29)"
-                style={{ stroke: "#4fc3f7", strokeWidth: 5 }}
+                style={{ stroke: "var(--color-ring-new)", strokeWidth: 5 }}
               />
             </svg>
             {/* Avatar inner — child photo or emoji fallback */}
@@ -188,7 +188,7 @@ export default function DailyView({
             ) : (
               <div
                 className="absolute rounded-full flex items-center justify-center"
-                style={{ inset: 6, background: "#fff3ec", fontSize: 20 }}
+                style={{ inset: 6, background: "var(--color-primary-light)", fontSize: 20 }}
               >
                 🧒
               </div>
@@ -257,8 +257,8 @@ export default function DailyView({
       <div
         className="flex items-center justify-between px-4"
         style={{
-          background: "#fff8f5",
-          borderBottom: "0.5px solid #f0ddd4",
+          background: "var(--color-bg-secondary)",
+          borderBottom: "0.5px solid var(--color-primary-border)",
           minHeight: 52,
         }}
       >
@@ -270,7 +270,7 @@ export default function DailyView({
             height: 28,
             borderRadius: "50%",
             background: "#fff",
-            border: "0.5px solid #f0ddd4",
+            border: "0.5px solid var(--color-primary-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -279,16 +279,16 @@ export default function DailyView({
           aria-label="Previous day"
         >
           <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
-            <path d="M7 1L1 6.5L7 12" stroke="#2d1a0e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M7 1L1 6.5L7 12" stroke="var(--color-text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
 
         <div className="text-center">
-          <p className="font-medium" style={{ fontSize: 13, color: "#2d1a0e" }}>
+          <p className="font-medium" style={{ fontSize: 13, color: "var(--color-text-primary)" }}>
             {isSkipped ? "Skipped" : dateLabel}
           </p>
           {isToday && (
-            <p style={{ fontSize: 11, color: "#9a6a55" }}>Today</p>
+            <p style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Today</p>
           )}
         </div>
 
@@ -300,7 +300,7 @@ export default function DailyView({
             height: 28,
             borderRadius: "50%",
             background: "#fff",
-            border: "0.5px solid #f0ddd4",
+            border: "0.5px solid var(--color-primary-border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -309,7 +309,7 @@ export default function DailyView({
           aria-label="Next day"
         >
           <svg width="8" height="13" viewBox="0 0 8 13" fill="none">
-            <path d="M1 1L7 6.5L1 12" stroke="#2d1a0e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M1 1L7 6.5L1 12" stroke="var(--color-text-primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
       </div>
@@ -343,7 +343,7 @@ export default function DailyView({
             <Link
               href="/new-cycle"
               className="block text-center w-full py-3 text-white text-sm font-semibold rounded-[16px]"
-              style={{ background: "#ff6b35" }}
+              style={{ background: "var(--color-primary-mid)" }}
             >
               Start new food cycle
             </Link>
@@ -387,12 +387,12 @@ export default function DailyView({
             style={{ maxWidth: 430, background: "#fff" }}
             onClick={e => e.stopPropagation()}
           >
-            <p className="text-sm leading-relaxed" style={{ color: "#4a3728" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-primary)" }}>
               {BUFFER_INFO_COPY}
             </p>
             <button
               className="mt-5 w-full py-3 rounded-xl text-sm font-medium"
-              style={{ background: "#f5efe9", color: "#2d1a0e" }}
+              style={{ background: "var(--color-bg-secondary)", color: "var(--color-text-primary)" }}
               onClick={() => setInfoSheetOpen(false)}
             >
               Done
