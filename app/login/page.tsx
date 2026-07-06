@@ -72,11 +72,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Orange hero */}
       <div
         className="flex flex-col items-center px-6 pb-12 gap-3"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 5rem)" }}
+        style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 5rem)" }}
       >
         <Image
           src="/apple-touch-icon.png"
@@ -107,7 +107,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 text-base rounded-xl outline-none"
-              style={{ border: "0.5px solid #f0ddd4", background: "#fff", color: "#2d1a0e" }}
+              style={{ border: "0.5px solid var(--color-primary-border)", background: "#fff", color: "var(--color-text-primary)" }}
             />
             <input
               type="password"
@@ -117,7 +117,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               required
               className="w-full px-4 py-3 text-base rounded-xl outline-none"
-              style={{ border: "0.5px solid #f0ddd4", background: "#fff", color: "#2d1a0e" }}
+              style={{ border: "0.5px solid var(--color-primary-border)", background: "#fff", color: "var(--color-text-primary)" }}
             />
             {error && (
               <p className="text-sm" style={{ color: "#dc2626" }}>{error}</p>
@@ -126,14 +126,14 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-              style={{ background: "#ff6b35" }}
+              style={{ background: "var(--color-primary-mid)" }}
             >
               {loading ? "Signing in…" : "Sign in"}
             </button>
             <button
               type="button"
               className="text-sm text-center"
-              style={{ color: "#9a6a55" }}
+              style={{ color: "var(--color-text-secondary)" }}
               onClick={() => switchMode("forgot")}
             >
               Forgot password?
@@ -141,7 +141,7 @@ export default function LoginPage() {
             <button
               type="button"
               className="text-sm text-center font-medium"
-              style={{ color: "#ff6b35" }}
+              style={{ color: "var(--color-primary-mid)" }}
               onClick={() => switchMode("signup")}
             >
               Create account
@@ -152,7 +152,7 @@ export default function LoginPage() {
         {/* Sign up */}
         {mode === "signup" && (
           <form onSubmit={handleSignUp} className="flex flex-col gap-4">
-            <p className="text-base font-semibold" style={{ color: "#2d1a0e" }}>
+            <p className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
               Create your account
             </p>
             <input
@@ -163,7 +163,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 text-base rounded-xl outline-none"
-              style={{ border: "0.5px solid #f0ddd4", background: "#fff", color: "#2d1a0e" }}
+              style={{ border: "0.5px solid var(--color-primary-border)", background: "#fff", color: "var(--color-text-primary)" }}
             />
             <input
               type="password"
@@ -173,7 +173,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               required
               className="w-full px-4 py-3 text-base rounded-xl outline-none"
-              style={{ border: "0.5px solid #f0ddd4", background: "#fff", color: "#2d1a0e" }}
+              style={{ border: "0.5px solid var(--color-primary-border)", background: "#fff", color: "var(--color-text-primary)" }}
             />
             {error && (
               <p className="text-sm" style={{ color: "#dc2626" }}>{error}</p>
@@ -182,14 +182,14 @@ export default function LoginPage() {
               type="submit"
               disabled={loading}
               className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-              style={{ background: "#ff6b35" }}
+              style={{ background: "var(--color-primary-mid)" }}
             >
               {loading ? "Creating account…" : "Create account"}
             </button>
             <button
               type="button"
               className="text-sm text-center"
-              style={{ color: "#9a6a55" }}
+              style={{ color: "var(--color-text-secondary)" }}
               onClick={() => switchMode("signin")}
             >
               Already have an account? Sign in
@@ -200,11 +200,11 @@ export default function LoginPage() {
         {/* Forgot password */}
         {mode === "forgot" && (
           <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
-            <p className="text-base font-semibold" style={{ color: "#2d1a0e" }}>
+            <p className="text-base font-semibold" style={{ color: "var(--color-text-primary)" }}>
               Reset your password
             </p>
             {forgotSent ? (
-              <p className="text-sm" style={{ color: "#9a6a55" }}>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 Check your email for a password reset link.
               </p>
             ) : (
@@ -217,7 +217,7 @@ export default function LoginPage() {
                   onChange={e => setEmail(e.target.value)}
                   required
                   className="w-full px-4 py-3 text-base rounded-xl outline-none"
-                  style={{ border: "0.5px solid #f0ddd4", background: "#fff", color: "#2d1a0e" }}
+                  style={{ border: "0.5px solid var(--color-primary-border)", background: "#fff", color: "var(--color-text-primary)" }}
                 />
                 {error && (
                   <p className="text-sm" style={{ color: "#dc2626" }}>{error}</p>
@@ -226,7 +226,7 @@ export default function LoginPage() {
                   type="submit"
                   disabled={loading}
                   className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-                  style={{ background: "#ff6b35" }}
+                  style={{ background: "var(--color-primary-mid)" }}
                 >
                   {loading ? "Sending…" : "Send reset email"}
                 </button>
@@ -235,7 +235,7 @@ export default function LoginPage() {
             <button
               type="button"
               className="text-sm text-center"
-              style={{ color: "#9a6a55" }}
+              style={{ color: "var(--color-text-secondary)" }}
               onClick={() => switchMode("signin")}
             >
               Back to sign in
@@ -246,7 +246,7 @@ export default function LoginPage() {
         {/* Medical disclaimer */}
         <p
           className="text-xs text-center mt-auto pt-6"
-          style={{ color: "#c4927a" }}
+          style={{ color: "var(--color-text-muted)" }}
         >
           Tip Pal is not a medical device and is not affiliated with the Food Allergy Institute or the Tolerance Induction Program. Always follow your provider&apos;s instructions.
         </p>
