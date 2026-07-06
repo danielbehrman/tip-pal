@@ -44,7 +44,7 @@ function PipRow({
               width: 10,
               height: 10,
               borderRadius: "50%",
-              background: filled ? "#ff6b35" : "#f0ddd4",
+              background: filled ? "var(--color-primary-mid)" : "var(--color-primary-border)",
               border: "none",
               padding: 0,
               cursor: tappable ? "pointer" : "default",
@@ -90,9 +90,9 @@ export default function RecommendedFoodsView({
   }
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Orange header */}
-      <header style={{ background: "#ff6b35", paddingTop: "env(safe-area-inset-top, 0px)" }}>
+      <header style={{ background: "var(--color-primary)", paddingTop: "env(safe-area-inset-top, 0px)" }}>
         <div className="px-4 pt-5 pb-0">
           <h1 className="text-xl font-semibold text-white">Recommended Foods</h1>
         </div>
@@ -121,7 +121,7 @@ export default function RecommendedFoodsView({
         {activeTab === "week" && (
           <div className="px-4 pt-4 flex flex-col gap-3">
             {recommendedFoods.length === 0 ? (
-              <p className="text-sm" style={{ color: "#9a6a55" }}>
+              <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 No recommended foods in your current schedule. Re-parse your plan of care to update.
               </p>
             ) : (
@@ -131,15 +131,15 @@ export default function RecommendedFoodsView({
                   <div
                     key={food.name}
                     className="bg-white rounded-xl p-4"
-                    style={{ border: "0.5px solid #f0ddd4" }}
+                    style={{ border: "0.5px solid var(--color-primary-border)" }}
                   >
                     <p
                       className="font-semibold mb-0.5"
-                      style={{ fontSize: 15, color: "#2d1a0e" }}
+                      style={{ fontSize: 15, color: "var(--color-text-primary)" }}
                     >
                       {food.name}
                     </p>
-                    <p className="text-sm mb-3" style={{ color: "#9a6a55" }}>
+                    <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>
                       {food.dose} {food.unit}
                     </p>
                     <PipRow
@@ -148,7 +148,7 @@ export default function RecommendedFoodsView({
                       onGive={() => onGive(food.name)}
                       onUndo={() => onUndo(food.name)}
                     />
-                    <p className="text-xs mt-1.5" style={{ color: "#c4927a" }}>
+                    <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
                       {food.frequencyPerWeek} per week
                     </p>
                   </div>
@@ -161,7 +161,7 @@ export default function RecommendedFoodsView({
         {activeTab === "history" && (
           <div className="flex flex-col">
             {historyWeeks.length === 0 ? (
-              <p className="px-4 pt-4 text-sm" style={{ color: "#9a6a55" }}>
+              <p className="px-4 pt-4 text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 No history yet. Log some servings this week to see them here.
               </p>
             ) : (
@@ -171,33 +171,33 @@ export default function RecommendedFoodsView({
                 const isExpanded = expandedWeeks.has(wk)
                 const isCurrent = wk === weekKey
                 return (
-                  <div key={wk} style={{ borderBottom: "0.5px solid #f0ddd4" }}>
+                  <div key={wk} style={{ borderBottom: "0.5px solid var(--color-primary-border)" }}>
                     <button
                       onClick={() => toggleWeek(wk)}
                       className="w-full flex items-center justify-between px-4 py-3"
-                      style={{ background: "#fff8f5" }}
+                      style={{ background: "var(--color-bg-secondary)" }}
                     >
                       <div className="flex items-center gap-2">
                         <span
                           className="font-medium text-sm"
-                          style={{ color: "#2d1a0e" }}
+                          style={{ color: "var(--color-text-primary)" }}
                         >
                           Week {wk}
                         </span>
                         {isCurrent && (
                           <span
                             className="text-xs px-2 py-0.5 rounded-full"
-                            style={{ background: "#ff6b35", color: "#fff", fontSize: 10 }}
+                            style={{ background: "var(--color-primary-mid)", color: "#fff", fontSize: 10 }}
                           >
                             Current
                           </span>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: "#9a6a55" }}>
+                        <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
                           {totalServings} served
                         </span>
-                        <span style={{ color: "#c4927a", fontSize: 10 }}>
+                        <span style={{ color: "var(--color-text-muted)", fontSize: 10 }}>
                           {isExpanded ? "▲" : "▼"}
                         </span>
                       </div>
@@ -205,7 +205,7 @@ export default function RecommendedFoodsView({
                     {isExpanded && (
                       <div className="px-4 py-3 flex flex-col gap-3 bg-white">
                         {recommendedFoods.length === 0 ? (
-                          <p className="text-sm" style={{ color: "#9a6a55" }}>
+                          <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                             No recommended foods in schedule.
                           </p>
                         ) : (
@@ -218,7 +218,7 @@ export default function RecommendedFoodsView({
                               >
                                 <span
                                   className="text-sm"
-                                  style={{ color: "#2d1a0e" }}
+                                  style={{ color: "var(--color-text-primary)" }}
                                 >
                                   {food.name}
                                 </span>
