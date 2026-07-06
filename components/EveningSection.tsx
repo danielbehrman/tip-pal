@@ -130,7 +130,7 @@ export default function EveningSection({
               {!allTreatmentChecked && !confirmingSkip && (
                 <button
                   className="text-sm underline"
-                  style={{ color: "#c4927a" }}
+                  style={{ color: "var(--color-text-muted)" }}
                   onClick={() => setConfirmingSkip(true)}
                 >
                   Skip evening
@@ -139,22 +139,22 @@ export default function EveningSection({
               {confirmingSkip && (
                 <div
                   className="w-full px-4 py-3 rounded-xl"
-                  style={{ background: "#f5efe9", border: "0.5px solid #f0ddd4" }}
+                  style={{ background: "var(--color-bg-secondary)", border: "0.5px solid var(--color-primary-border)" }}
                 >
-                  <p className="text-sm font-medium mb-3" style={{ color: "#2d1a0e" }}>
+                  <p className="text-sm font-medium mb-3" style={{ color: "var(--color-text-primary)" }}>
                     Skip this day? Tomorrow will repeat the same week and day. This can&apos;t be undone.
                   </p>
                   <div className="flex gap-3">
                     <button
                       className="flex-1 py-2 text-sm font-semibold rounded-lg"
-                      style={{ background: "#ff6b35", color: "#fff" }}
+                      style={{ background: "var(--color-primary-mid)", color: "#fff" }}
                       onClick={() => { setConfirmingSkip(false); onSkipDay() }}
                     >
                       Yes — skip
                     </button>
                     <button
                       className="flex-1 py-2 text-sm font-semibold rounded-lg"
-                      style={{ background: "#f0ddd4", color: "#2d1a0e" }}
+                      style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
                       onClick={() => setConfirmingSkip(false)}
                     >
                       Cancel
@@ -165,7 +165,7 @@ export default function EveningSection({
               {/* Skip morning — informational log only */}
               <button
                 className="text-sm underline"
-                style={{ color: "#c4927a" }}
+                style={{ color: "var(--color-text-muted)" }}
                 onClick={onSkipMorning}
               >
                 Skip morning
