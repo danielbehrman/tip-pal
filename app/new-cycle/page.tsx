@@ -44,10 +44,10 @@ function DiffBadge({ kind, detail }: { kind: "new" | "updated" | "removed" | "ke
     return (
       <div className="flex flex-col items-end gap-0.5 shrink-0">
         <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{ background: "#fee2e2", color: "#991b1b" }}>Removed</span>
-        {detail && <span className="text-xs" style={{ color: "#c4927a" }}>{detail}</span>}
+        {detail && <span className="text-xs" style={{ color: "var(--color-text-muted)" }}>{detail}</span>}
       </div>
     )
-  return <span className="text-xs shrink-0" style={{ color: "#9a6a55" }}>Kept</span>
+  return <span className="text-xs shrink-0" style={{ color: "var(--color-text-secondary)" }}>Kept</span>
 }
 
 export default function NewCyclePage() {
@@ -146,11 +146,11 @@ export default function NewCyclePage() {
   const showBack = view === "paste" || view === "review"
 
   return (
-    <div className="flex flex-col min-h-screen" style={{ background: "#fffbf7" }}>
+    <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
       {/* Header */}
       <header
         className="flex items-center justify-between px-4 pb-4"
-        style={{ background: "#ff6b35", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
+        style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         {showBack ? (
           <button
@@ -182,9 +182,9 @@ export default function NewCyclePage() {
         <div className="px-4 pt-6 pb-24 flex flex-col gap-5">
           <div
             className="bg-white rounded-xl p-4"
-            style={{ border: "0.5px solid #f0ddd4" }}
+            style={{ border: "0.5px solid var(--color-primary-border)" }}
           >
-            <p className="text-sm font-semibold mb-3" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm font-semibold mb-3" style={{ color: "var(--color-text-primary)" }}>
               What happens when you start a new cycle:
             </p>
             <ul className="flex flex-col gap-2">
@@ -196,15 +196,15 @@ export default function NewCyclePage() {
                 "Visit number updates to the new plan",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-2">
-                  <span style={{ color: "#ff6b35", fontWeight: 700, flexShrink: 0, lineHeight: "20px" }}>·</span>
-                  <span className="text-sm" style={{ color: "#2d1a0e" }}>{item}</span>
+                  <span style={{ color: "var(--color-primary-mid)", fontWeight: 700, flexShrink: 0, lineHeight: "20px" }}>·</span>
+                  <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>{item}</span>
                 </li>
               ))}
             </ul>
           </div>
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={() => setView("paste")}
           >
             Continue
@@ -216,18 +216,18 @@ export default function NewCyclePage() {
       {(view === "paste" || view === "loading") && (
         <div className="px-4 pt-6 pb-24 flex flex-col gap-4">
           <div>
-            <p className="text-sm font-medium mb-1" style={{ color: "#2d1a0e" }}>
+            <p className="text-sm font-medium mb-1" style={{ color: "var(--color-text-primary)" }}>
               Paste your new dosing plan
             </p>
-            <p className="text-xs mb-3" style={{ color: "#9a6a55" }}>
+            <p className="text-xs mb-3" style={{ color: "var(--color-text-secondary)" }}>
               Personal information is stripped before processing and never stored.
             </p>
             <textarea
               className="w-full p-4 rounded-xl text-base resize-none outline-none"
               style={{
                 minHeight: 200,
-                border: "0.5px solid #f0ddd4",
-                color: "#2d1a0e",
+                border: "0.5px solid var(--color-primary-border)",
+                color: "var(--color-text-primary)",
                 background: "#fff",
               }}
               placeholder="Paste dosing schedule notes here…"
@@ -237,13 +237,13 @@ export default function NewCyclePage() {
             />
           </div>
           {view === "loading" ? (
-            <p className="text-center text-sm py-3" style={{ color: "#9a6a55" }}>
+            <p className="text-center text-sm py-3" style={{ color: "var(--color-text-secondary)" }}>
               Parsing new dosing plan…
             </p>
           ) : (
             <button
               className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-40"
-              style={{ background: "#ff6b35" }}
+              style={{ background: "var(--color-primary-mid)" }}
               onClick={handleSubmit}
               disabled={rawText.trim() === ""}
             >
@@ -273,25 +273,25 @@ export default function NewCyclePage() {
         return (
           <div className="px-4 pt-6 pb-24 flex flex-col gap-5">
             {/* Visit transition card */}
-            <div className="bg-white rounded-xl p-4" style={{ border: "0.5px solid #f0ddd4" }}>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "#9a6a55" }}>
+            <div className="bg-white rounded-xl p-4" style={{ border: "0.5px solid var(--color-primary-border)" }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
                 Visit transition
               </p>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium" style={{ color: "#9a6a55" }}>{oldVisit}</span>
-                <span style={{ color: "#c4927a" }}>→</span>
-                <span className="text-sm font-semibold" style={{ color: "#2d1a0e" }}>{newVisit}</span>
+                <span className="text-sm font-medium" style={{ color: "var(--color-text-secondary)" }}>{oldVisit}</span>
+                <span style={{ color: "var(--color-text-muted)" }}>→</span>
+                <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>{newVisit}</span>
               </div>
-              <p className="text-xs mt-2" style={{ color: "#c4927a" }}>Resets to Week 1, Day 1</p>
+              <p className="text-xs mt-2" style={{ color: "var(--color-text-muted)" }}>Resets to Week 1, Day 1</p>
             </div>
 
             {/* Treatment foods */}
             {(parsedSchedule.treatmentFoods.length > 0 || removedTreatment.length > 0) && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
                   Treatment foods
                 </p>
-                <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid #f0ddd4" }}>
+                <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid var(--color-primary-border)" }}>
                   {parsedSchedule.treatmentFoods.map((food, i) => {
                     const inCurrent = cur?.treatmentFoods.some(f => foodNamesMatch(f.name, food.name))
                     const kind = inCurrent ? "updated" : "new"
@@ -299,9 +299,9 @@ export default function NewCyclePage() {
                       <div
                         key={food.name}
                         className="flex items-center justify-between px-4 py-3"
-                        style={{ borderBottom: i < parsedSchedule.treatmentFoods.length - 1 || removedTreatment.length > 0 ? "0.5px solid #f0ddd4" : undefined }}
+                        style={{ borderBottom: i < parsedSchedule.treatmentFoods.length - 1 || removedTreatment.length > 0 ? "0.5px solid var(--color-primary-border)" : undefined }}
                       >
-                        <span className="text-sm" style={{ color: "#2d1a0e" }}>{food.name}</span>
+                        <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>{food.name}</span>
                         <DiffBadge kind={kind} />
                       </div>
                     )
@@ -310,9 +310,9 @@ export default function NewCyclePage() {
                     <div
                       key={food.name}
                       className="flex items-center justify-between px-4 py-3"
-                      style={{ borderBottom: i < removedTreatment.length - 1 ? "0.5px solid #f0ddd4" : undefined }}
+                      style={{ borderBottom: i < removedTreatment.length - 1 ? "0.5px solid var(--color-primary-border)" : undefined }}
                     >
-                      <span className="text-sm" style={{ color: "#9a6a55" }}>{food.name}</span>
+                      <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{food.name}</span>
                       <DiffBadge kind="removed" detail="Not in new plan" />
                     </div>
                   ))}
@@ -323,10 +323,10 @@ export default function NewCyclePage() {
             {/* Maintenance foods */}
             {allNewMaint.length > 0 && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+                <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
                   Maintenance foods
                 </p>
-                <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid #f0ddd4" }}>
+                <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid var(--color-primary-border)" }}>
                   {allNewMaint.map((food, i) => {
                     const inCurrent = allCurMaint.some(f => foodNamesMatch(f.name, food.name))
                     const kind = inCurrent ? "kept" : "new"
@@ -334,9 +334,9 @@ export default function NewCyclePage() {
                       <div
                         key={food.name + i}
                         className="flex items-center justify-between px-4 py-3"
-                        style={{ borderBottom: i < allNewMaint.length - 1 ? "0.5px solid #f0ddd4" : undefined }}
+                        style={{ borderBottom: i < allNewMaint.length - 1 ? "0.5px solid var(--color-primary-border)" : undefined }}
                       >
-                        <span className="text-sm" style={{ color: "#2d1a0e" }}>{food.name}</span>
+                        <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>{food.name}</span>
                         <DiffBadge kind={kind} />
                       </div>
                     )
@@ -347,17 +347,17 @@ export default function NewCyclePage() {
 
             {/* Appointment date */}
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "#9a6a55" }}>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>
                 Next appointment
               </p>
-              <div className="bg-white rounded-xl px-4 py-3 flex items-center justify-between" style={{ border: "0.5px solid #f0ddd4" }}>
-                <span className="text-sm" style={{ color: "#2d1a0e" }}>Appointment date</span>
+              <div className="bg-white rounded-xl px-4 py-3 flex items-center justify-between" style={{ border: "0.5px solid var(--color-primary-border)" }}>
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Appointment date</span>
                 <input
                   type="date"
                   value={appointmentDate}
                   onChange={e => setAppointmentDate(e.target.value)}
                   className="text-sm bg-transparent outline-none border-none text-right"
-                  style={{ color: "#9a6a55" }}
+                  style={{ color: "var(--color-text-secondary)" }}
                 />
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function NewCyclePage() {
             {/* Confirm CTA */}
             <button
               className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-              style={{ background: "#ff6b35" }}
+              style={{ background: "var(--color-primary-mid)" }}
               onClick={handleConfirm}
               disabled={view === "confirming"}
             >
@@ -382,7 +382,7 @@ export default function NewCyclePage() {
           <div className="relative flex items-center justify-center" style={{ width: 120, height: 120 }}>
             <svg width="120" height="120" viewBox="0 0 120 120">
               {/* Track */}
-              <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="#f0ddd4" strokeWidth="8" />
+              <circle cx="60" cy="60" r={RADIUS} fill="none" stroke="var(--color-primary-border)" strokeWidth="8" />
               {/* Ghost arc: old visit */}
               {oldIdx > 0 && (
                 <circle
@@ -401,7 +401,7 @@ export default function NewCyclePage() {
               <circle
                 cx="60" cy="60" r={RADIUS}
                 fill="none"
-                stroke="#4fc3f7"
+                stroke="var(--color-ring-new)"
                 strokeWidth="8"
                 strokeDasharray={`${CIRCUM} ${CIRCUM}`}
                 strokeDashoffset={blueOffset}
@@ -416,7 +416,7 @@ export default function NewCyclePage() {
             {/* Avatar overlay */}
             <div
               className="absolute rounded-full overflow-hidden flex items-center justify-center"
-              style={{ width: 80, height: 80, background: "#fff3ec", fontSize: 34 }}
+              style={{ width: 80, height: 80, background: "var(--color-primary-light)", fontSize: 34 }}
             >
               {childPhotoUrl ? (
                 <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
@@ -428,7 +428,7 @@ export default function NewCyclePage() {
 
           {/* Title */}
           <div className="text-center">
-            <h2 className="text-xl font-bold" style={{ color: "#2d1a0e" }}>
+            <h2 className="text-xl font-bold" style={{ color: "var(--color-text-primary)" }}>
               {parsedSchedule.visitNumber
                 ? `${formatVisitLabel(parsedSchedule.visitNumber)} is live`
                 : "New cycle is live"}
@@ -440,17 +440,17 @@ export default function NewCyclePage() {
             {oldIdx > 0 && (
               <div className="flex items-center gap-1.5">
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#ff9966", opacity: 0.85 }} />
-                <span className="text-xs" style={{ color: "#9a6a55" }}>{formatVisitLabel(currentSchedule?.visitNumber)}</span>
+                <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{formatVisitLabel(currentSchedule?.visitNumber)}</span>
               </div>
             )}
             <div className="flex items-center gap-1.5">
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#4fc3f7" }} />
-              <span className="text-xs" style={{ color: "#9a6a55" }}>{formatVisitLabel(parsedSchedule.visitNumber)}</span>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--color-ring-new)" }} />
+              <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>{formatVisitLabel(parsedSchedule.visitNumber)}</span>
             </div>
           </div>
 
           {/* Summary card */}
-          <div className="w-full bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid #f0ddd4" }}>
+          <div className="w-full bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid var(--color-primary-border)" }}>
             {[
               { label: "Visit", value: formatVisitLabel(parsedSchedule.visitNumber) },
               { label: "Starting position", value: "Week 1, Day 1" },
@@ -465,10 +465,10 @@ export default function NewCyclePage() {
               <div
                 key={row.label}
                 className="flex items-center justify-between px-4 py-3"
-                style={{ borderBottom: i < arr.length - 1 ? "0.5px solid #f0ddd4" : undefined }}
+                style={{ borderBottom: i < arr.length - 1 ? "0.5px solid var(--color-primary-border)" : undefined }}
               >
-                <span className="text-sm" style={{ color: "#9a6a55" }}>{row.label}</span>
-                <span className="text-sm font-medium" style={{ color: "#2d1a0e" }}>{row.value}</span>
+                <span className="text-sm" style={{ color: "var(--color-text-secondary)" }}>{row.label}</span>
+                <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>{row.value}</span>
               </div>
             ))}
           </div>
@@ -476,7 +476,7 @@ export default function NewCyclePage() {
           {/* Start dosing CTA */}
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={() => router.push("/daily")}
           >
             Start dosing
@@ -490,7 +490,7 @@ export default function NewCyclePage() {
           <p className="text-sm font-medium" style={{ color: "#dc2626" }}>Error: {error}</p>
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
-            style={{ background: "#ff6b35" }}
+            style={{ background: "var(--color-primary-mid)" }}
             onClick={() => { setView("paste"); setError("") }}
           >
             Try Again
