@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening
 Mode: Active Build
-Last Updated: 2026-07-03
-Blocker: None
-Next Action: F1 — color scheme migration + iOS best practice fixes
+Last Updated: 2026-07-07
+Blocker: None — deployed to production (tippal.behrman.dev) via direct Vercel CLI deploy; local git history not yet pushed to GitHub (Dan will authenticate `gh` and push at home)
+Next Action: Dan's mandatory UI sign-off — protanopia card-distinction check, zero iOS-gap check (iPhone 15 Pro Simulator), bottom-nav home-gesture check, Capacitor Simulator re-verify (carry forward from Phase 3 F1). Color migration itself is code-complete and live in production, confirmed via browser on 4 core pages (Today, History, Rec. Foods, Settings) with real data.
 
 ---
 
@@ -532,19 +532,19 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 
 ## Phase 3.6 — Completion Record
 
-> To be filled in by Claude Code when F1 passes QA and Dan signs off.
-
 | Feature | Result | Notes |
 |---|---|---|
-| F1: Color Scheme Migration + iOS Fixes | 📋 Pending | |
+| F1: Color Scheme Migration + iOS Fixes | ⚠️ Conditional | Code complete, reviewed (18-task subagent-driven build, all task reviews + final whole-branch review clean), deployed to production tippal.behrman.dev. Pending Dan's mandatory UI sign-off checks below before phase closes. |
+
+**Build process note:** Implemented via `docs/superpowers/specs/2026-07-04-phase-3.6-f1-color-ios-hardening-design.md` → `plans/PHASE-3.6-F1.md` (18 tasks) → subagent-driven-development execution, all directly on `main` (no worktree, by Dan's choice). Deployed to production via direct `vercel --prod` CLI deploy 2026-07-07 — local commits are NOT yet pushed to GitHub (`git push` failed, no `gh`/git credential configured in this environment; Dan will authenticate and push from home). Production and GitHub will briefly diverge until that push happens; no functional impact since Vercel deploy doesn't depend on GitHub.
 
 **Definition of done checklist:**
-- [ ] All color tokens updated, no old hex values remaining
-- [ ] Build passes, no regressions
+- [x] All color tokens updated, no old hex values remaining — repo-wide grep sweep clean, confirmed independently twice
+- [x] Build passes, no regressions — `npm run build` clean, final whole-branch review found zero dangling `var()` references and zero scope creep
 - [ ] Dan verifies card colors distinguishable with protanopia
 - [ ] Dan verifies zero white gap at top on iOS Simulator (iPhone 15 Pro)
 - [ ] Dan verifies bottom nav taps do not trigger home gesture
-- [ ] Single viewport meta tag with `viewport-fit=cover` confirmed
+- [x] Single viewport meta tag with `viewport-fit=cover` confirmed — single-sourced via Next `Viewport` export, no manual duplicates found
 - [ ] Capacitor simulator re-verified (carry forward from Phase 3 F1)
 - [ ] Dan sign-off received
 
