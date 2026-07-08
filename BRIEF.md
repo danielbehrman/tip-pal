@@ -534,18 +534,22 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 
 | Feature | Result | Notes |
 |---|---|---|
-| F1: Color Scheme Migration + iOS Fixes | ⚠️ Conditional | Code complete, reviewed (18-task subagent-driven build, all task reviews + final whole-branch review clean), deployed to production tippal.behrman.dev. Pending Dan's mandatory UI sign-off checks below before phase closes. |
+| F1: Color Scheme Migration + iOS Fixes | ⚠️ Conditional | Code complete, reviewed (18-task subagent-driven build, all task reviews + final whole-branch review clean), deployed to production tippal.behrman.dev and pushed to GitHub. Two post-deploy safe-area bugs found via Dan's real-device testing and fixed (see below). Pending remaining Dan UI sign-off checks before phase closes. |
 
-**Build process note:** Implemented via `docs/superpowers/specs/2026-07-04-phase-3.6-f1-color-ios-hardening-design.md` → `plans/PHASE-3.6-F1.md` (18 tasks) → subagent-driven-development execution, all directly on `main` (no worktree, by Dan's choice). Deployed to production via direct `vercel --prod` CLI deploy 2026-07-07 — local commits are NOT yet pushed to GitHub (`git push` failed, no `gh`/git credential configured in this environment; Dan will authenticate and push from home). Production and GitHub will briefly diverge until that push happens; no functional impact since Vercel deploy doesn't depend on GitHub.
+**Build process note:** Implemented via `docs/superpowers/specs/2026-07-04-phase-3.6-f1-color-ios-hardening-design.md` → `plans/PHASE-3.6-F1.md` (18 tasks) → subagent-driven-development execution, all directly on `main` (no worktree, by Dan's choice). Deployed to production via direct `vercel --prod` CLI deploy 2026-07-07; GitHub push completed same day once Dan authenticated `gh` locally.
+
+**Post-deploy fixes (found via Dan testing the installed PWA on iPhone 17 Pro Max):**
+1. Top safe-area gap — was stale PWA cache from before the deploy, not a code bug. Resolved by deleting and re-adding the home-screen icon.
+2. Side gutters (pale, then navy) — real bug: the `@media (min-width: 431px)` desktop-gutter breakpoint (`globals.css`) assumed no phone would exceed the 430px `app-container` width. iPhone 17 Pro Max's CSS viewport width does. Fixed in two commits: raised the breakpoint to 768px (matches Tailwind's `md:`), then made `.app-container`'s `max-width: 430px` conditional on that same breakpoint (was unconditional, capping the container even on phones wider than 430px). Confirmed fixed by Dan on-device after both fixes deployed.
 
 **Definition of done checklist:**
 - [x] All color tokens updated, no old hex values remaining — repo-wide grep sweep clean, confirmed independently twice
 - [x] Build passes, no regressions — `npm run build` clean, final whole-branch review found zero dangling `var()` references and zero scope creep
 - [ ] Dan verifies card colors distinguishable with protanopia
-- [ ] Dan verifies zero white gap at top on iOS Simulator (iPhone 15 Pro)
+- [x] Dan verifies zero white/pale gap at top and sides — confirmed on real device (iPhone 17 Pro Max, installed PWA) after two post-deploy fixes above. Native Capacitor app / Simulator check (next item) is still separate and outstanding.
 - [ ] Dan verifies bottom nav taps do not trigger home gesture
 - [x] Single viewport meta tag with `viewport-fit=cover` confirmed — single-sourced via Next `Viewport` export, no manual duplicates found
-- [ ] Capacitor simulator re-verified (carry forward from Phase 3 F1)
+- [ ] Capacitor simulator re-verified (carry forward from Phase 3 F1) — PWA safe-area behavior confirmed above, but native Capacitor/StatusBar-plugin rendering hasn't been separately checked
 - [ ] Dan sign-off received
 
 ---
