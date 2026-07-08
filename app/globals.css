@@ -97,9 +97,9 @@ body, html {
   font-family: var(--font-sans);
 }
 
-@media (min-width: 431px) {
+@media (min-width: 768px) {
   body, html {
-    background: var(--color-bg-secondary); /* #e8eeff — desktop gutter, once viewport exceeds the 430px app-container */
+    background: var(--color-bg-secondary); /* #e8eeff — desktop gutter. 768px (not 431px) so no current or near-future phone — including wide models like iPhone 17 Pro Max — can trigger this on a real device; only genuine desktop browser windows should. */
   }
 }
 
