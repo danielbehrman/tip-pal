@@ -51,8 +51,11 @@ const HIDDEN_ROUTES = new Set(["/login", "/setup", "/onboarding", "/", "/privacy
 
 export default function BottomNav() {
   const pathname = usePathname()
+  // Native builds set trailingSlash: true (next.config.ts), so usePathname()
+  // returns e.g. "/login/" there vs "/login" on web — normalize before matching.
+  const normalizedPathname = pathname !== "/" ? pathname.replace(/\/$/, "") : pathname
 
-  if (HIDDEN_ROUTES.has(pathname)) return null
+  if (HIDDEN_ROUTES.has(normalizedPathname)) return null
 
   return (
     <nav
