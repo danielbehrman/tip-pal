@@ -5,10 +5,14 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
-Mode: Awaiting Dan's decision on next phase (see Phase Gate below)
+Mode: Paused
 Last Updated: 2026-07-08
-Blocker: None
-Next Action: Dan to choose: (1) Phase 3 F7/F8 — App Store submission + open-source repo, now unblocked (F7 still needs a Capacitor Simulator auth-flow re-verify first); (2) Phase 4 — Engagement features (draft already in this BRIEF); (3) Dogfooding/stable mode, pause new feature work.
+Blocker: None — session paused by Dan pending his decision on what's next; resume by presenting the Phase Gate decision below and waiting for his explicit choice before starting any new work.
+Next Action: Surface this exact decision to Dan at next session start (per Phase Gate rules — do not assume an answer or start work first):
+  1. Continue to Phase 3 F7/F8 — App Store submission + open-source repo (the actual product goal). F7 still needs a Capacitor Simulator auth-flow re-verify first (see Carry Forward — local `.env.local` needs real Supabase credentials pulled via `vercel env pull --environment=production` before that test can run).
+  2. Continue to Phase 4 — Engagement features (Milestone Email, Emergency Medication Expiry Tracker, Food Grouping, Native Push) — first draft already in this BRIEF below.
+  3. Dogfooding mode — pause new development, use the app for real, gather feedback.
+  4. Stable/maintenance — bug fixes only, no new features.
 
 ---
 
