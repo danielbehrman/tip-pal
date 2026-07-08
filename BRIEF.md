@@ -7,8 +7,8 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 Phase: Phase 3.6 — Palette + iOS Hardening
 Mode: Active Build
 Last Updated: 2026-07-07
-Blocker: None — deployed to production (tippal.behrman.dev) via direct Vercel CLI deploy; local git history not yet pushed to GitHub (Dan will authenticate `gh` and push at home)
-Next Action: Dan's mandatory UI sign-off — protanopia card-distinction check, zero iOS-gap check (iPhone 15 Pro Simulator), bottom-nav home-gesture check, Capacitor Simulator re-verify (carry forward from Phase 3 F1). Color migration itself is code-complete and live in production, confirmed via browser on 4 core pages (Today, History, Rec. Foods, Settings) with real data.
+Blocker: None — deployed to production (tippal.behrman.dev), pushed to GitHub. Two post-deploy safe-area bugs found via Dan's device testing and fixed (see Phase 3.6 Completion Record).
+Next Action: Dan checks Capacitor Simulator tomorrow (carry forward from Phase 3 F1) — the last outstanding item. Protanopia card check, iOS safe-area (top+sides), and bottom-nav home-gesture check all confirmed passing by Dan on real device (iPhone 17 Pro Max) 2026-07-07. Phase closes once Simulator check passes and Dan gives final sign-off.
 
 ---
 
@@ -545,12 +545,12 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 **Definition of done checklist:**
 - [x] All color tokens updated, no old hex values remaining — repo-wide grep sweep clean, confirmed independently twice
 - [x] Build passes, no regressions — `npm run build` clean, final whole-branch review found zero dangling `var()` references and zero scope creep
-- [ ] Dan verifies card colors distinguishable with protanopia
-- [x] Dan verifies zero white/pale gap at top and sides — confirmed on real device (iPhone 17 Pro Max, installed PWA) after two post-deploy fixes above. Native Capacitor app / Simulator check (next item) is still separate and outstanding.
-- [ ] Dan verifies bottom nav taps do not trigger home gesture
+- [x] Dan verifies card colors distinguishable with protanopia — confirmed 2026-07-07
+- [x] Dan verifies zero white/pale gap at top and sides — confirmed on real device (iPhone 17 Pro Max, installed PWA) after two post-deploy fixes above. Native Capacitor app / Simulator check (below) is still separate and outstanding.
+- [x] Dan verifies bottom nav taps do not trigger home gesture — confirmed 2026-07-07
 - [x] Single viewport meta tag with `viewport-fit=cover` confirmed — single-sourced via Next `Viewport` export, no manual duplicates found
-- [ ] Capacitor simulator re-verified (carry forward from Phase 3 F1) — PWA safe-area behavior confirmed above, but native Capacitor/StatusBar-plugin rendering hasn't been separately checked
-- [ ] Dan sign-off received
+- [ ] Capacitor simulator re-verified (carry forward from Phase 3 F1) — PWA safe-area behavior confirmed above, but native Capacitor/StatusBar-plugin rendering hasn't been separately checked. Dan checking tomorrow.
+- [ ] Dan sign-off received — blocked only on Capacitor Simulator check above
 
 ---
 
