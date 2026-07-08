@@ -103,12 +103,20 @@ body, html {
   }
 }
 
-/* Mobile-first max-width container — applied in layout.tsx */
+/* Mobile-first max-width container — applied in layout.tsx.
+   max-width only applies at desktop widths (matches the gutter breakpoint
+   above) — on any real phone, regardless of its exact viewport width, the
+   app must fill the full screen with no artificial cap. */
 .app-container {
   width: 100%;
-  max-width: 430px;
   margin: 0 auto;
   min-height: 100vh;
   background: var(--color-bg);
   position: relative;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 430px;
+  }
 }
