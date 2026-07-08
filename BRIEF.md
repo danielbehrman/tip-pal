@@ -4,11 +4,11 @@
 TIP Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 3.6 — Palette + iOS Hardening
-Mode: Active Build
-Last Updated: 2026-07-07
-Blocker: None — deployed to production (tippal.behrman.dev), pushed to GitHub. Two post-deploy safe-area bugs found via Dan's device testing and fixed (see Phase 3.6 Completion Record).
-Next Action: Dan checks Capacitor Simulator tomorrow (carry forward from Phase 3 F1) — the last outstanding item. Protanopia card check, iOS safe-area (top+sides), and bottom-nav home-gesture check all confirmed passing by Dan on real device (iPhone 17 Pro Max) 2026-07-07. Phase closes once Simulator check passes and Dan gives final sign-off.
+Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
+Mode: Awaiting Dan's decision on next phase (see Phase Gate below)
+Last Updated: 2026-07-08
+Blocker: None
+Next Action: Dan to choose: (1) Phase 3 F7/F8 — App Store submission + open-source repo, now unblocked (F7 still needs a Capacitor Simulator auth-flow re-verify first); (2) Phase 4 — Engagement features (draft already in this BRIEF); (3) Dogfooding/stable mode, pause new feature work.
 
 ---
 
@@ -127,11 +127,12 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Re-parse overwrites dose history | High | Phase 2 | ✅ Not a bug — dose_log untouched by re-parse, confirmed 2026-06-01 |
 | Buffer calculation wrong | Medium | Phase 2 | ✅ Resolved — fixed in commit 2234b29 |
 | Push notifications firing in wrong timezone | High | Phase 2 | ✅ Resolved — daily page now syncs device timezone on every load, 2026-06-01 |
-| F1 iOS Simulator — confirm lazy Supabase init fix works | High | Phase 3 | Parked — simulator launched but app errored on load before fix was confirmed. Re-verify before App Store submission. |
-| Coral-orange palette does not match app icon | Medium | Phase 3.5 | ✅ Being resolved in Phase 3.6 F1 |
-| White gap above header on iOS | High | Phase 3.5 | ✅ Being resolved in Phase 3.6 F1 |
-| Bottom nav home indicator clearance insufficient | High | Phase 3.5 | ✅ Being resolved in Phase 3.6 F1 |
-| Three card categories not distinct enough for colorblind users | Medium | Phase 3.5 | ✅ Being resolved in Phase 3.6 F1 |
+| F1 iOS Simulator — confirm lazy Supabase init fix works | High | Phase 3 | ⚠️ Partially re-verified 2026-07-08 — app now launches and renders correctly in Simulator (previously errored before reaching this point). Full authenticated data-loading flow still NOT verified in Simulator (local `.env.local` had empty Supabase credentials during this test). Re-verify auth flow before App Store submission. |
+| Coral-orange palette does not match app icon | Medium | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, signed off 2026-07-08 |
+| White gap above header on iOS | High | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, confirmed on real device + Simulator 2026-07-08 |
+| Bottom nav home indicator clearance insufficient | High | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, confirmed by Dan 2026-07-07 |
+| Three card categories not distinct enough for colorblind users | Medium | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, protanopia check confirmed by Dan 2026-07-07 |
+| Bottom nav shows on hidden routes (login/setup/onboarding/privacy/disclaimer) in native app only | High | Phase 3.6 F1 | ✅ Resolved — found during Capacitor Simulator re-verify 2026-07-08, fixed same day (trailing-slash pathname normalization in `BottomNav.tsx`) |
 
 ---
 
@@ -303,14 +304,14 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 |---|---|---|
 | F0: Daily View UX Fixes | ✅ Pass | Deployed 2026-06-09 |
 | F0.1: Calendar-Anchored Dating | ✅ Pass | Deployed and confirmed in production 2026-06-23 |
-| F1: Capacitor Wrapper | ⚠️ Conditional | Dev complete. iOS Simulator verification inconclusive — re-verify before App Store submission. |
+| F1: Capacitor Wrapper | ⚠️ Conditional | Dev complete. Partially re-verified 2026-07-08 — app builds/launches/renders correctly in Simulator (previously errored before this point). Authenticated flow still needs a Simulator test with real Supabase credentials before App Store submission. |
 | F2: Parser PII Hardening | ✅ Pass | |
 | F3: Schema v2 | ✅ Pass | Deployed 2026-06-24 |
 | F4: New Food Cycle Flow | ✅ Pass | Deployed 2026-06-26 |
 | F5: Privacy Policy | ✅ Pass | Live at /privacy |
 | F6: Medical Disclaimer | ✅ Pass | Live at /disclaimer |
-| F7: App Store Submission | 📋 Deferred | Pending Phase 3.6 sign-off |
-| F8: Open Source Repo | 📋 Deferred | Pending Phase 3.6 sign-off |
+| F7: App Store Submission | 📋 Unblocked, not started | Phase 3.6 sign-off received 2026-07-08. Still needs F1's authenticated-flow Simulator re-verify first. |
+| F8: Open Source Repo | 📋 Unblocked, not started | Phase 3.6 sign-off received 2026-07-08. No blockers remaining. |
 
 ---
 
@@ -551,7 +552,7 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 - [x] Dan verifies bottom nav taps do not trigger home gesture — confirmed 2026-07-07
 - [x] Single viewport meta tag with `viewport-fit=cover` confirmed — single-sourced via Next `Viewport` export, no manual duplicates found
 - [x] Capacitor simulator re-verified (carry forward from Phase 3 F1) — built and ran on iPhone 17 Pro simulator 2026-07-08, safe-area confirmed correct, uncovered and fixed the bottom-nav bug above
-- [ ] Dan sign-off received
+- [x] Dan sign-off received — 2026-07-08
 
 ---
 
