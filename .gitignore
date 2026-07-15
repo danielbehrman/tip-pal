@@ -10,3 +10,4 @@ out/
 .env*.local
 supabase/.temp/
 .env*
+.superpowers/
