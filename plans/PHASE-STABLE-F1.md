@@ -14,7 +14,7 @@
 - `dose_log` has no unique constraint beyond its primary key `id` (confirmed against the live Supabase schema) — `(week, day)` legitimately repeats across reset epochs, so every write path must reason about this explicitly (guard-before-insert, or update-by-`id` never by `(week, day)` lookup with a blind insert fallback).
 - History must be factual, never fabricated — a day with no `dose_log` row shows as empty/absent, never backfilled, never normalized to look complete.
 - `resetFoodProgress`/`seedFoodProgress` remain, reserved for initial onboarding/setup seeding only — no other code path may call them after this plan.
-- `npx tsc --noEmit` must report zero errors and `npm run build` must succeed after every task.
+- `npx tsc --noEmit` must report zero errors after every task. `npm run build` must succeed at the checkpoint tasks that call for it (5, 8, 9) — full builds are slower, so intermediate tasks rely on `tsc` alone, which Next.js's own build type-checking makes an accurate proxy.
 - Exact confirm-dialog and banner copy is locked in the design doc (`docs/superpowers/specs/2026-07-16-treatment-food-tracking-fixes-final-design.md`) — do not rephrase.
 - Global header's "furthest-behind food" display (`getGlobalPosition`, min-across-foods) must be unaffected by every change in this plan — it is read, never redefined.
 
