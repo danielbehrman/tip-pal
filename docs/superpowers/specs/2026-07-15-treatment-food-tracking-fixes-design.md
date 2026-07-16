@@ -1,6 +1,6 @@
 # Treatment Food Tracking Fixes — Complete Day Confirm Flow, Auto-Rollover, Reset Banner, Per-Food Settings
 
-**Status:** Approved for planning
+**Status:** ⚠️ SUPERSEDED 2026-07-16 by `2026-07-16-treatment-food-tracking-fixes-final-design.md`. Dan's final design changed section 7's resolution (bulk catch-up log is removed entirely rather than fixed with an existence check), added explicit banner copy variants for single- vs multi-day gaps, and clarified trailing edit as an update-by-date write. Kept for history only — do not plan or implement against this file.
 **Supersedes:** `2026-07-15-stable-maintenance-bundle-design.md` — section 1 (Complete Day) is a materially different design (no gate, confirm-on-save dialog, new lazy auto-rollover mechanism replacing part of Day Navigation). Sections 2 and 3 below carry forward unchanged from that doc.
 **Source:** Dan's session input "Treatment Food Tracking Fixes," 2026-07-15. Amends three locked Phase 2 Architecture Decisions (Day completion rule, Trailing Edit, Day navigation) — see BRIEF.md, amended same day. Removes Skip Session's evening-skip path from active spec; morning skip is unaffected.
 **Scope:** Four related fixes sharing one root cause: treatment foods are tracked independently per-food in `treatment_food_progress` (since Phase 3.5), but several code paths still assumed a single shared/global position or an all-or-nothing completion gate. No new tracking tables. No change to `dose_log`'s one-row-per-calendar-day model. No change to the global header's "furthest-behind food" display concept.
