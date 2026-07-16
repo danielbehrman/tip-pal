@@ -193,29 +193,6 @@ export async function fetchChildPhotoUrl(): Promise<string | null> {
   return (data.child_photo_url as string | null) || null
 }
 
-export async function saveBulkCatchUpLog(toWeek: number, toDay: number): Promise<void> {
-  const familyId = await getFamilyId()
-  const now = new Date().toISOString()
-  const rows: object[] = []
-  for (let w = 1; w <= toWeek; w++) {
-    const maxDay = w === toWeek ? toDay - 1 : 7
-    for (let d = 1; d <= maxDay; d++) {
-      rows.push({
-        family_id: familyId,
-        week: w,
-        day: d,
-        session: "day",
-        checked_foods: {},
-        completed_at: now,
-        is_skipped: false,
-      })
-    }
-  }
-  if (rows.length === 0) return
-  const { error } = await getClient().from("dose_log").insert(rows)
-  if (error) throw error
-}
-
 export async function fetchAppointmentDate(): Promise<string | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
@@ -261,7 +238,8 @@ export async function saveDoseLog(
   day: number,
   checkedFoods: Record<string, boolean>,
   completedAt: string,
-  scheduleSnapshot: object
+  scheduleSnapshot: object,
+  isSkipped: boolean
 ): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()
@@ -273,31 +251,10 @@ export async function saveDoseLog(
       session: "day",
       checked_foods: checkedFoods,
       completed_at: completedAt,
-      is_skipped: false,
+      is_skipped: isSkipped,
       schedule_snapshot: scheduleSnapshot,
     })
   if (error) throw error
-}
-
-export async function saveSkipDay(week: number, day: number): Promise<void> {
-  const familyId = await getFamilyId()
-  const { error: logError } = await getClient()
-    .from("dose_log")
-    .insert({
-      family_id: familyId,
-      week,
-      day,
-      session: "day",
-      checked_foods: {},
-      completed_at: new Date().toISOString(),
-      is_skipped: true,
-    })
-  if (logError) throw logError
-
-  const { error: incrementError } = await getClient().rpc("increment_skip_count", {
-    p_family_id: familyId,
-  })
-  if (incrementError) throw incrementError
 }
 
 export async function saveSkipMorning(week: number, day: number): Promise<void> {
@@ -364,6 +321,20 @@ export async function fetchDateHasDayRecord(dateStr: string): Promise<boolean> {
   return (count ?? 0) > 0
 }
 
+export async function fetchLastLoggedDate(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("completed_at")
+    .eq("family_id", familyId)
+    .eq("session", "day")
+    .order("completed_at", { ascending: false })
+    .limit(1)
+  if (error) throw error
+  if (!data || data.length === 0) return null
+  return (data[0].completed_at as string).slice(0, 10)
+}
+
 export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
@@ -374,8 +345,8 @@ export async function fetchRecentCompletedDays(): Promise<DoseLogDay[]> {
     .limit(50)
   if (error) throw error
   if (!data) return []
-  const completedDayRows = data.filter(r => r.session === "day" && !r.is_skipped)
-  const topThree = completedDayRows.slice(0, 3)
+  const dayRows = data.filter(r => r.session === "day")
+  const topThree = dayRows.slice(0, 3)
   return topThree.map(dayRow => ({
     id: dayRow.id as string,
     week: dayRow.week as number,
@@ -402,8 +373,8 @@ export async function fetchAllDoseLogDays(): Promise<DoseLogDay[]> {
     .limit(500)
   if (error) throw error
   if (!data) return []
-  const completedDayRows = data.filter(r => r.session === "day" && !r.is_skipped)
-  return completedDayRows.map(dayRow => ({
+  const dayRows = data.filter(r => r.session === "day")
+  return dayRows.map(dayRow => ({
     id: dayRow.id as string,
     week: dayRow.week as number,
     day: dayRow.day as number,
