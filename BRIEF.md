@@ -5,14 +5,10 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
-Mode: Paused
-Last Updated: 2026-07-08
-Blocker: None — session paused by Dan pending his decision on what's next; resume by presenting the Phase Gate decision below and waiting for his explicit choice before starting any new work.
-Next Action: Surface this exact decision to Dan at next session start (per Phase Gate rules — do not assume an answer or start work first):
-  1. Continue to Phase 3 F7/F8 — App Store submission + open-source repo (the actual product goal). F7 still needs a Capacitor Simulator auth-flow re-verify first (see Carry Forward — local `.env.local` needs real Supabase credentials pulled via `vercel env pull --environment=production` before that test can run).
-  2. Continue to Phase 4 — Engagement features (Milestone Email, Emergency Medication Expiry Tracker, Food Grouping, Native Push) — first draft already in this BRIEF below.
-  3. Dogfooding mode — pause new development, use the app for real, gather feedback.
-  4. Stable/maintenance — bug fixes only, no new features.
+Mode: Stable/maintenance
+Last Updated: 2026-07-14
+Blocker: None — Dan explicitly chose Stable/maintenance (option 4) at Phase Gate on 2026-07-14. Bug fixes only, no new feature work, until Dan explicitly moves to a different mode.
+Next Action: Architect design complete and confirmed with Dan for the "Treatment Food Tracking Fixes" bundle (Complete Day confirm-dialog + auto-rollover, banner root-cause fix, Settings per-food adjuster) — see `docs/superpowers/specs/2026-07-15-treatment-food-tracking-fixes-design.md`. Phase 2 Architecture Decisions table amended same day (Day completion rule, Day navigation, Trailing edit rows; Skip Session evening-skip path removed from active spec). Next: run `/write-plan` to produce `plans/PHASE-STABLE-F1.md`, then Dev. Phase 3 F1 Capacitor Simulator auth-flow re-verify still outstanding, blocking Phase 3 F7/F8 whenever that track resumes.
 
 ---
 
@@ -137,6 +133,10 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Bottom nav home indicator clearance insufficient | High | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, confirmed by Dan 2026-07-07 |
 | Three card categories not distinct enough for colorblind users | Medium | Phase 3.5 | ✅ Resolved — Phase 3.6 F1, protanopia check confirmed by Dan 2026-07-07 |
 | Bottom nav shows on hidden routes (login/setup/onboarding/privacy/disclaimer) in native app only | High | Phase 3.6 F1 | ✅ Resolved — found during Capacitor Simulator re-verify 2026-07-08, fixed same day (trailing-slash pathname normalization in `BottomNav.tsx`) |
+| False "yesterday wasn't completed" banner shows after manual day/week reset in Settings, even when today's foods are all checked | High | Dogfooding, 2026-07-14 | ⚠️ Rolled into the Treatment Food Tracking Fixes bundle (2026-07-15) — see `docs/superpowers/specs/2026-07-15-treatment-food-tracking-fixes-design.md`. Root cause confirmed (cycleStartDate backdating), fix approach locked, plan pending. |
+| Settings week/day adjuster is global-only — doesn't support per-food position, but treatment foods have tracked independently via `treatment_food_progress` since Phase 3.5 | Medium | Dogfooding, 2026-07-14 | ⚠️ Rolled into the Treatment Food Tracking Fixes bundle (2026-07-15) — see `docs/superpowers/specs/2026-07-15-treatment-food-tracking-fixes-design.md`. Design confirmed via mockup with Dan, plan pending. |
+| Complete Day was gated on 100% of treatment foods checked (should be per-food independent); day got stuck after a partial completion, blocking back-nav | High | Dogfooding, 2026-07-14 | ⚠️ Rolled into the Treatment Food Tracking Fixes bundle (2026-07-15) — expanded scope beyond the original gate-loosening fix: gate removed entirely, replaced with confirm-on-save dialog + new lazy auto-rollover mechanism (also amends Day navigation and Trailing Edit — see Architecture Decisions above and the linked design doc). Plan pending. |
+| `fetchCompletedPositions()` (forward-nav gating) is not scoped to "since the last reset" — a position completed before a Settings reset could incorrectly read as already-completed immediately after a fresh reset | Medium | Found during Architect investigation of the Treatment Food Tracking Fixes bundle, 2026-07-15 | Open — not in scope for the current bundle (Dan hasn't been asked to confirm fix approach). First-priority candidate for the next Stable/maintenance pass. |
 
 ---
 
@@ -179,13 +179,13 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Shared state | Supabase (server-authoritative). No real-time subscriptions for MVP — refresh fetches latest. Stale local state must never override server on refresh. |
 | Auth | Supabase Auth, email/password. Two users (Dan + wife) for MVP. Schema supports multi-family expansion (families → users → schedules) but MVP does not build multi-family UI. |
 | Push notifications | Web push only for MVP. Native push is long-term target — out of scope for Phase 2. |
-| Trailing edit | Checkbox state only. Unchecking a morning food = no impact on day completion. Unchecking an evening food = day incomplete. |
+| Trailing edit | **⚠️ Superseded 2026-07-15 (Stable/maintenance bundle):** Trailing edits CAN affect advancement — correcting a previously-unchecked treatment food within the 3-day trailing window retroactively advances that food's position from that day forward. `getGlobalPosition()` re-derives after any trailing edit, same as after a Settings per-food edit, so foods that drifted out of sync from a missed dose can resync. Morning food checkbox state is unaffected — still no impact on day completion, informational only. |
 | Buffer days | Buffer = days from the day after the final treatment food's final complete week Day 7 through the day before the next appointment. Excludes appointment day and travel day (day before appointment). |
 | State on refresh | Server wins. Refresh always fetches latest from Supabase. No stale cookie or localStorage override. |
 | Buffer anchor date | Buffer calculated against the furthest-behind treatment food's projected final week completion. Global header always shows the slowest food's position. |
 | Dose log session model | One row per day (`session: 'day'`). Skip morning or skip evening creates a separate additional row. |
-| Day completion rule | **Updated F0:** Auto-completes when last evening treatment food is checked — no user action required. Evening treatment foods only gate completion. Morning is informational only. Complete Day button removed. Skip Session removed. |
-| Day navigation | Day + disabled if current (week, day) has not been logged. Backwards navigation always allowed. Week +/− are manual overrides, unrestricted. |
+| Day completion rule | **⚠️ Superseded 2026-07-15 (Stable/maintenance bundle):** Complete Day is always available, no gate. On tap, if any treatment food is unchecked, a confirm dialog names the specific unchecked food(s) before saving; confirming saves exactly what's checked and each food's position advances independently. Skip Evening button removed entirely — superseded by this confirm-on-save flow. Morning skip (informational only) is unaffected. |
+| Day navigation | **⚠️ Superseded 2026-07-15 (Stable/maintenance bundle):** Day advances automatically on calendar rollover (lazy — evaluated on next app load, not a background job), regardless of whether Complete Day was tapped, using whatever `checked_foods` was last saved. Only the single most recent missed day is auto-finalized this way — a longer gap of missed days does not retroactively finalize each one, to avoid fabricating multiple skip records. This is the only mechanism by which a day advances without an explicit Complete Day tap. |
 | Date display | **Added F0:** Completed days show `completed_at` date from dose_log. Current incomplete day shows live today's date. |
 | Treatment day advancement | **⚠️ Superseded by Phase 3 F0.1 (2026-06-20):** day position now auto-advances with calendar time by default; only explicit Skip Day freezes it. |
 | Push delivery mechanism | External cron (cron-job.org) → `/api/send-reminders`. Runs every minute. |
@@ -209,6 +209,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 
 #### F5: Skip Session
 **Status:** ✅ Complete — deployed to production 2026-05-25
+**⚠️ Evening-skip path removed from active spec 2026-07-15** (Stable/maintenance bundle) — superseded by the Day completion rule's confirm-on-save flow (see Architecture Decisions above). Morning skip (informational only) is unaffected and stays as-is.
 
 #### F6: Trailing 3-Day Edit
 **Status:** ✅ Complete — deployed to production 2026-05-25

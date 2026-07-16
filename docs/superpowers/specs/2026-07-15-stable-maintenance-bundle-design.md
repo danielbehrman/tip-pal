@@ -1,6 +1,6 @@
 # Stable/Maintenance Bundle — Complete Day Gate, Reset Banner, Per-Food Settings
 
-**Status:** Approved for planning
+**Status:** ⚠️ SUPERSEDED 2026-07-15 by `2026-07-15-treatment-food-tracking-fixes-design.md`. Dan's follow-up session input replaced the Complete Day gate-loosening approach below (section 1) with a materially different design (no gate, confirm-on-save dialog, new lazy auto-rollover mechanism) and expanded scope to include Trailing Edit and Day Navigation amendments. Sections 2 (banner) and 3 (Settings per-food adjuster) below carried forward unchanged into the superseding doc. Kept for history only — do not plan or implement against this file.
 **Source:** BRIEF.md Carry Forward — three dogfooding reports (2026-07-14) sharing one root architectural tension: treatment foods are tracked independently per-food in `treatment_food_progress` (since Phase 3.5), but several parts of the app still assume a single shared/global position.
 **Scope:** Three targeted fixes, bundled at Dan's request because they share a root cause. No new tracking tables, no change to `dose_log`'s one-row-per-day model, no change to the global header's "furthest-behind food" display concept.
 
