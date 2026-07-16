@@ -33,6 +33,7 @@
 | `components/RecentDaysEditor.tsx` | Copy-only change (no prop/behavior change needed). |
 | `components/DoseHistoryLog.tsx` | Fix evening-skip status derivation to read `checked_foods` content instead of the now-dead `eveningSkipped` flag. |
 | `app/settings/page.tsx` | Remove the single global stepper, the Catchup modal, and all `showCatchup`/`withCatchup` state. Add per-food steppers + read-only auto-derived "Program day" summary. |
+| `app/onboarding/page.tsx` | Remove its separate Catchup modal and `showCatchup`/`withCatchup` state (Task 1 removed `saveBulkCatchUpLog` — "no longer used anywhere"). Its own single week/day picker (step 3) is unchanged — seeding every food to the same starting position is correct for brand-new schedules. |
 
 ## Data Model Reference
 
@@ -1046,10 +1047,11 @@ git commit -m "fix(history): derive evening-skipped status from checked_foods, n
 
 **Files:**
 - Modify: `app/settings/page.tsx`
+- Modify: `app/onboarding/page.tsx` (remove its separate Catchup modal — same reason, different file, see Step 7)
 
 **Interfaces:**
 - Consumes: `fetchFoodProgress`, `saveFoodProgress` (existing), `getGlobalPosition`, `cycleStartDateForPosition` (`lib/schedule.ts`)
-- Removes: `resetFoodProgress` import (no longer called from this file — it remains exported from `lib/supabase.ts` for onboarding/setup only), `saveBulkCatchUpLog` import (removed in Task 1), `cycleStartDateForPosition` usage for the old single-position save path (replaced)
+- Removes: `resetFoodProgress` import (no longer called from this file — it remains exported from `lib/supabase.ts` for onboarding/setup only), `saveBulkCatchUpLog` import (removed in Task 1) from both `app/settings/page.tsx` and `app/onboarding/page.tsx`, `cycleStartDateForPosition` usage for the old single-position save path (replaced)
 
 - [ ] **Step 1: Update imports**
 
@@ -1296,21 +1298,73 @@ onClick={saveOtherFields}
 
 Delete the entire "Catchup bottom-sheet modal" block (`app/settings/page.tsx:571-601`).
 
-- [ ] **Step 7: Typecheck**
+- [ ] **Step 7: Remove the Catchup modal from `app/onboarding/page.tsx` too**
+
+Task 1 removed `saveBulkCatchUpLog` from `lib/supabase.ts` — the design doc says "Remove `saveBulkCatchUpLog` entirely — no longer used anywhere in the app," and `app/onboarding/page.tsx` has its own, separate call site (onboarding's own bulk catch-up prompt after step 3's initial week/day picker). This file is otherwise untouched by this plan — onboarding's single week/day picker in step 3 is correct as-is and must not change: it seeds every treatment food to the *same* starting position via `seedFoodProgress`, which is the one legitimate case for a shared position (a brand-new schedule, before any food has had a chance to drift). Only the catch-up-log prompt itself is being removed here, for the same reason as Settings: history must never be fabricated.
+
+Remove `saveBulkCatchUpLog` from the import block (`app/onboarding/page.tsx:14`).
+
+Remove the `showCatchup` state declaration (`app/onboarding/page.tsx:66`: `const [showCatchup, setShowCatchup] = useState(false)`).
+
+Replace `handleConfirm` (`app/onboarding/page.tsx:123-131`):
+
+```ts
+function handleConfirm() {
+  saveAndRedirect()
+}
+```
+
+Replace `saveAndRedirect` (`app/onboarding/page.tsx:133-161`) — drops the `withCatchup` param and the `saveBulkCatchUpLog` call:
+
+```ts
+async function saveAndRedirect() {
+  setSaving(true)
+  setSaveError(null)
+  try {
+    await saveFamilyConfig(childName.trim(), appointmentDate || null)
+    await saveVisitNumber(VISIT_SEQUENCE[visitIdx])
+    const positionChanged = week !== originalWeek || day !== originalDay
+    if (positionChanged || !existingDoseState) {
+      await saveDoseState({
+        currentWeek: week,
+        currentDay: day,
+        checkedFoods: {},
+        completedDays: existingDoseState?.completedDays ?? {},
+        cycleStartDate: cycleStartDateForPosition(week, day),
+        skipCount: 0,
+        floorWeek: week,
+        floorDay: day,
+      })
+    }
+    router.replace("/daily")
+  } catch (err) {
+    setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
+    setSaving(false)
+  } finally {
+    setSaving(false)
+  }
+}
+```
+
+Delete the entire "Catchup modal — fixed bottom sheet" block (`app/onboarding/page.tsx:536-563`, from the `{/* Catchup modal — fixed bottom sheet */}` comment through its closing `)}`).
+
+Update the "Start dosing" button's `disabled`/`onClick` — it already calls `handleConfirm` and is `disabled={saving}`, both unchanged; no edit needed there since `handleConfirm` now always calls `saveAndRedirect()` directly.
+
+- [ ] **Step 8: Typecheck**
 
 Run: `npx tsc --noEmit 2>&1 | head -30`
-Expected: zero errors. If `week`/`day`/`originalWeek`/`originalDay`/`handleSave`/`showCatchup` are referenced anywhere else in the file (unlikely but verify with `grep -n "\\bweek\\b\\|\\bday\\b\\|handleSave\\|showCatchup" app/settings/page.tsx`), remove those references too.
+Expected: zero errors. If `week`/`day`/`originalWeek`/`originalDay`/`handleSave`/`showCatchup` are referenced anywhere else in `app/settings/page.tsx` (unlikely but verify with `grep -n "\\bweek\\b\\|\\bday\\b\\|handleSave\\|showCatchup" app/settings/page.tsx`), remove those references too. Do the same check for `app/onboarding/page.tsx` (`grep -n "showCatchup\|withCatchup\|saveBulkCatchUpLog" app/onboarding/page.tsx` should return nothing).
 
-- [ ] **Step 8: Full build**
+- [ ] **Step 9: Full build**
 
 Run: `npm run build 2>&1 | tail -8`
 Expected: `✓ Compiled successfully`.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add app/settings/page.tsx
-git commit -m "feat(settings): replace single global Week/Day stepper with per-food steppers and auto-derived Program day summary; remove bulk catch-up log"
+git add app/settings/page.tsx app/onboarding/page.tsx
+git commit -m "feat(settings): replace single global Week/Day stepper with per-food steppers and auto-derived Program day summary; remove bulk catch-up log from Settings and onboarding"
 ```
 
 ---
