@@ -12,7 +12,6 @@ interface DailyViewProps {
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCompleteDay: () => void
-  onSkipDay: () => void
   onSkipMorning: () => void
   appointmentDate: string | null
   familyName: string | null
@@ -53,7 +52,6 @@ export default function DailyView({
   doseState,
   onStateChange,
   onCompleteDay,
-  onSkipDay,
   onSkipMorning,
   appointmentDate,
   familyName,
@@ -140,13 +138,6 @@ export default function DailyView({
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
-    if (val && key.startsWith("evening-") && !isFutureDay && schedule.treatmentFoods.length > 0) {
-      const updatedChecked = { ...checkedFoods, [key]: val }
-      const allEveningChecked = schedule.treatmentFoods.every(
-        food => !!updatedChecked[`evening-${food.name}`]
-      )
-      if (allEveningChecked) onCompleteDay()
-    }
   }
 
   return (
@@ -363,9 +354,8 @@ export default function DailyView({
               currentWeek={currentWeek}
               checkedFoods={checkedFoods}
               onCheck={handleCheck}
-              onSkipDay={onSkipDay}
               onSkipMorning={onSkipMorning}
-              onCompleteDay={onCompleteDay}
+              onCompleteDayTap={onCompleteDay}
               isFutureDay={isFutureDay}
               isCurrentTreatmentDay={isCurrentTreatmentDay}
               isSkipped={isSkipped}

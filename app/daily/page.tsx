@@ -9,7 +9,6 @@ import {
   saveDoseState,
   saveCheckedState,
   saveDoseLog,
-  saveSkipDay,
   saveSkipMorning,
   fetchCompletedPositions,
   fetchDayRecords,
@@ -45,7 +44,7 @@ export default function DailyPage() {
   // treatmentAnchor holds the current treatment day position, computed live from
   // cycle_start_date + skip_count. Set from doseState on load — never advanced
   // locally except by re-fetching doseState after a write that re-anchors it
-  // (Settings, Skip Day does NOT re-anchor — see handleSkipDay).
+  // (e.g. Settings).
   const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
   const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
 
@@ -276,30 +275,6 @@ export default function DailyPage() {
     })
   }
 
-  async function handleSkipDay() {
-    const current = doseStateRef.current
-    if (!current || !hydrated || !treatmentAnchor) return
-    const { week, day } = treatmentAnchor
-    const skippedAt = new Date().toISOString()
-
-    try {
-      await saveSkipDay(week, day)
-    } catch {
-      return
-    }
-
-    setDayRecords(prev => {
-      const next = new Map(prev)
-      next.set(`${week}-${day}`, { date: skippedAt, skipped: true })
-      return next
-    })
-    setCompletedPositions(prev => {
-      const next = new Set(prev)
-      next.add(`${week}-${day}`)
-      return next
-    })
-  }
-
   async function handleSkipMorning() {
     if (!hydrated || !treatmentAnchor) return
     const { week, day } = treatmentAnchor
@@ -320,7 +295,6 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
-      onSkipDay={handleSkipDay}
       onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
       familyName={familyName}
