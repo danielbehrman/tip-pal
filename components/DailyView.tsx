@@ -18,7 +18,10 @@ interface DailyViewProps {
   completedPositions: Set<string>
   dayRecords: Map<string, DayRecord>
   treatmentAnchor: { week: number; day: number }
-  previousDayIncomplete: boolean
+  bannerInfo:
+    | { kind: "single"; date: string; foods: string[] }
+    | { kind: "multi"; count: number; startDate: string; endDate: string }
+    | null
   foodGroups: FoodGroup[]
   visitNumber: string | null
   isAppointmentDay: boolean
@@ -58,7 +61,7 @@ export default function DailyView({
   completedPositions,
   dayRecords,
   treatmentAnchor,
-  previousDayIncomplete,
+  bannerInfo,
   foodGroups,
   visitNumber,
   isAppointmentDay,
@@ -307,13 +310,15 @@ export default function DailyView({
 
       {/* Body */}
       <div className="flex-1 px-4 pt-4 pb-24">
-        {previousDayIncomplete && isCurrentTreatmentDay && (
+        {bannerInfo && isCurrentTreatmentDay && (
           <div
             className="mb-4 px-4 py-3 rounded-xl"
             style={{ background: "#fff8e1", border: "0.5px solid #ffe082" }}
           >
             <p className="text-sm font-medium" style={{ color: "#795548" }}>
-              Yesterday wasn&apos;t completed — you can still check off today&apos;s foods.
+              {bannerInfo.kind === "single"
+                ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given. Go back and fix it if that's wrong.`
+                : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward — go back to each day to log what actually happened.`}
             </p>
           </div>
         )}

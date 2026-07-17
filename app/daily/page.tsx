@@ -13,6 +13,7 @@ import {
   fetchCompletedPositions,
   fetchDayRecords,
   fetchDateHasDayRecord,
+  fetchLastLoggedDate,
   fetchAppointmentDate,
   fetchFamilyName,
   fetchFoodGroups,
@@ -27,6 +28,11 @@ import {
 import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
+type BannerInfo =
+  | { kind: "single"; date: string; foods: string[] }
+  | { kind: "multi"; count: number; startDate: string; endDate: string }
+  | null
+
 export default function DailyPage() {
   const router = useRouter()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
@@ -36,7 +42,7 @@ export default function DailyPage() {
   const [familyName, setFamilyName] = useState<string | null>(null)
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
   const [dayRecords, setDayRecords] = useState<Map<string, DayRecord>>(new Map())
-  const [previousDayIncomplete, setPreviousDayIncomplete] = useState(false)
+  const [bannerInfo, setBannerInfo] = useState<BannerInfo>(null)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [visitNumber, setVisitNumber] = useState<string | null>(null)
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
@@ -113,7 +119,7 @@ export default function DailyPage() {
         }
 
         // Override global week/day from food progress (per-food counters are authoritative)
-        const globalPos = progress.size > 0
+        let globalPos = progress.size > 0
           ? getGlobalPosition(progress)
           : { week: initialState.currentWeek, day: initialState.currentDay }
 
@@ -123,59 +129,93 @@ export default function DailyPage() {
           currentDay: globalPos.day,
         }
 
+        let finalDayRecords = records
+        let finalCompletedPositions = positions
+        let banner: BannerInfo = null
+
+        // Lazy auto-rollover: finalize only the single most recent missed day.
+        // Skips entirely if there's no genuine prior tracked day — yesterday's
+        // position falling at or before the floor set at the last reset/onboarding.
+        const yesterday = addDays(todayDateString(), -1)
+        const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
+        const floorSeq = (initialState.floorWeek - 1) * 7 + initialState.floorDay
+        if (initialState.cycleStartDate < todayDateString() && yesterdaySeq > floorSeq) {
+          const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
+          if (!hasRecord) {
+            const yWeek = Math.floor((yesterdaySeq - 1) / 7) + 1
+            const yDay = ((yesterdaySeq - 1) % 7) + 1
+            const yPosKey = `${yWeek}-${yDay}`
+            const yCheckedFoods = initialState.completedDays?.[yPosKey] ?? {}
+            const yEveningItems = getTreatmentFoodsForWeek(s, yWeek)
+            const yUncheckedNames = yEveningItems
+              .filter(({ food }) => !yCheckedFoods[`evening-${food.name}`])
+              .map(({ food }) => food.name)
+            const yIsSkipped = yEveningItems.length > 0 && yUncheckedNames.length === yEveningItems.length
+
+            // Advance per-food progress for whatever was checked, same math as handleCompleteDay
+            const reconciledAt = new Date().toISOString()
+            const advancedProgress = new Map(progress)
+            for (const { food } of yEveningItems) {
+              if (!yCheckedFoods[`evening-${food.name}`]) continue
+              const fp = advancedProgress.get(food.name)
+              if (!fp) continue
+              const newCompletedDays = fp.completedDays + 1
+              advancedProgress.set(
+                food.name,
+                newCompletedDays >= 7
+                  ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: reconciledAt }
+                  : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: reconciledAt }
+              )
+            }
+
+            try {
+              await saveFoodProgress(advancedProgress)
+              await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s, yIsSkipped)
+              progress = advancedProgress
+              globalPos = getGlobalPosition(advancedProgress)
+              stateWithGlobalPos.currentWeek = globalPos.week
+              stateWithGlobalPos.currentDay = globalPos.day
+
+              const nextDayRecords = new Map(finalDayRecords)
+              nextDayRecords.set(yPosKey, { date: reconciledAt, skipped: yIsSkipped })
+              finalDayRecords = nextDayRecords
+
+              const nextCompletedPositions = new Set(finalCompletedPositions)
+              nextCompletedPositions.add(yPosKey)
+              finalCompletedPositions = nextCompletedPositions
+
+              if (yUncheckedNames.length > 0) {
+                const lastLogged = await fetchLastLoggedDate().catch(() => null)
+                const gapStart = lastLogged ? addDays(lastLogged, 1) : null
+                const gapEnd = addDays(yesterday, -1)
+                if (gapStart && gapStart <= gapEnd) {
+                  const gapDays = Math.round(
+                    (new Date(gapEnd + "T00:00:00").getTime() - new Date(gapStart + "T00:00:00").getTime()) / (1000 * 60 * 60 * 24)
+                  ) + 1
+                  banner = { kind: "multi", count: gapDays, startDate: gapStart, endDate: gapEnd }
+                } else {
+                  banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
+                }
+              }
+            } catch {
+              banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
+            }
+          }
+        }
+
         setSchedule(s)
         setDoseState(stateWithGlobalPos)
         setFoodProgress(progress)
         foodProgressRef.current = progress
-        setTreatmentAnchor({ week: globalPos.week, day: globalPos.day })
+        setTreatmentAnchor({ week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay })
         setAppointmentDate(apptDate)
         setFamilyName(name)
-        setCompletedPositions(positions)
-        setDayRecords(records)
+        setCompletedPositions(finalCompletedPositions)
+        setDayRecords(finalDayRecords)
         setFoodGroups(groups)
         setVisitNumber(vNum)
         setChildPhotoUrl(photoUrl)
-
-        const yesterday = addDays(todayDateString(), -1)
-        if (initialState.cycleStartDate < todayDateString()) {
-          const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
-          if (!hasRecord) {
-            // No dose_log record for yesterday — but it may already be fully checked
-            // in the completedDays cache (e.g. via Trailing Edit before retroactive
-            // auto-complete existed, or before this reconciliation existed). Treat
-            // that the same as completing it now, rather than showing a stale warning.
-            const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
-            const yWeek = yesterdaySeq >= 1 ? Math.floor((yesterdaySeq - 1) / 7) + 1 : null
-            const yDay = yesterdaySeq >= 1 ? ((yesterdaySeq - 1) % 7) + 1 : null
-            const yPosKey = yWeek && yDay ? `${yWeek}-${yDay}` : null
-            const yCheckedFoods = yPosKey ? initialState.completedDays?.[yPosKey] ?? {} : {}
-            const yEveningItems = yWeek ? getTreatmentFoodsForWeek(s, yWeek) : []
-            const yAllChecked = yEveningItems.length > 0 && yEveningItems.every(
-              ({ food }) => !!yCheckedFoods[`evening-${food.name}`]
-            )
-            if (yWeek && yDay && yPosKey && yAllChecked) {
-              const reconciledAt = new Date().toISOString()
-              const isSkipped = yEveningItems.length > 0 && !yEveningItems.some(({ food }) => !!yCheckedFoods[`evening-${food.name}`])
-              try {
-                await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s, isSkipped)
-                setDayRecords(prev => {
-                  const next = new Map(prev)
-                  next.set(yPosKey, { date: reconciledAt, skipped: false })
-                  return next
-                })
-                setCompletedPositions(prev => {
-                  const next = new Set(prev)
-                  next.add(yPosKey)
-                  return next
-                })
-              } catch {
-                setPreviousDayIncomplete(true)
-              }
-            } else {
-              setPreviousDayIncomplete(true)
-            }
-          }
-        }
+        setBannerInfo(banner)
 
         setHydrated(true)
       } catch {
@@ -306,7 +346,7 @@ export default function DailyPage() {
       completedPositions={completedPositions}
       dayRecords={dayRecords}
       treatmentAnchor={treatmentAnchor}
-      previousDayIncomplete={previousDayIncomplete}
+      bannerInfo={bannerInfo}
       foodGroups={foodGroups}
       visitNumber={visitNumber}
       isAppointmentDay={isAppointmentDay}
