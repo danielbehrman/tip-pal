@@ -407,7 +407,7 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => saveFoodPosition(fp.foodName, Math.max(1, fp.week - 1), fp.day)}
-                        disabled={fp.week <= 1}
+                        disabled={fp.week <= 1 || saving}
                         className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
                         style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                       >
@@ -418,7 +418,8 @@ export default function SettingsPage() {
                       </span>
                       <button
                         onClick={() => saveFoodPosition(fp.foodName, fp.week + 1, fp.day)}
-                        className="flex items-center justify-center text-lg font-bold"
+                        disabled={saving}
+                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
                         style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                       >
                         +
@@ -430,7 +431,7 @@ export default function SettingsPage() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.max(1, fp.day - 1))}
-                        disabled={fp.day <= 1}
+                        disabled={fp.day <= 1 || saving}
                         className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
                         style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                       >
@@ -441,7 +442,7 @@ export default function SettingsPage() {
                       </span>
                       <button
                         onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.min(7, fp.day + 1))}
-                        disabled={fp.day >= 7}
+                        disabled={fp.day >= 7 || saving}
                         className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
                         style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
                       >
