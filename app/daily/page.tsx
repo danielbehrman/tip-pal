@@ -152,8 +152,20 @@ export default function DailyPage() {
               .map(({ food }) => food.name)
             const yIsSkipped = yEveningItems.length > 0 && yUncheckedNames.length === yEveningItems.length
 
-            // Advance per-food progress for whatever was checked, same math as handleCompleteDay
-            const reconciledAt = new Date().toISOString()
+            // dayDate anchors this reconciled row to the calendar day it represents
+            // (yesterday), not to "now" — required so fetchDateHasDayRecord's
+            // idempotency guard actually finds this row on a later same-day reload,
+            // and so fetchLastLoggedDate/History show the correct date instead of
+            // today's. recordedAt (when the reconciliation itself actually ran) is
+            // used only for the informational FoodProgress.lastCompletedAt field.
+            const dayDate = `${yesterday}T12:00:00.000Z`
+            const recordedAt = new Date().toISOString()
+            // Must be read BEFORE saveDoseLog writes yesterday's row below, or this
+            // would find the row we're about to write instead of the true prior one.
+            const lastLoggedBeforeThisWrite = yUncheckedNames.length > 0
+              ? await fetchLastLoggedDate().catch(() => null)
+              : null
+
             const advancedProgress = new Map(progress)
             for (const { food } of yEveningItems) {
               if (!yCheckedFoods[`evening-${food.name}`]) continue
@@ -163,21 +175,21 @@ export default function DailyPage() {
               advancedProgress.set(
                 food.name,
                 newCompletedDays >= 7
-                  ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: reconciledAt }
-                  : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: reconciledAt }
+                  ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: recordedAt }
+                  : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: recordedAt }
               )
             }
 
             try {
               await saveFoodProgress(advancedProgress)
-              await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s, yIsSkipped)
+              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped)
               progress = advancedProgress
               globalPos = getGlobalPosition(advancedProgress)
               stateWithGlobalPos.currentWeek = globalPos.week
               stateWithGlobalPos.currentDay = globalPos.day
 
               const nextDayRecords = new Map(finalDayRecords)
-              nextDayRecords.set(yPosKey, { date: reconciledAt, skipped: yIsSkipped })
+              nextDayRecords.set(yPosKey, { date: dayDate, skipped: yIsSkipped })
               finalDayRecords = nextDayRecords
 
               const nextCompletedPositions = new Set(finalCompletedPositions)
@@ -185,8 +197,7 @@ export default function DailyPage() {
               finalCompletedPositions = nextCompletedPositions
 
               if (yUncheckedNames.length > 0) {
-                const lastLogged = await fetchLastLoggedDate().catch(() => null)
-                const gapStart = lastLogged ? addDays(lastLogged, 1) : null
+                const gapStart = lastLoggedBeforeThisWrite ? addDays(lastLoggedBeforeThisWrite, 1) : null
                 const gapEnd = addDays(yesterday, -1)
                 if (gapStart && gapStart <= gapEnd) {
                   const gapDays = Math.round(
@@ -198,7 +209,9 @@ export default function DailyPage() {
                 }
               }
             } catch {
-              banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
+              if (yUncheckedNames.length > 0) {
+                banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
+              }
             }
           }
         }
