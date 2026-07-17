@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ParsedSchedule, DoseLogDay, DoseState, FoodProgress } from "@/lib/types"
@@ -22,6 +22,7 @@ export default function HistoryEditPage() {
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [days, setDays] = useState<DoseLogDay[]>([])
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
+  const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -50,6 +51,7 @@ export default function HistoryEditPage() {
         setSchedule(s)
         setDays(recentDays)
         setFoodProgress(progress)
+        foodProgressRef.current = progress
       } catch {
         router.replace("/daily")
       } finally {
@@ -77,10 +79,10 @@ export default function HistoryEditPage() {
     if (!val || wasChecked || !key.startsWith("evening-")) return
 
     const foodName = key.slice("evening-".length)
-    const fp = foodProgress.get(foodName)
+    const fp = foodProgressRef.current.get(foodName)
     if (!fp) return
 
-    const oldGlobal = getGlobalPosition(foodProgress)
+    const oldGlobal = getGlobalPosition(foodProgressRef.current)
     const nowIso = new Date().toISOString()
     const newCompletedDays = fp.completedDays + 1
     const updatedFp: FoodProgress =
@@ -88,8 +90,9 @@ export default function HistoryEditPage() {
         ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: nowIso }
         : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: nowIso }
 
-    const nextProgress = new Map(foodProgress)
+    const nextProgress = new Map(foodProgressRef.current)
     nextProgress.set(foodName, updatedFp)
+    foodProgressRef.current = nextProgress
     setFoodProgress(nextProgress)
 
     try {
