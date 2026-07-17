@@ -30,7 +30,7 @@
 | `components/DailyView.tsx` | Remove the 100%-checked auto-fire in `handleCheck`. Remove `onSkipDay` prop. Two-variant banner copy (single-day / multi-day gap). |
 | `app/daily/page.tsx` | Remove `handleSkipDay` and the `saveSkipDay` import. `handleCompleteDay` computes `isSkipped`. Banner root-cause fix (floor comparison) + auto-rollover rewrite of the reconciliation block. |
 | `app/history/edit/page.tsx` | Fetch `dose_state` + `treatment_food_progress`. Wire per-food advancement when a previously-unchecked treatment food is checked. Updated copy. |
-| `components/RecentDaysEditor.tsx` | Copy-only change (no prop/behavior change needed). |
+| `components/RecentDaysEditor.tsx` | No change — the "does not affect week advancement" copy that needs updating lives in `app/history/edit/page.tsx`, not this component. Listed here originally in error. |
 | `components/DoseHistoryLog.tsx` | Fix evening-skip status derivation to read `checked_foods` content instead of the now-dead `eveningSkipped` flag. |
 | `app/settings/page.tsx` | Remove the single global stepper, the Catchup modal, and all `showCatchup`/`withCatchup` state. Add per-food steppers + read-only auto-derived "Program day" summary. |
 | `app/onboarding/page.tsx` | Remove its separate Catchup modal and `showCatchup`/`withCatchup` state (Task 1 removed `saveBulkCatchUpLog` — "no longer used anywhere"). Its own single week/day picker (step 3) is unchanged — seeding every food to the same starting position is correct for brand-new schedules. |
