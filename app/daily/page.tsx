@@ -155,8 +155,9 @@ export default function DailyPage() {
             )
             if (yWeek && yDay && yPosKey && yAllChecked) {
               const reconciledAt = new Date().toISOString()
+              const isSkipped = yEveningItems.length > 0 && !yEveningItems.some(({ food }) => !!yCheckedFoods[`evening-${food.name}`])
               try {
-                await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s)
+                await saveDoseLog(yWeek, yDay, yCheckedFoods, reconciledAt, s, isSkipped)
                 setDayRecords(prev => {
                   const next = new Map(prev)
                   next.set(yPosKey, { date: reconciledAt, skipped: false })
@@ -246,8 +247,12 @@ export default function DailyPage() {
       // Save failed — continue; local state still reflects progress
     }
 
+    const isSkipped =
+      currentSchedule.treatmentFoods.length > 0 &&
+      !currentSchedule.treatmentFoods.some(food => !!checkedFoods[`evening-${food.name}`])
+
     try {
-      await saveDoseLog(globalBefore.week, globalBefore.day, checkedFoods, completedAt, currentSchedule)
+      await saveDoseLog(globalBefore.week, globalBefore.day, checkedFoods, completedAt, currentSchedule, isSkipped)
     } catch {
       // Log failed — local state still reflects the checked foods either way
     }
