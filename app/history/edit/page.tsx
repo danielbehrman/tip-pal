@@ -3,19 +3,25 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { ParsedSchedule, DoseLogDay } from "@/lib/types"
+import { ParsedSchedule, DoseLogDay, DoseState, FoodProgress } from "@/lib/types"
 import {
   getSession,
   fetchSchedule,
   fetchRecentCompletedDays,
   updateDoseLogCheckedFoods,
+  fetchFoodProgress,
+  saveFoodProgress,
+  fetchDoseState,
+  saveDoseState,
 } from "@/lib/supabase"
+import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
 import RecentDaysEditor from "@/components/RecentDaysEditor"
 
-export default function HistoryPage() {
+export default function HistoryEditPage() {
   const router = useRouter()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [days, setDays] = useState<DoseLogDay[]>([])
+  const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,9 +38,10 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, recentDays] = await Promise.all([
+        const [s, recentDays, progress] = await Promise.all([
           fetchSchedule(),
           fetchRecentCompletedDays(),
+          fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
         ])
         if (!s) {
           router.replace("/setup")
@@ -42,6 +49,7 @@ export default function HistoryPage() {
         }
         setSchedule(s)
         setDays(recentDays)
+        setFoodProgress(progress)
       } catch {
         router.replace("/daily")
       } finally {
@@ -52,7 +60,7 @@ export default function HistoryPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handleToggle(
+  async function handleToggle(
     id: string,
     key: string,
     val: boolean,
@@ -63,6 +71,46 @@ export default function HistoryPage() {
       prev.map(d => (d.id === id ? { ...d, checkedFoods: updated } : d))
     )
     updateDoseLogCheckedFoods(id, updated).catch(() => {})
+
+    // Only a treatment food going from unchecked -> checked advances position.
+    const wasChecked = !!current[key]
+    if (!val || wasChecked || !key.startsWith("evening-")) return
+
+    const foodName = key.slice("evening-".length)
+    const fp = foodProgress.get(foodName)
+    if (!fp) return
+
+    const oldGlobal = getGlobalPosition(foodProgress)
+    const nowIso = new Date().toISOString()
+    const newCompletedDays = fp.completedDays + 1
+    const updatedFp: FoodProgress =
+      newCompletedDays >= 7
+        ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: nowIso }
+        : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: nowIso }
+
+    const nextProgress = new Map(foodProgress)
+    nextProgress.set(foodName, updatedFp)
+    setFoodProgress(nextProgress)
+
+    try {
+      await saveFoodProgress(nextProgress)
+      const newGlobal = getGlobalPosition(nextProgress)
+      if (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) {
+        const existing: DoseState | null = await fetchDoseState().catch(() => null)
+        if (existing) {
+          await saveDoseState({
+            ...existing,
+            currentWeek: newGlobal.week,
+            currentDay: newGlobal.day,
+            cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
+            floorWeek: newGlobal.week,
+            floorDay: newGlobal.day,
+          })
+        }
+      }
+    } catch {
+      // Save failed — local state still reflects the correction; next load re-fetches truth
+    }
   }
 
   if (loading || !schedule) return null
@@ -76,7 +124,7 @@ export default function HistoryPage() {
         <h1 className="text-2xl font-bold">Edit Recent Days</h1>
       </div>
       <p className="text-sm text-gray-500 mb-6">
-        Showing the 3 most recently completed days. Toggle any checkbox to correct the record — this does not affect week advancement.
+        Showing the 3 most recently logged days. Checking a previously-unchecked treatment food advances that food&apos;s position — gaps outside these 3 days can&apos;t be corrected here.
       </p>
       <RecentDaysEditor schedule={schedule} days={days} onToggle={handleToggle} />
     </main>
