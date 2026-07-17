@@ -18,10 +18,13 @@ const STATUS_CONFIG: Record<DayStatus, { label: string; dotColor: string }> = {
   "both-skipped":  { label: "Both skipped", dotColor: "var(--color-text-secondary)" },
 }
 
-function getDayStatus(entry: DoseLogDay): DayStatus {
-  if (entry.morningSkipped && entry.eveningSkipped) return "both-skipped"
+function getDayStatus(entry: DoseLogDay, schedule: ParsedSchedule): DayStatus {
+  const s = entry.scheduleSnapshot ?? schedule
+  const eveningFoods = getTreatmentFoodsForWeek(s, entry.week).map(({ food }) => `evening-${food.name}`)
+  const eveningSkipped = eveningFoods.length > 0 && !eveningFoods.some(key => entry.checkedFoods[key])
+  if (entry.morningSkipped && eveningSkipped) return "both-skipped"
   if (entry.morningSkipped) return "am-skipped"
-  if (entry.eveningSkipped) return "pm-skipped"
+  if (eveningSkipped) return "pm-skipped"
   return "complete"
 }
 
@@ -53,7 +56,6 @@ function getMorningText(entry: DoseLogDay, schedule: ParsedSchedule): string {
 }
 
 function getEveningText(entry: DoseLogDay, schedule: ParsedSchedule): string {
-  if (entry.eveningSkipped) return "Skipped"
   const s = entry.scheduleSnapshot ?? schedule
   const foods = getTreatmentFoodsForWeek(s, entry.week).map(({ food }) => ({
     key: `evening-${food.name}`,
@@ -71,7 +73,7 @@ function DayRow({
   schedule: ParsedSchedule
 }) {
   const [expanded, setExpanded] = useState(false)
-  const status = getDayStatus(entry)
+  const status = getDayStatus(entry, schedule)
   const { label, dotColor } = STATUS_CONFIG[status]
   const morningText = getMorningText(entry, schedule)
   const eveningText = getEveningText(entry, schedule)
