@@ -226,6 +226,7 @@ export default function SettingsPage() {
   }
 
   async function saveOtherFields() {
+    if (!childName.trim()) { setNameError(true); return }
     setSaving(true)
     setSaveError(null)
     try {
