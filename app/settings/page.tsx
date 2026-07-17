@@ -17,20 +17,20 @@ import {
   fetchChildPhotoUrl,
   saveAppointmentDate,
   saveDoseState,
-  saveBulkCatchUpLog,
   saveNotificationSettings,
   savePushSubscription,
   deletePushSubscription,
   saveFoodGroups,
-  resetFoodProgress,
   signOut,
   fetchVisitNumber,
   saveVisitNumber,
+  fetchFoodProgress,
+  saveFoodProgress,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
-import { DoseState, ParsedSchedule, FoodGroup } from "@/lib/types"
+import { DoseState, ParsedSchedule, FoodGroup, FoodProgress } from "@/lib/types"
 import GroupsManager from "@/components/GroupsManager"
-import { cycleStartDateForPosition } from "@/lib/schedule"
+import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
 
 const APP_VERSION = "0.1.0"
 
@@ -57,17 +57,13 @@ export default function SettingsPage() {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [appointmentDate, setAppointmentDate] = useState("")
-  const [week, setWeek] = useState(1)
-  const [day, setDay] = useState(1)
-  const [originalWeek, setOriginalWeek] = useState(1)
-  const [originalDay, setOriginalDay] = useState(1)
+  const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
   const [existingDoseState, setExistingDoseState] = useState<DoseState | null>(null)
   const [morningReminder, setMorningReminder] = useState("08:00")
   const [eveningReminder, setEveningReminder] = useState("18:00")
   const [timezone, setTimezone] = useState("America/New_York")
   const [pushSupported, setPushSupported] = useState(false)
   const [pushSubscribed, setPushSubscribed] = useState(false)
-  const [showCatchup, setShowCatchup] = useState(false)
   const [saving, setSaving] = useState(false)
   const [subscribing, setSubscribing] = useState(false)
   const [nameError, setNameError] = useState(false)
@@ -90,7 +86,7 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, ds, notifSettings, groups, sched, photoUrl, vNum] = await Promise.all([
+        const [name, ds, notifSettings, groups, sched, photoUrl, vNum, progress] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
@@ -98,6 +94,7 @@ export default function SettingsPage() {
           fetchSchedule().catch(() => null),
           fetchChildPhotoUrl().catch(() => null),
           fetchVisitNumber().catch(() => null),
+          fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
         ])
         try {
           const apptDate = await fetchAppointmentDate()
@@ -107,12 +104,9 @@ export default function SettingsPage() {
         if (name) setChildName(name)
         setChildPhotoUrl(photoUrl)
         if (ds) {
-          setWeek(ds.currentWeek)
-          setDay(ds.currentDay)
-          setOriginalWeek(ds.currentWeek)
-          setOriginalDay(ds.currentDay)
           setExistingDoseState(ds)
         }
+        setFoodProgress(progress)
         if (notifSettings) {
           setMorningReminder(notifSettings.morningReminder)
           setEveningReminder(notifSettings.eveningReminder)
@@ -196,7 +190,42 @@ export default function SettingsPage() {
     }
   }
 
-  async function saveAll(withCatchup: boolean) {
+  async function saveFoodPosition(foodName: string, newWeek: number, newDay: number) {
+    const fp = foodProgress.get(foodName)
+    if (!fp) return
+    const oldGlobal = getGlobalPosition(foodProgress)
+    const updatedFp: FoodProgress = { ...fp, week: newWeek, day: newDay, completedDays: newDay - 1 }
+    const nextProgress = new Map(foodProgress)
+    nextProgress.set(foodName, updatedFp)
+    setFoodProgress(nextProgress)
+
+    setSaving(true)
+    setSaveError(null)
+    try {
+      await saveFoodProgress(nextProgress)
+      const newGlobal = getGlobalPosition(nextProgress)
+      if ((newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) && existingDoseState) {
+        await saveDoseState({
+          ...existingDoseState,
+          currentWeek: newGlobal.week,
+          currentDay: newGlobal.day,
+          checkedFoods: {},
+          cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
+          floorWeek: newGlobal.week,
+          floorDay: newGlobal.day,
+        })
+      }
+      setSaved(true)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function saveOtherFields() {
     setSaving(true)
     setSaveError(null)
     try {
@@ -206,42 +235,13 @@ export default function SettingsPage() {
       }
       await saveVisitNumber(visitNumber.trim() || null)
       await saveNotificationSettings(morningReminder, eveningReminder, timezone)
-      const positionChanged = week !== originalWeek || day !== originalDay
-      if (positionChanged || !existingDoseState) {
-        await saveDoseState({
-          currentWeek: week,
-          currentDay: day,
-          checkedFoods: {},
-          completedDays: existingDoseState?.completedDays ?? {},
-          cycleStartDate: cycleStartDateForPosition(week, day),
-          skipCount: 0,
-          floorWeek: week,
-          floorDay: day,
-        })
-        await resetFoodProgress(week, day)
-        setOriginalWeek(week)
-        setOriginalDay(day)
-      }
-      if (withCatchup) await saveBulkCatchUpLog(week, day)
       setSaved(true)
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
       savedTimerRef.current = setTimeout(() => setSaved(false), 2500)
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
     } finally {
-      setShowCatchup(false)
       setSaving(false)
-    }
-  }
-
-  function handleSave() {
-    if (!childName.trim()) { setNameError(true); return }
-    const positionChanged = week !== originalWeek || day !== originalDay
-    const aheadOfStart = week > 1 || day > 1
-    if (aheadOfStart && positionChanged) {
-      setShowCatchup(true)
-    } else {
-      saveAll(false)
     }
   }
 
@@ -352,57 +352,106 @@ export default function SettingsPage() {
               />
             </div>
             <RowDivider />
-            {/* Week stepper */}
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Week</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setWeek(w => Math.max(1, w - 1))}
-                  disabled={week <= 1}
-                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                >
-                  −
-                </button>
-                <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
-                  {week}
-                </span>
-                <button
-                  onClick={() => setWeek(w => w + 1)}
-                  className="flex items-center justify-center text-lg font-bold"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                >
-                  +
-                </button>
-              </div>
-            </div>
+            {/* Auto-derived program day */}
+            {foodProgress.size > 0 && (() => {
+              const globalPos = getGlobalPosition(foodProgress)
+              let drivingFood: string | null = null
+              let minIdx = Infinity
+              for (const fp of foodProgress.values()) {
+                const idx = (fp.week - 1) * 7 + (fp.day - 1)
+                if (idx < minIdx) {
+                  minIdx = idx
+                  drivingFood = fp.foodName
+                }
+              }
+              return (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>Program day (auto)</p>
+                    <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                      Based on {drivingFood} — your furthest-behind food
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
+                    Week {globalPos.week}, Day {globalPos.day}
+                  </span>
+                </div>
+              )
+            })()}
             <RowDivider />
-            {/* Day stepper */}
-            <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Day</span>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setDay(d => Math.max(1, d - 1))}
-                  disabled={day <= 1}
-                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                >
-                  −
-                </button>
-                <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
-                  {day}
-                </span>
-                <button
-                  onClick={() => setDay(d => Math.min(7, d + 1))}
-                  disabled={day >= 7}
-                  className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                  style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-            <RowDivider />
+            {/* Per-food steppers — two independent steppers per food (Week, Day), same clamp
+                rules as the original single global stepper: Week min 1 no max, Day clamped 1-7
+                with no cross-rollover. Deliberately not combined/rollover — matches "same
+                visual style as current stepper" from the design doc exactly. */}
+            {[...foodProgress.values()].map(fp => {
+              const globalPos = getGlobalPosition(foodProgress)
+              const isFurthestBehind = fp.week === globalPos.week && fp.day === globalPos.day
+              return (
+                <div key={fp.foodName}>
+                  <div className="px-4 py-2">
+                    <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
+                      {fp.foodName}
+                      {isFurthestBehind && (
+                        <span
+                          className="ml-2 text-xs px-2 py-0.5 rounded-full"
+                          style={{ background: "var(--color-bg-secondary)", color: "var(--color-text-muted)" }}
+                        >
+                          furthest behind
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Week</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => saveFoodPosition(fp.foodName, Math.max(1, fp.week - 1), fp.day)}
+                        disabled={fp.week <= 1}
+                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                      >
+                        −
+                      </button>
+                      <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
+                        {fp.week}
+                      </span>
+                      <button
+                        onClick={() => saveFoodPosition(fp.foodName, fp.week + 1, fp.day)}
+                        className="flex items-center justify-center text-lg font-bold"
+                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between px-4 py-3">
+                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Day</span>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.max(1, fp.day - 1))}
+                        disabled={fp.day <= 1}
+                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                      >
+                        −
+                      </button>
+                      <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
+                        {fp.day}
+                      </span>
+                      <button
+                        onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.min(7, fp.day + 1))}
+                        disabled={fp.day >= 7}
+                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                  <RowDivider />
+                </div>
+              )
+            })}
             {/* Visit number */}
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Visit number</span>
@@ -556,7 +605,7 @@ export default function SettingsPage() {
         <button
           className="w-full py-4 text-white text-base font-semibold rounded-xl disabled:opacity-50"
           style={{ background: "var(--color-primary-mid)" }}
-          onClick={handleSave}
+          onClick={saveOtherFields}
           disabled={saving}
         >
           {saved ? "Saved ✓" : saving ? "Saving…" : "Save"}
@@ -567,38 +616,6 @@ export default function SettingsPage() {
           Tip Pal v{APP_VERSION}
         </p>
       </div>
-
-      {/* Catchup bottom-sheet modal */}
-      {showCatchup && (
-        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
-          <div className="bg-white w-full rounded-t-2xl px-6 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--color-text-primary)" }}>
-              Update dose history?
-            </p>
-            <p className="text-sm mb-5" style={{ color: "var(--color-text-secondary)" }}>
-              Mark all days from Week 1, Day 1 up to your current position as complete in the log?
-            </p>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
-                style={{ background: "var(--color-primary-mid)", color: "#fff" }}
-                onClick={() => saveAll(true)}
-                disabled={saving}
-              >
-                Yes — add to log
-              </button>
-              <button
-                className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
-                style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
-                onClick={() => saveAll(false)}
-                disabled={saving}
-              >
-                No — skip
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

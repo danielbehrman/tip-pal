@@ -11,7 +11,6 @@ import {
   saveFamilyConfig,
   saveDoseState,
   saveVisitNumber,
-  saveBulkCatchUpLog,
   uploadChildPhoto,
   saveChildPhotoUrl,
 } from "@/lib/supabase"
@@ -63,7 +62,6 @@ export default function OnboardingPage() {
   const [existingDoseState, setExistingDoseState] = useState<DoseState | null>(null)
 
   // Save state
-  const [showCatchup, setShowCatchup] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -121,16 +119,10 @@ export default function OnboardingPage() {
   }
 
   function handleConfirm() {
-    const positionChanged = week !== originalWeek || day !== originalDay
-    const aheadOfStart = week > 1 || day > 1
-    if (aheadOfStart && (positionChanged || !existingDoseState)) {
-      setShowCatchup(true)
-    } else {
-      saveAndRedirect(false)
-    }
+    saveAndRedirect()
   }
 
-  async function saveAndRedirect(withCatchup: boolean) {
+  async function saveAndRedirect() {
     setSaving(true)
     setSaveError(null)
     try {
@@ -149,13 +141,11 @@ export default function OnboardingPage() {
           floorDay: day,
         })
       }
-      if (withCatchup) await saveBulkCatchUpLog(week, day)
       router.replace("/daily")
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
       setSaving(false)
     } finally {
-      setShowCatchup(false)
       setSaving(false)
     }
   }
@@ -530,35 +520,6 @@ export default function OnboardingPage() {
           >
             {saving ? "Saving…" : "Start dosing"}
           </button>
-        </div>
-      )}
-
-      {/* Catchup modal — fixed bottom sheet */}
-      {showCatchup && (
-        <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(13,31,92,0.4)" }}>
-          <div className="w-full bg-white rounded-t-2xl px-4 pt-6 pb-10 flex flex-col gap-4">
-            <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
-              Mark all days from Week 1, Day 1 up to your current position as complete in the log?
-            </p>
-            <div className="flex flex-col gap-3">
-              <button
-                className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
-                style={{ background: "var(--color-primary-mid)" }}
-                onClick={() => saveAndRedirect(true)}
-                disabled={saving}
-              >
-                {saving ? "Saving…" : "Yes — add to log"}
-              </button>
-              <button
-                className="w-full py-4 rounded-xl text-base font-semibold disabled:opacity-50"
-                style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
-                onClick={() => saveAndRedirect(false)}
-                disabled={saving}
-              >
-                No — skip history
-              </button>
-            </div>
-          </div>
         </div>
       )}
     </div>
