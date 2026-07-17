@@ -181,8 +181,8 @@ export default function DailyPage() {
             }
 
             try {
-              await saveFoodProgress(advancedProgress)
               await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped)
+              await saveFoodProgress(advancedProgress)
               progress = advancedProgress
               globalPos = getGlobalPosition(advancedProgress)
               stateWithGlobalPos.currentWeek = globalPos.week
