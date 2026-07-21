@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
-Last Updated: 2026-07-17
-Blocker: None — Dan explicitly chose Stable/maintenance (option 4) at Phase Gate on 2026-07-14. Bug fixes only, no new feature work, until Dan explicitly moves to a different mode.
-Next Action: "Treatment Food Tracking Fixes" bundle is done — all 9 plan tasks (`plans/PHASE-STABLE-F1.md`) implemented, task-reviewed, final whole-branch reviewed (one Important write-ordering finding caught and fixed), and Dan's UI sign-off received 2026-07-17 on all three required surfaces (confirm dialog, gap banner, Settings per-food screen). Pushed to `origin/main` (`1b7e41a`). No active work queued — Stable/maintenance mode continues; next item is whatever Dan reports from further dogfooding, or the still-outstanding Phase 3 F1 Capacitor Simulator auth-flow re-verify blocking Phase 3 F7/F8 whenever that track resumes.
+Last Updated: 2026-07-20
+Blocker: None — Mode remains Stable/maintenance, but Dan explicitly approved a scoped exception on 2026-07-20 to include two FEATURE items (below) alongside bug fixes in the next bundle, rather than formally opening a new phase.
+Next Action: New 5-item bundle ("Photo Bug, Reparse Flow Gaps, Recommended Foods Logging, History Delete") queued to start — Dan's session input received 2026-07-20 after a prior session was terminated before any PM/Architect work began (confirmed: no plan file, no uncommitted work existed for this ticket). Items: (1) BUG — child photo missing on reparse/other screens, display-layer fetch fix; (2) BUG — reparse flow has no back/exit; (3) FEATURE — per-food week/day prompt at onboarding + every reparse, reusing Settings' per-food stepper (section 6 of `docs/superpowers/specs/2026-07-15-treatment-food-tracking-fixes-design.md`), UI sign-off required before Dev; (4) FEATURE — recommended foods +/- logging, weekly reset driven by furthest-ahead treatment food, "minimum reached" flag; (5) FEATURE — History screen delete-selection replacing Edit-viewing, `dose_log` rows only, UI sign-off required before Dev. Dan's instruction: report/fix each of the 5 independently — separate commits, separate Reviewer passes, do not merge into one. Next step: PM Agent to produce the 5 tickets, then Architect brainstorm + plan, saved to `plans/PHASE-STABLE-F2.md`.
 
 ---
 
