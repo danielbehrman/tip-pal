@@ -143,7 +143,20 @@ export default function NewCyclePage() {
     : view === "success" ? "New food cycle"
     : "New food cycle"
 
-  const showBack = view === "paste" || view === "review"
+  const exitTarget: View | null =
+    view === "paste" ? "confirm"
+    : view === "review" ? "paste"
+    : view === "error" ? "paste"
+    : null
+
+  const showExitControl = view !== "success"
+  const exitDisabled = view === "loading" || view === "confirming"
+
+  function handleExit() {
+    if (exitDisabled) return
+    if (view === "confirm") { router.back(); return }
+    if (exitTarget) setView(exitTarget)
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "var(--color-bg)" }}>
@@ -152,11 +165,12 @@ export default function NewCyclePage() {
         className="flex items-center justify-between px-4 pb-4"
         style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
-        {showBack ? (
+        {showExitControl ? (
           <button
-            onClick={() => setView(view === "review" ? "paste" : "confirm")}
-            className="text-white text-lg"
-            aria-label="Back"
+            onClick={handleExit}
+            disabled={exitDisabled}
+            className="text-white text-lg disabled:opacity-40"
+            aria-label={view === "confirm" ? "Cancel" : "Back"}
           >
             ‹
           </button>
@@ -176,17 +190,7 @@ export default function NewCyclePage() {
           </div>
           <h1 className="text-xl font-semibold text-white">{headerTitle}</h1>
         </div>
-        {view === "confirm" ? (
-          <button
-            onClick={() => router.back()}
-            className="text-sm"
-            style={{ color: "rgba(255,255,255,0.85)" }}
-          >
-            Cancel
-          </button>
-        ) : (
-          <div style={{ width: 50 }} />
-        )}
+        <div style={{ width: 50 }} />
       </header>
 
       {/* Step 1: Confirm */}
