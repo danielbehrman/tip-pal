@@ -30,6 +30,7 @@ import {
 import { isNative } from "@/lib/platform"
 import { DoseState, ParsedSchedule, FoodGroup, FoodProgress } from "@/lib/types"
 import GroupsManager from "@/components/GroupsManager"
+import FoodPositionStepper from "@/components/FoodPositionStepper"
 import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
 
 const APP_VERSION = "0.1.0"
@@ -380,80 +381,18 @@ export default function SettingsPage() {
               )
             })()}
             <RowDivider />
-            {/* Per-food steppers — two independent steppers per food (Week, Day), same clamp
-                rules as the original single global stepper: Week min 1 no max, Day clamped 1-7
-                with no cross-rollover. Deliberately not combined/rollover — matches "same
-                visual style as current stepper" from the design doc exactly. */}
-            {[...foodProgress.values()].map(fp => {
-              const globalPos = getGlobalPosition(foodProgress)
-              const isFurthestBehind = fp.week === globalPos.week && fp.day === globalPos.day
-              return (
-                <div key={fp.foodName}>
-                  <div className="px-4 py-2">
-                    <span className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
-                      {fp.foodName}
-                      {isFurthestBehind && (
-                        <span
-                          className="ml-2 text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: "var(--color-bg-secondary)", color: "var(--color-text-muted)" }}
-                        >
-                          furthest behind
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Week</span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => saveFoodPosition(fp.foodName, Math.max(1, fp.week - 1), fp.day)}
-                        disabled={fp.week <= 1 || saving}
-                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                      >
-                        −
-                      </button>
-                      <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
-                        {fp.week}
-                      </span>
-                      <button
-                        onClick={() => saveFoodPosition(fp.foodName, fp.week + 1, fp.day)}
-                        disabled={saving}
-                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Day</span>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.max(1, fp.day - 1))}
-                        disabled={fp.day <= 1 || saving}
-                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                      >
-                        −
-                      </button>
-                      <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
-                        {fp.day}
-                      </span>
-                      <button
-                        onClick={() => saveFoodPosition(fp.foodName, fp.week, Math.min(7, fp.day + 1))}
-                        disabled={fp.day >= 7 || saving}
-                        className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                        style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                  <RowDivider />
-                </div>
-              )
-            })}
+            <FoodPositionStepper
+              entries={[...foodProgress.values()]}
+              onChange={saveFoodPosition}
+              disabled={saving}
+              badgeLabel="furthest behind"
+              isBadged={foodName => {
+                const fp = foodProgress.get(foodName)
+                if (!fp) return false
+                const globalPos = getGlobalPosition(foodProgress)
+                return fp.week === globalPos.week && fp.day === globalPos.day
+              }}
+            />
             {/* Visit number */}
             <div className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Visit number</span>
