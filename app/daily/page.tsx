@@ -109,9 +109,11 @@ export default function DailyPage() {
         if (progress.size === 0 && s.treatmentFoods.length > 0) {
           try {
             progress = await seedFoodProgress(
-              s.treatmentFoods,
-              initialState.currentWeek,
-              initialState.currentDay
+              s.treatmentFoods.map(f => ({
+                foodName: f.name,
+                week: initialState.currentWeek,
+                day: initialState.currentDay,
+              }))
             )
           } catch {
             // Seed failed — continue with empty progress; app still functional

@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress, TreatmentFood } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress } from "./types"
 import { getCalendarPosition, todayDateString } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
@@ -642,22 +642,29 @@ export async function saveFoodProgress(
 }
 
 export async function seedFoodProgress(
-  treatmentFoods: TreatmentFood[],
-  week: number,
-  day: number
+  entries: { foodName: string; week: number; day: number }[]
 ): Promise<Map<string, FoodProgress>> {
   const progress = new Map<string, FoodProgress>()
-  for (const food of treatmentFoods) {
-    progress.set(food.name, {
-      foodName: food.name,
-      week,
-      day,
-      completedDays: day - 1,
+  for (const entry of entries) {
+    progress.set(entry.foodName, {
+      foodName: entry.foodName,
+      week: entry.week,
+      day: entry.day,
+      completedDays: entry.day - 1,
       lastCompletedAt: null,
     })
   }
   await saveFoodProgress(progress)
   return progress
+}
+
+export async function clearFoodProgress(): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("treatment_food_progress")
+    .delete()
+    .eq("family_id", familyId)
+  if (error) throw error
 }
 
 export async function resetFoodProgress(week: number, day: number): Promise<void> {
