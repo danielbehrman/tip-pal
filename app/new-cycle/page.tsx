@@ -163,7 +163,19 @@ export default function NewCyclePage() {
         ) : (
           <div style={{ width: 24 }} />
         )}
-        <h1 className="text-xl font-semibold text-white">{headerTitle}</h1>
+        <div className="flex items-center gap-2">
+          <div
+            className="rounded-full overflow-hidden flex items-center justify-center shrink-0"
+            style={{ width: 28, height: 28, background: "var(--color-primary-light)", fontSize: 14 }}
+          >
+            {childPhotoUrl ? (
+              <img src={childPhotoUrl} alt="Child" className="w-full h-full object-cover" />
+            ) : (
+              "🧒"
+            )}
+          </div>
+          <h1 className="text-xl font-semibold text-white">{headerTitle}</h1>
+        </div>
         {view === "confirm" ? (
           <button
             onClick={() => router.back()}
