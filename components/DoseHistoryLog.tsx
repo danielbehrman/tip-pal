@@ -7,6 +7,9 @@ import { getTreatmentFoodsForWeek } from "@/lib/schedule"
 interface DoseHistoryLogProps {
   schedule: ParsedSchedule
   days: DoseLogDay[]
+  selectMode?: boolean
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
 }
 
 type DayStatus = "complete" | "am-skipped" | "pm-skipped" | "both-skipped"
@@ -68,9 +71,15 @@ function getEveningText(entry: DoseLogDay, schedule: ParsedSchedule): string {
 function DayRow({
   entry,
   schedule,
+  selectMode,
+  selected,
+  onToggleSelect,
 }: {
   entry: DoseLogDay
   schedule: ParsedSchedule
+  selectMode: boolean
+  selected: boolean
+  onToggleSelect: () => void
 }) {
   const [expanded, setExpanded] = useState(false)
   const status = getDayStatus(entry, schedule)
@@ -80,30 +89,51 @@ function DayRow({
 
   return (
     <div style={{ borderBottom: "0.5px solid var(--color-primary-border)" }}>
-      <button
-        className="w-full flex items-center justify-between px-4 py-3 bg-white"
-        onClick={() => setExpanded(e => !e)}
-      >
-        <p className="text-sm font-medium text-left" style={{ color: "var(--color-text-primary)" }}>
-          {formatDate(entry.completedAt)} · Day {entry.day}
-        </p>
-        <div className="flex items-center gap-2 shrink-0">
-          <div
+      <div className="w-full flex items-center gap-3 px-4 py-3 bg-white">
+        {selectMode && (
+          <button
+            type="button"
+            onClick={onToggleSelect}
+            aria-label={selected ? "Deselect day" : "Select day"}
+            className="shrink-0 flex items-center justify-center"
             style={{
-              width: 8,
-              height: 8,
+              width: 20,
+              height: 20,
               borderRadius: "50%",
-              background: dotColor,
+              border: `1.5px solid ${selected ? "var(--color-primary-mid)" : "var(--color-primary-border)"}`,
+              background: selected ? "var(--color-primary-mid)" : "transparent",
+              padding: 0,
             }}
-          />
-          <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
-            {label}
-          </span>
-          <span style={{ color: "var(--color-text-muted)", fontSize: 10 }}>
-            {expanded ? "▲" : "▼"}
-          </span>
-        </div>
-      </button>
+          >
+            {selected && <span style={{ color: "#fff", fontSize: 12, lineHeight: 1 }}>✓</span>}
+          </button>
+        )}
+        <button
+          type="button"
+          className="flex-1 flex items-center justify-between"
+          onClick={() => setExpanded(e => !e)}
+        >
+          <p className="text-sm font-medium text-left" style={{ color: "var(--color-text-primary)" }}>
+            {formatDate(entry.completedAt)} · Day {entry.day}
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <div
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: "50%",
+                background: dotColor,
+              }}
+            />
+            <span className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+              {label}
+            </span>
+            <span style={{ color: "var(--color-text-muted)", fontSize: 10 }}>
+              {expanded ? "▲" : "▼"}
+            </span>
+          </div>
+        </button>
+      </div>
 
       {expanded && (
         <div
@@ -138,7 +168,13 @@ function DayRow({
   )
 }
 
-export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) {
+export default function DoseHistoryLog({
+  schedule,
+  days,
+  selectMode = false,
+  selectedIds = new Set(),
+  onToggleSelect = () => {},
+}: DoseHistoryLogProps) {
   if (days.length === 0) {
     return (
       <p className="px-4 pt-6 text-sm" style={{ color: "var(--color-text-secondary)" }}>
@@ -172,7 +208,14 @@ export default function DoseHistoryLog({ schedule, days }: DoseHistoryLogProps) 
               </p>
             </div>
             {weekDays.map(entry => (
-              <DayRow key={entry.id} entry={entry} schedule={schedule} />
+              <DayRow
+                key={entry.id}
+                entry={entry}
+                schedule={schedule}
+                selectMode={selectMode}
+                selected={selectedIds.has(entry.id)}
+                onToggleSelect={() => onToggleSelect(entry.id)}
+              />
             ))}
           </div>
         )
