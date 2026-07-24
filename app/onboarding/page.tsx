@@ -13,9 +13,11 @@ import {
   saveVisitNumber,
   uploadChildPhoto,
   saveChildPhotoUrl,
+  seedFoodProgress,
 } from "@/lib/supabase"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { cycleStartDateForPosition, calculateBufferFromProgress } from "@/lib/schedule"
+import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition } from "@/lib/schedule"
+import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
 
 const VISIT_SEQUENCE = [
   "Launch",
@@ -55,10 +57,7 @@ export default function OnboardingPage() {
 
   // Position
   const [visitIdx, setVisitIdx] = useState(0)
-  const [week, setWeek] = useState(1)
-  const [day, setDay] = useState(1)
-  const [originalWeek, setOriginalWeek] = useState<number | null>(null)
-  const [originalDay, setOriginalDay] = useState<number | null>(null)
+  const [positionEntries, setPositionEntries] = useState<FoodPositionEntry[]>([])
   const [existingDoseState, setExistingDoseState] = useState<DoseState | null>(null)
 
   // Save state
@@ -74,6 +73,7 @@ export default function OnboardingPage() {
         const s = await fetchSchedule()
         if (!s) { router.replace("/setup"); return }
         setSchedule(s)
+        setPositionEntries(s.treatmentFoods.map(f => ({ foodName: f.name, week: 1, day: 1 })))
         const [name, apptDate, ds] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchAppointmentDate().catch(() => null),
@@ -82,10 +82,6 @@ export default function OnboardingPage() {
         if (name) { router.replace("/daily"); return }
         if (apptDate) setAppointmentDate(apptDate)
         if (ds) {
-          setWeek(ds.currentWeek)
-          setDay(ds.currentDay)
-          setOriginalWeek(ds.currentWeek)
-          setOriginalDay(ds.currentDay)
           setExistingDoseState(ds)
         }
       } catch {
@@ -122,25 +118,28 @@ export default function OnboardingPage() {
     saveAndRedirect()
   }
 
+  function handlePositionChange(foodName: string, week: number, day: number) {
+    setPositionEntries(prev => prev.map(e => (e.foodName === foodName ? { ...e, week, day } : e)))
+  }
+
   async function saveAndRedirect() {
     setSaving(true)
     setSaveError(null)
     try {
       await saveFamilyConfig(childName.trim(), appointmentDate || null)
       await saveVisitNumber(VISIT_SEQUENCE[visitIdx])
-      const positionChanged = week !== originalWeek || day !== originalDay
-      if (positionChanged || !existingDoseState) {
-        await saveDoseState({
-          currentWeek: week,
-          currentDay: day,
-          checkedFoods: {},
-          completedDays: existingDoseState?.completedDays ?? {},
-          cycleStartDate: cycleStartDateForPosition(week, day),
-          skipCount: 0,
-          floorWeek: week,
-          floorDay: day,
-        })
-      }
+      const seededProgress = await seedFoodProgress(positionEntries)
+      const globalPos = getGlobalPosition(seededProgress)
+      await saveDoseState({
+        currentWeek: globalPos.week,
+        currentDay: globalPos.day,
+        checkedFoods: {},
+        completedDays: existingDoseState?.completedDays ?? {},
+        cycleStartDate: cycleStartDateForPosition(globalPos.week, globalPos.day),
+        skipCount: 0,
+        floorWeek: globalPos.week,
+        floorDay: globalPos.day,
+      })
       router.replace("/daily")
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Save failed — please try again")
@@ -152,8 +151,15 @@ export default function OnboardingPage() {
 
   // Buffer calculation for step 4
   const maxWeek = schedule ? getMaxWeek(schedule) : 99
+  const slowestPosition = (() => {
+    if (positionEntries.length === 0) return { week: 1, day: 1 }
+    const map = new Map(
+      positionEntries.map(e => [e.foodName, { foodName: e.foodName, week: e.week, day: e.day, completedDays: e.day - 1, lastCompletedAt: null }])
+    )
+    return getGlobalPosition(map)
+  })()
   const bufferResult = schedule
-    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, week, day - 1)
+    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, slowestPosition.week, slowestPosition.day - 1)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days"
@@ -163,6 +169,10 @@ export default function OnboardingPage() {
       : "—"
 
   const currentVisitRaw = VISIT_SEQUENCE[visitIdx]
+
+  const positionsInSync =
+    positionEntries.length === 0 ||
+    positionEntries.every(e => e.week === positionEntries[0].week && e.day === positionEntries[0].day)
 
   if (loading) return null
 
@@ -221,7 +231,7 @@ export default function OnboardingPage() {
           <div>
             <h1 className="text-xl font-semibold text-white">Your position</h1>
             <p className="text-sm mt-0.5" style={{ color: "rgba(255,255,255,0.8)" }}>
-              Set the week and day you&apos;re currently dosing on.
+              Set each treatment food&apos;s starting week and day.
             </p>
           </div>
         )}
@@ -241,7 +251,9 @@ export default function OnboardingPage() {
             <div>
               <p className="text-sm font-semibold text-white">{childName}</p>
               <p className="text-xs" style={{ color: "rgba(255,255,255,0.75)" }}>
-                Week {week}, Day {day}
+                {positionsInSync
+                  ? `Week ${positionEntries[0]?.week ?? 1}, Day ${positionEntries[0]?.day ?? 1}`
+                  : "Starting positions vary by food"}
               </p>
             </div>
           </div>
@@ -396,61 +408,16 @@ export default function OnboardingPage() {
             </div>
           </div>
 
-          {/* Week stepper */}
+          {/* Per-food starting position */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
-              Week
+              Treatment foods
             </p>
             <div
-              className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
+              className="bg-white rounded-xl overflow-hidden"
               style={{ border: "0.5px solid var(--color-primary-border)" }}
             >
-              <button
-                onClick={() => setWeek(w => Math.max(1, w - 1))}
-                disabled={week <= 1}
-                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-              >
-                −
-              </button>
-              <span className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>Week {week}</span>
-              <button
-                onClick={() => setWeek(w => Math.min(maxWeek, w + 1))}
-                disabled={week >= maxWeek}
-                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-              >
-                +
-              </button>
-            </div>
-          </div>
-
-          {/* Day stepper */}
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ color: "var(--color-text-secondary)" }}>
-              Day
-            </p>
-            <div
-              className="bg-white rounded-xl px-4 py-3 flex items-center justify-between"
-              style={{ border: "0.5px solid var(--color-primary-border)" }}
-            >
-              <button
-                onClick={() => setDay(d => Math.max(1, d - 1))}
-                disabled={day <= 1}
-                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-              >
-                −
-              </button>
-              <span className="text-base font-medium" style={{ color: "var(--color-text-primary)" }}>Day {day}</span>
-              <button
-                onClick={() => setDay(d => Math.min(7, d + 1))}
-                disabled={day >= 7}
-                className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
-                style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
-              >
-                +
-              </button>
+              <FoodPositionStepper entries={positionEntries} onChange={handlePositionChange} />
             </div>
           </div>
 
@@ -482,8 +449,10 @@ export default function OnboardingPage() {
                   : "—",
               },
               {
-                label: "Current position",
-                value: `${visitLabel(currentVisitRaw)} · Week ${week} · Day ${day}`,
+                label: "Starting position",
+                value: positionsInSync
+                  ? `${visitLabel(currentVisitRaw)} · Week ${positionEntries[0]?.week ?? 1} · Day ${positionEntries[0]?.day ?? 1}`
+                  : `${visitLabel(currentVisitRaw)} · Varies by food`,
               },
               { label: "Buffer days", value: bufferText },
             ].map((row, i, arr) => (
