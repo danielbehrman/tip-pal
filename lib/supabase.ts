@@ -403,6 +403,25 @@ export async function updateDoseLogCheckedFoods(
   if (error) throw error
 }
 
+export async function deleteDoseLogDays(ids: string[]): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .delete()
+    .eq("family_id", familyId)
+    .in("id", ids)
+  if (error) throw error
+}
+
+export async function deleteAllDoseLogDays(): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .delete()
+    .eq("family_id", familyId)
+  if (error) throw error
+}
+
 export async function savePushSubscription(sub: {
   endpoint: string
   p256dh: string
