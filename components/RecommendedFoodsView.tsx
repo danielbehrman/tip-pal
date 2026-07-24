@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ParsedSchedule } from "@/lib/types"
+import { parseFrequencyLow } from "@/lib/schedule"
 
 interface RecommendedFoodsViewProps {
   schedule: ParsedSchedule
@@ -13,44 +14,21 @@ interface RecommendedFoodsViewProps {
 
 const PIP_COUNT = 5
 
-function PipRow({
-  count,
-  interactive,
-  onGive,
-  onUndo,
-}: {
-  count: number
-  interactive: boolean
-  onGive: () => void
-  onUndo: () => void
-}) {
+function PipRow({ count }: { count: number }) {
   return (
     <div className="flex gap-1.5 items-center">
       {Array.from({ length: PIP_COUNT }, (_, i) => {
-        const pipNum = i + 1
-        const filled = count >= pipNum
-        const isLastFilled = count === pipNum
-        const isNextEmpty = !filled && count === pipNum - 1
-        const tappable = interactive && (isLastFilled || isNextEmpty)
+        const filled = count >= i + 1
         return (
-          <button
-            key={pipNum}
-            onClick={() => {
-              if (!interactive) return
-              if (isLastFilled) onUndo()
-              else if (isNextEmpty) onGive()
-            }}
+          <div
+            key={i}
             style={{
               width: 10,
               height: 10,
               borderRadius: "50%",
               background: filled ? "var(--color-primary-mid)" : "var(--color-primary-border)",
-              border: "none",
-              padding: 0,
-              cursor: tappable ? "pointer" : "default",
               flexShrink: 0,
             }}
-            aria-label={filled ? (isLastFilled && interactive ? "Undo serving" : undefined) : (isNextEmpty && interactive ? "Log serving" : undefined)}
           />
         )
       })}
@@ -120,6 +98,14 @@ export default function RecommendedFoodsView({
       <div className="flex-1 pb-24">
         {activeTab === "week" && (
           <div className="px-4 pt-4 flex flex-col gap-3">
+            {recommendedFoods.length > 0 &&
+              recommendedFoods.every(food => (weekCounts[food.name] ?? 0) >= parseFrequencyLow(food.frequencyPerWeek)) && (
+                <div className="rounded-xl px-4 py-3" style={{ background: "#dcfce7", border: "0.5px solid #86efac" }}>
+                  <p className="text-sm font-medium" style={{ color: "#166534" }}>
+                    Minimum reached for all recommended foods this week
+                  </p>
+                </div>
+              )}
             {recommendedFoods.length === 0 ? (
               <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
                 No recommended foods in your current schedule. Re-parse your plan of care to update.
@@ -142,12 +128,31 @@ export default function RecommendedFoodsView({
                     <p className="text-sm mb-3" style={{ color: "var(--color-text-secondary)" }}>
                       {food.dose} {food.unit}
                     </p>
-                    <PipRow
-                      count={count}
-                      interactive={true}
-                      onGive={() => onGive(food.name)}
-                      onUndo={() => onUndo(food.name)}
-                    />
+                    <div className="flex items-center justify-between">
+                      <PipRow count={count} />
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => onUndo(food.name)}
+                          disabled={count <= 0}
+                          aria-label={`Undo serving for ${food.name}`}
+                          className="flex items-center justify-center text-lg font-bold disabled:opacity-30"
+                          style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                        >
+                          −
+                        </button>
+                        <span className="text-base font-semibold w-6 text-center" style={{ color: "var(--color-text-primary)" }}>
+                          {count}
+                        </span>
+                        <button
+                          onClick={() => onGive(food.name)}
+                          aria-label={`Log serving for ${food.name}`}
+                          className="flex items-center justify-center text-lg font-bold"
+                          style={{ width: 32, height: 32, borderRadius: 8, background: "var(--color-primary-border)", border: "none", color: "var(--color-text-primary)" }}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
                     <p className="text-xs mt-1.5" style={{ color: "var(--color-text-muted)" }}>
                       {food.frequencyPerWeek} per week
                     </p>
@@ -222,12 +227,7 @@ export default function RecommendedFoodsView({
                                 >
                                   {food.name}
                                 </span>
-                                <PipRow
-                                  count={count}
-                                  interactive={false}
-                                  onGive={() => {}}
-                                  onUndo={() => {}}
-                                />
+                                <PipRow count={count} />
                               </div>
                             )
                           })

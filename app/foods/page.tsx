@@ -6,9 +6,12 @@ import { ParsedSchedule } from "@/lib/types"
 import {
   fetchSchedule,
   fetchDoseState,
+  fetchFoodProgress,
   saveRecommendedGiven,
   getSession,
 } from "@/lib/supabase"
+import { getFurthestAheadPosition } from "@/lib/schedule"
+import { FoodProgress } from "@/lib/types"
 import RecommendedFoodsView from "@/components/RecommendedFoodsView"
 
 export default function FoodsPage() {
@@ -34,14 +37,19 @@ export default function FoodsPage() {
       }
 
       try {
-        const [s, ds] = await Promise.all([fetchSchedule(), fetchDoseState()])
+        const [s, ds, progress] = await Promise.all([
+          fetchSchedule(),
+          fetchDoseState(),
+          fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
+        ])
         if (!s) {
           router.replace("/setup")
           return
         }
         const initialCounts = ds?.recommendedFoodCounts ?? {}
+        const week = progress.size > 0 ? getFurthestAheadPosition(progress).week : (ds?.currentWeek ?? 1)
         setSchedule(s)
-        setCurrentWeek(ds?.currentWeek ?? 1)
+        setCurrentWeek(week)
         setCounts(initialCounts)
         countsRef.current = initialCounts
         setHydrated(true)

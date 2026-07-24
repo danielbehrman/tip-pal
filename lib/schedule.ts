@@ -119,6 +119,27 @@ export function getGlobalPosition(
   return result
 }
 
+export function getFurthestAheadPosition(
+  progress: Map<string, FoodProgress>
+): { week: number; day: number } {
+  if (progress.size === 0) return { week: 1, day: 1 }
+  let maxIndex = -Infinity
+  let result = { week: 1, day: 1 }
+  for (const fp of progress.values()) {
+    const idx = (fp.week - 1) * 7 + (fp.day - 1)
+    if (idx > maxIndex) {
+      maxIndex = idx
+      result = { week: fp.week, day: fp.day }
+    }
+  }
+  return result
+}
+
+export function parseFrequencyLow(freq: string): number {
+  const match = freq.match(/\d+/)
+  return match ? parseInt(match[0], 10) : 0
+}
+
 export function foodsAreInSync(progress: Map<string, FoodProgress>): boolean {
   if (progress.size <= 1) return true
   const values = [...progress.values()]
