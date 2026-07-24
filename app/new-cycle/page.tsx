@@ -8,10 +8,13 @@ import {
   fetchChildPhotoUrl,
   archiveAndStartNewCycle,
   getSession,
+  seedFoodProgress,
+  clearFoodProgress,
 } from "@/lib/supabase"
 import { getVisitIndex, calculateBufferFromProgress } from "@/lib/schedule"
+import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
 
-type View = "confirm" | "paste" | "loading" | "review" | "confirming" | "success" | "error"
+type View = "confirm" | "paste" | "loading" | "review" | "confirming" | "position" | "success" | "error"
 
 const RADIUS = 50
 const CIRCUM = 2 * Math.PI * RADIUS
@@ -60,6 +63,9 @@ export default function NewCyclePage() {
   const [childPhotoUrl, setChildPhotoUrl] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [ringAnimated, setRingAnimated] = useState(false)
+  const [positionEntries, setPositionEntries] = useState<FoodPositionEntry[]>([])
+  const [positionSaving, setPositionSaving] = useState(false)
+  const [positionError, setPositionError] = useState<string | null>(null)
 
   useEffect(() => {
     async function init() {
@@ -116,10 +122,39 @@ export default function NewCyclePage() {
         parsedSchedule.visitNumber ?? null,
         appointmentDate || null
       )
-      setView("success")
+      try {
+        await clearFoodProgress()
+      } catch {
+        // Clear failed — seedFoodProgress's per-food upsert below will still overwrite
+        // same-named carried-over foods; a food removed in the new schedule may remain
+        // orphaned in this edge case. No retry surfaced here — low severity, see design doc.
+      }
+      if (parsedSchedule.treatmentFoods.length === 0) {
+        setView("success")
+      } else {
+        setPositionEntries(parsedSchedule.treatmentFoods.map(f => ({ foodName: f.name, week: 1, day: 1 })))
+        setView("position")
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save new cycle")
       setView("error")
+    }
+  }
+
+  function handlePositionChange(foodName: string, week: number, day: number) {
+    setPositionEntries(prev => prev.map(e => (e.foodName === foodName ? { ...e, week, day } : e)))
+  }
+
+  async function handleConfirmPositions() {
+    setPositionSaving(true)
+    setPositionError(null)
+    try {
+      await seedFoodProgress(positionEntries)
+      setView("success")
+    } catch (err) {
+      setPositionError(err instanceof Error ? err.message : "Save failed — please try again")
+    } finally {
+      setPositionSaving(false)
     }
   }
 
@@ -140,6 +175,7 @@ export default function NewCyclePage() {
   // Orange header (all steps)
   const headerTitle =
     view === "review" || view === "confirming" ? "Review changes"
+    : view === "position" ? "Starting positions"
     : view === "success" ? "New food cycle"
     : "New food cycle"
 
@@ -147,6 +183,7 @@ export default function NewCyclePage() {
     view === "paste" ? "confirm"
     : view === "review" ? "paste"
     : view === "error" ? "paste"
+    : view === "position" ? "success"
     : null
 
   const showExitControl = view !== "success"
@@ -390,6 +427,29 @@ export default function NewCyclePage() {
           </div>
         )
       })()}
+
+      {/* Step 3.5: Per-food starting position */}
+      {view === "position" && (
+        <div className="px-4 pt-6 pb-24 flex flex-col gap-4">
+          <p className="text-sm" style={{ color: "var(--color-text-secondary)" }}>
+            Set each treatment food&apos;s starting week and day for this cycle. Defaults to Week 1, Day 1.
+          </p>
+          <div className="bg-white rounded-xl overflow-hidden" style={{ border: "0.5px solid var(--color-primary-border)" }}>
+            <FoodPositionStepper entries={positionEntries} onChange={handlePositionChange} disabled={positionSaving} />
+          </div>
+          {positionError && (
+            <p className="text-sm" style={{ color: "#dc2626" }}>{positionError}</p>
+          )}
+          <button
+            className="w-full py-4 rounded-xl text-base font-semibold text-white disabled:opacity-50"
+            style={{ background: "var(--color-primary-mid)" }}
+            onClick={handleConfirmPositions}
+            disabled={positionSaving}
+          >
+            {positionSaving ? "Saving…" : "Confirm starting positions"}
+          </button>
+        </div>
+      )}
 
       {/* Step 4: Success */}
       {view === "success" && parsedSchedule && (
