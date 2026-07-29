@@ -6,9 +6,9 @@ TIP Pal — a daily dosing assistant for families in food allergy tolerance indu
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
-Last Updated: 2026-07-24
-Blocker: None — all 5 items in the photo/reparse/recfoods/history bundle are implemented, with `npx tsc --noEmit` and `npm run build` both clean repo-wide (see Task 12 report). Remaining gate: a live-app UI/QA pass has not yet been performed (no dev server or Supabase credentials available to this agent) — this is distinct from the design-approval sign-off Dan already gave on items 3 and 5 before those were built (Task 5 and Task 10 checkpoints). Two QA bullets specifically require inspecting `treatment_food_progress`/`dose_log` rows directly in Supabase and cannot be verified statically — deferred to Dan's pass.
-Next Action: Dan to run a live-app UI/QA pass against the design doc's QA section (`docs/superpowers/specs/2026-07-20-photo-reparse-recfoods-history-design.md`), covering all 5 items — sign-off required specifically on items 3 (per-food starting-position prompt) and 5 (History delete-selection) per the ticket; items 1, 2, 4 don't require sign-off but the bundle stays in Stable/maintenance mode until Dan confirms via dogfooding. In particular: verify `treatment_food_progress` directly in Supabase after (a) a reparse where a food was removed between cycles — confirm no orphaned row survives, and (b) both History delete paths — confirm zero change to any row. Full bullet-by-bullet code-level QA results are in `.superpowers/sdd/task-12-report.md`.
+Last Updated: 2026-07-28
+Blocker: None — photo/reparse/recfoods/history bundle fully closed. Dan's UI sign-off on items 3 (per-food starting-position prompt) and 5 (History delete-selection) received 2026-07-28, covering both items flagged as blocking in the ticket.
+Next Action: None — bundle closed. Next candidate for the Stable/maintenance queue is the open `(week, day)`-keyed `dose_log` lookup scoping issue in Carry Forward (found 2026-07-15/16).
 
 ---
 
