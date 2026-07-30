@@ -1,14 +1,14 @@
 # Shipyard — Project Brief
 
 ## Project
-TIP Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
+Tip Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
-Last Updated: 2026-07-28
-Blocker: None — photo/reparse/recfoods/history bundle fully closed. Dan's UI sign-off on items 3 (per-food starting-position prompt) and 5 (History delete-selection) received 2026-07-28, covering both items flagged as blocking in the ticket.
-Next Action: None — bundle closed. Next candidate for the Stable/maintenance queue is the open `(week, day)`-keyed `dose_log` lookup scoping issue in Carry Forward (found 2026-07-15/16).
+Last Updated: 2026-07-30
+Blocker: None. Corrected stale Phase 5+ backlog entry — Food Grouping was already fully shipped 2026-06-24 (commit `d3a7cbf`) but was still listed as unbuilt; fixed in this update. Only Cross-Category Logging (group check-off crediting the Recommended Foods counter) remains unbuilt from that backlog block.
+Next Action: In progress — brainstorming Cross-Category Logging (Recommended Foods) per Dan's request 2026-07-30. Once design is approved, proceed to write-plan → execute-plan per the usual pipeline.
 
 ---
 
@@ -330,7 +330,7 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 |---|---|
 | Direction | Family app — warm palette, rounded cards |
 | Mode | Light only |
-| Child name in header | Child's first name, not family name (e.g. "Joshy's Tip Pal") |
+| Child name in header | Child's first name, not family name (e.g. "[Name]'s Tip Pal") |
 | Bottom nav | 4 tabs: Today · History · Rec. Foods · Settings — replaces link-based nav |
 | Program progress | SVG ring around child avatar — fills clockwise, Visit N of 25 |
 | Buffer days | Replaces week progress bar in header — label + bold number + ⓘ info button |
@@ -601,10 +601,30 @@ Key spec:
 
 ---
 
-#### Food Grouping
-**Goal:** Allow composite foods to be checked off as one item with the ability to expand and check individual components on days when not all are served.
+#### Food Grouping ✅ Shipped (2026-06-24, commit `d3a7cbf`)
+**Goal:** Allow composite foods (e.g. morning jam with mixed seeds) to be checked off as one item with the ability to expand and check individual components on days when not all are served.
 
-Key spec: TBD — needs detailed spec before Phase 4 planning session. Confirmed real user need — Tolerance Tracker 2 shipped this in March 2026.
+**Status:** Built and wired end-to-end — this backlog entry previously described it as unbuilt, which was stale; corrected 2026-07-30. Implementation:
+- Data model: `FoodGroup` type (`lib/types.ts`) — `id`, `name`, `foodNames[]`, `sortOrder`. Persisted as `food_groups` jsonb on `dose_state` (`supabase/migrations/20260624_food_groups.sql`), via `fetchFoodGroups`/`saveFoodGroups` (`lib/supabase.ts`)
+- Group management UI: `GroupsManager.tsx`, wired into `/settings` — create/rename/delete, assign maintenance/weekly foods to at most one group, stale-member foods (no longer in current schedule) shown flagged but not auto-removed
+- Daily view: `FoodGroupRow.tsx` (rendered via `MorningSection.tsx`) — checkbox completes all members simultaneously; chevron expands/collapses independently, no auto-expand on check; partial-checked state shows a partial border
+- Scope as built: maintenance + weekly foods only (Day 7 weekly foods included) — treatment foods and medications are not groupable, matching the per-food independent-position model for treatment foods
+
+**Not yet built:** Cross-category logging into the Recommended Foods counter — see below.
+
+---
+
+#### Cross-Category Logging (Recommended Foods)
+**Goal:** Checking off a food group on the daily view should also credit any member food that appears in Recommended Foods toward its weekly frequency target — currently it does not.
+
+**Status quo confirmed 2026-07-30:** `recommended_food_counts` (on `dose_state`) is only ever written from `app/foods/page.tsx`'s `handleGive`/`handleUndo` (direct +/- logging on the Recommended Foods screen, shipped via commit `01b66e0`). No write path exists from the daily view's group or individual food checkboxes — grepped every call site.
+
+Key spec (per original backlog intent, still valid):
+- Counter increments when a group containing a recommended food is checked off on the daily dose view, in addition to direct +/- logging on the Recommended Foods screen
+- Checking a single component in an expanded group (partial serve) does NOT increment the recommended foods counter — full group check only
+- Weekly counter resets at the start of each program week (existing behavior, unchanged)
+
+Open questions for brainstorm before a plan is written: exact-match vs. case-insensitive name matching between group member names and `recommendedFoods` entries; whether unchecking a group decrements the counter (undo); whether ungrouped foods that happen to share a name with a recommended food should also cross-log (currently out of scope — only group check-offs, per original spec).
 
 ---
 
@@ -663,7 +683,7 @@ Key spec: TBD — depends on Capacitor wrapper from Phase 3.
 ---
 
 ## Project Configuration
-- **Project Name:** tip-tip (repo) / Tip Pal (product name)
+- **Project Name:** tip-pal (repo) / Tip Pal (product name)
 - **URL:** tippal.behrman.dev
 - **Stack:** Next.js, Supabase, Vercel, Anthropic Claude API, Capacitor (Phase 3+)
 - **Key Ports / IPs:** N/A
