@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test": "vitest run",
     "build:native": "node scripts/build-native.js",
     "cap:sync": "npm run build:native && npx cap sync",
     "cap:open:ios": "npx cap open ios",
@@ -33,6 +34,7 @@
     "@types/react-dom": "^19",
     "@types/web-push": "^3.6.4",
     "tailwindcss": "^4",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.10"
   }
 }

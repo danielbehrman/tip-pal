@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
-import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex } from "@/lib/schedule"
+import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -27,6 +27,8 @@ interface DailyViewProps {
   isAppointmentDay: boolean
   foodProgress: Map<string, FoodProgress>
   childPhotoUrl: string | null
+  recommendedFoodCounts: Record<string, Record<string, number>>
+  onCrossCategoryCredit: (updated: Record<string, Record<string, number>>) => void
 }
 
 function formatDateLabel(date: Date): string {
@@ -67,6 +69,8 @@ export default function DailyView({
   isAppointmentDay,
   foodProgress,
   childPhotoUrl,
+  recommendedFoodCounts,
+  onCrossCategoryCredit,
 }: DailyViewProps) {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
@@ -141,6 +145,17 @@ export default function DailyView({
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
+
+    const wasChecked = !!checkedFoods[key]
+    const updatedCounts = applyCrossCategoryCredit(
+      schedule.recommendedFoods ?? [],
+      recommendedFoodCounts,
+      String(treatmentAnchor.week),
+      key,
+      val,
+      wasChecked
+    )
+    if (updatedCounts) onCrossCategoryCredit(updatedCounts)
   }
 
   return (

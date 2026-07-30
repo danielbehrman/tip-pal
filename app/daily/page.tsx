@@ -24,6 +24,7 @@ import {
   saveFoodProgress,
   seedFoodProgress,
   fetchChildPhotoUrl,
+  saveRecommendedGiven,
 } from "@/lib/supabase"
 import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
@@ -53,6 +54,8 @@ export default function DailyPage() {
   // (e.g. Settings).
   const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
   const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
+  const [recommendedFoodCounts, setRecommendedFoodCounts] = useState<Record<string, Record<string, number>>>({})
+  const recommendedFoodCountsRef = useRef<Record<string, Record<string, number>>>({})
 
   useEffect(() => {
     async function load() {
@@ -102,6 +105,7 @@ export default function DailyPage() {
           skipCount: 0,
           floorWeek: 1,
           floorDay: 1,
+          recommendedFoodCounts: {},
         }
 
         // Seed food progress on first load if the table is empty for this family
@@ -223,6 +227,8 @@ export default function DailyPage() {
         setFoodProgress(progress)
         foodProgressRef.current = progress
         setTreatmentAnchor({ week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay })
+        setRecommendedFoodCounts(initialState.recommendedFoodCounts ?? {})
+        recommendedFoodCountsRef.current = initialState.recommendedFoodCounts ?? {}
         setAppointmentDate(apptDate)
         setFamilyName(name)
         setCompletedPositions(finalCompletedPositions)
@@ -264,6 +270,12 @@ export default function DailyPage() {
       }, 150)
       return next
     })
+  }
+
+  function handleCrossCategoryCredit(updated: Record<string, Record<string, number>>) {
+    recommendedFoodCountsRef.current = updated
+    setRecommendedFoodCounts(updated)
+    saveRecommendedGiven(updated).catch(() => {})
   }
 
   async function handleCompleteDay() {
@@ -367,6 +379,8 @@ export default function DailyPage() {
       isAppointmentDay={isAppointmentDay}
       foodProgress={foodProgress}
       childPhotoUrl={childPhotoUrl}
+      recommendedFoodCounts={recommendedFoodCounts}
+      onCrossCategoryCredit={handleCrossCategoryCredit}
     />
   )
 }

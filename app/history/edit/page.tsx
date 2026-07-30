@@ -13,8 +13,9 @@ import {
   saveFoodProgress,
   fetchDoseState,
   saveDoseState,
+  saveRecommendedGiven,
 } from "@/lib/supabase"
-import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
+import { getGlobalPosition, cycleStartDateForPosition, applyCrossCategoryCredit } from "@/lib/schedule"
 import RecentDaysEditor from "@/components/RecentDaysEditor"
 
 export default function HistoryEditPage() {
@@ -23,6 +24,7 @@ export default function HistoryEditPage() {
   const [days, setDays] = useState<DoseLogDay[]>([])
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
   const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
+  const recommendedFoodCountsRef = useRef<Record<string, Record<string, number>>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -39,10 +41,11 @@ export default function HistoryEditPage() {
         return
       }
       try {
-        const [s, recentDays, progress] = await Promise.all([
+        const [s, recentDays, progress, ds] = await Promise.all([
           fetchSchedule(),
           fetchRecentCompletedDays(),
           fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
+          fetchDoseState().catch(() => null),
         ])
         if (!s) {
           router.replace("/setup")
@@ -52,6 +55,7 @@ export default function HistoryEditPage() {
         setDays(recentDays)
         setFoodProgress(progress)
         foodProgressRef.current = progress
+        recommendedFoodCountsRef.current = ds?.recommendedFoodCounts ?? {}
       } catch {
         router.replace("/daily")
       } finally {
@@ -74,8 +78,25 @@ export default function HistoryEditPage() {
     )
     updateDoseLogCheckedFoods(id, updated).catch(() => {})
 
-    // Only a treatment food going from unchecked -> checked advances position.
     const wasChecked = !!current[key]
+    const entry = days.find(d => d.id === id)
+    if (entry) {
+      const entrySchedule = entry.scheduleSnapshot ?? schedule!
+      const updatedCounts = applyCrossCategoryCredit(
+        entrySchedule.recommendedFoods ?? [],
+        recommendedFoodCountsRef.current,
+        String(entry.week),
+        key,
+        val,
+        wasChecked
+      )
+      if (updatedCounts) {
+        recommendedFoodCountsRef.current = updatedCounts
+        saveRecommendedGiven(updatedCounts).catch(() => {})
+      }
+    }
+
+    // Only a treatment food going from unchecked -> checked advances position.
     if (!val || wasChecked || !key.startsWith("evening-")) return
 
     const foodName = key.slice("evening-".length)

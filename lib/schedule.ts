@@ -1,4 +1,4 @@
-import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress } from "./types"
+import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood } from "./types"
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -198,4 +198,47 @@ export function getMedicationSessions(frequency: string): ("morning" | "evening"
     return ["evening"]
   }
   return ["morning"]
+}
+
+// Longest-first so "morning-weekly-"/"morning-med-" aren't shadowed by the shorter "morning-" prefix.
+const FOOD_KEY_PREFIXES = ["morning-weekly-", "morning-med-", "evening-med-", "morning-", "evening-"]
+
+function stripFoodKeyPrefix(key: string): string | null {
+  for (const prefix of FOOD_KEY_PREFIXES) {
+    if (key.startsWith(prefix)) {
+      if (prefix.includes("-med-")) return null
+      return key.slice(prefix.length)
+    }
+  }
+  return null
+}
+
+// Credits/debits a checked-food's weekly Recommended Foods count when its name
+// matches a recommendedFoods entry. Returns null when there's nothing to change
+// (no match, or val === wasChecked — the transition guard that prevents a bulk
+// group-check from double-crediting members already at the target state).
+export function applyCrossCategoryCredit(
+  recommendedFoods: RecommendedFood[],
+  counts: Record<string, Record<string, number>>,
+  weekKey: string,
+  key: string,
+  val: boolean,
+  wasChecked: boolean
+): Record<string, Record<string, number>> | null {
+  if (val === wasChecked) return null
+
+  const foodName = stripFoodKeyPrefix(key)
+  if (foodName === null) return null
+
+  const matchedFood = recommendedFoods.find(f => f.name.toLowerCase() === foodName.toLowerCase())
+  if (!matchedFood) return null
+
+  const weekCounts = counts[weekKey] ?? {}
+  const current = weekCounts[matchedFood.name] ?? 0
+  const updated = val ? current + 1 : Math.max(0, current - 1)
+
+  return {
+    ...counts,
+    [weekKey]: { ...weekCounts, [matchedFood.name]: updated },
+  }
 }
