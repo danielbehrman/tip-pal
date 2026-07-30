@@ -7,8 +7,8 @@ Tip Pal — a daily dosing assistant for families in food allergy tolerance indu
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
 Last Updated: 2026-07-30
-Blocker: None. Corrected stale Phase 5+ backlog entry — Food Grouping was already fully shipped 2026-06-24 (commit `d3a7cbf`) but was still listed as unbuilt; fixed in this update. Only Cross-Category Logging (group check-off crediting the Recommended Foods counter) remains unbuilt from that backlog block.
-Next Action: In progress — brainstorming Cross-Category Logging (Recommended Foods) per Dan's request 2026-07-30. Once design is approved, proceed to write-plan → execute-plan per the usual pipeline.
+Blocker: None. Cross-Category Logging (Recommended Foods) implemented per Dan's plan and design spec — commit `f0bfef3`. `npx tsc --noEmit`, `npm run build`, and the new unit test suite (12/12) all pass. Not yet through Reviewer/QA gates — no UI to sign off (backend logic only), but per the project's own gate rules this should get a review pass before being marked done.
+Next Action: Reviewer/QA pass on commit `f0bfef3` (see checklist in docs/superpowers/specs/2026-07-30-cross-category-logging-design.md's QA section), then mark Cross-Category Logging closed in the Phase 5+ backlog block below.
 
 ---
 
