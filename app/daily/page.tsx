@@ -54,7 +54,6 @@ export default function DailyPage() {
   // (e.g. Settings).
   const [treatmentAnchor, setTreatmentAnchor] = useState<{ week: number; day: number } | null>(null)
   const foodProgressRef = useRef<Map<string, FoodProgress>>(new Map())
-  const [recommendedFoodCounts, setRecommendedFoodCounts] = useState<Record<string, Record<string, number>>>({})
   const recommendedFoodCountsRef = useRef<Record<string, Record<string, number>>>({})
 
   useEffect(() => {
@@ -227,7 +226,6 @@ export default function DailyPage() {
         setFoodProgress(progress)
         foodProgressRef.current = progress
         setTreatmentAnchor({ week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay })
-        setRecommendedFoodCounts(initialState.recommendedFoodCounts ?? {})
         recommendedFoodCountsRef.current = initialState.recommendedFoodCounts ?? {}
         setAppointmentDate(apptDate)
         setFamilyName(name)
@@ -274,7 +272,6 @@ export default function DailyPage() {
 
   function handleCrossCategoryCredit(updated: Record<string, Record<string, number>>) {
     recommendedFoodCountsRef.current = updated
-    setRecommendedFoodCounts(updated)
     saveRecommendedGiven(updated).catch(() => {})
   }
 
@@ -379,7 +376,7 @@ export default function DailyPage() {
       isAppointmentDay={isAppointmentDay}
       foodProgress={foodProgress}
       childPhotoUrl={childPhotoUrl}
-      recommendedFoodCounts={recommendedFoodCounts}
+      recommendedFoodCountsRef={recommendedFoodCountsRef}
       onCrossCategoryCredit={handleCrossCategoryCredit}
     />
   )

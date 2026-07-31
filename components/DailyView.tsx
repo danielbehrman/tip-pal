@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, type RefObject } from "react"
 import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
 import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
@@ -27,7 +27,13 @@ interface DailyViewProps {
   isAppointmentDay: boolean
   foodProgress: Map<string, FoodProgress>
   childPhotoUrl: string | null
-  recommendedFoodCounts: Record<string, Record<string, number>>
+  // Ref, not a value prop: FoodGroupRow's bulk group-check fires multiple onCheck
+  // calls synchronously in one tick, before any re-render. Reading a plain prop
+  // would have every call in that batch compute credit against the same stale
+  // snapshot, silently dropping all but the last member's delta. The ref is
+  // mutated synchronously by onCrossCategoryCredit, so each subsequent call in
+  // the same batch sees the previous call's update.
+  recommendedFoodCountsRef: RefObject<Record<string, Record<string, number>>>
   onCrossCategoryCredit: (updated: Record<string, Record<string, number>>) => void
 }
 
@@ -69,7 +75,7 @@ export default function DailyView({
   isAppointmentDay,
   foodProgress,
   childPhotoUrl,
-  recommendedFoodCounts,
+  recommendedFoodCountsRef,
   onCrossCategoryCredit,
 }: DailyViewProps) {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
@@ -149,7 +155,7 @@ export default function DailyView({
     const wasChecked = !!checkedFoods[key]
     const updatedCounts = applyCrossCategoryCredit(
       schedule.recommendedFoods ?? [],
-      recommendedFoodCounts,
+      recommendedFoodCountsRef.current,
       String(treatmentAnchor.week),
       key,
       val,

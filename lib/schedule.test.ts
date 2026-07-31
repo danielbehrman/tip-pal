@@ -73,4 +73,27 @@ describe("applyCrossCategoryCredit", () => {
     const result = applyCrossCategoryCredit(recommendedFoods, counts, "2", "morning-Pea Protein", true, false)
     expect(result).toEqual({ "1": { "Pea Protein": 3 }, "2": { "Pea Protein": 1 } })
   })
+
+  it("regression: sequential calls within a bulk group-check must thread each call's output into the next, or deltas are lost", () => {
+    // Mirrors FoodGroupRow.handleGroupCheck firing onCheck once per member,
+    // synchronously, in one tick — this is why the caller must feed each call's
+    // return value into the next (via a ref), not call every member against the
+    // same pre-batch counts snapshot.
+    let counts: Record<string, Record<string, number>> = {}
+
+    const afterFirst = applyCrossCategoryCredit(recommendedFoods, counts, "1", "morning-Pea Protein", true, false)
+    expect(afterFirst).not.toBeNull()
+    counts = afterFirst!
+
+    const afterSecond = applyCrossCategoryCredit(recommendedFoods, counts, "1", "morning-Chia Seeds", true, false)
+    expect(afterSecond).not.toBeNull()
+    counts = afterSecond!
+
+    expect(counts).toEqual({ "1": { "Pea Protein": 1, "Chia Seeds": 1 } })
+
+    // The bug this guards against: computing both calls against the *original*
+    // stale snapshot instead of threading the output would silently drop one.
+    const staleBoth = applyCrossCategoryCredit(recommendedFoods, {}, "1", "morning-Chia Seeds", true, false)
+    expect(staleBoth).not.toEqual(counts)
+  })
 })
