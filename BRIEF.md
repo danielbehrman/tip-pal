@@ -7,8 +7,8 @@ Tip Pal — a daily dosing assistant for families in food allergy tolerance indu
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
 Last Updated: 2026-07-30
-Blocker: None. Cross-Category Logging (Recommended Foods) implemented per Dan's plan and design spec — commit `f0bfef3`. `npx tsc --noEmit`, `npm run build`, and the new unit test suite (12/12) all pass. Not yet through Reviewer/QA gates — no UI to sign off (backend logic only), but per the project's own gate rules this should get a review pass before being marked done.
-Next Action: Reviewer/QA pass on commit `f0bfef3` (see checklist in docs/superpowers/specs/2026-07-30-cross-category-logging-design.md's QA section), then mark Cross-Category Logging closed in the Phase 5+ backlog block below.
+Blocker: None. Cross-Category Logging (Recommended Foods) implemented and reviewed. Reviewer pass (commit range 30a01a3..7835b3f) found one Critical bug: `DailyView.handleCheck` read `recommendedFoodCounts` from a value prop, not a ref — since `FoodGroupRow.handleGroupCheck` fires multiple `onCheck` calls synchronously in one tick before any re-render, a bulk group-check with 2+ matching members would silently drop all but the last member's credit (both locally and in the saved Supabase row). Fixed in commit `9bdf19a` (ref passed down instead, matching the pattern already used correctly in `/history/edit`), with a regression test added. `npx tsc --noEmit`, `npm run build`, and the test suite (13/13) all pass post-fix.
+Next Action: QA pass against the checklist in docs/superpowers/specs/2026-07-30-cross-category-logging-design.md (live-app verification — multi-member group check/uncheck is now the case to specifically re-check given the bug just fixed), then mark Cross-Category Logging closed in the Phase 5+ backlog block below.
 
 ---
 
