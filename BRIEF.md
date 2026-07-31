@@ -7,8 +7,8 @@ Tip Pal — a daily dosing assistant for families in food allergy tolerance indu
 Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
 Mode: Stable/maintenance
 Last Updated: 2026-07-30
-Blocker: None. Cross-Category Logging (Recommended Foods) implemented and reviewed. Reviewer pass (commit range 30a01a3..7835b3f) found one Critical bug: `DailyView.handleCheck` read `recommendedFoodCounts` from a value prop, not a ref — since `FoodGroupRow.handleGroupCheck` fires multiple `onCheck` calls synchronously in one tick before any re-render, a bulk group-check with 2+ matching members would silently drop all but the last member's credit (both locally and in the saved Supabase row). Fixed in commit `9bdf19a` (ref passed down instead, matching the pattern already used correctly in `/history/edit`), with a regression test added. `npx tsc --noEmit`, `npm run build`, and the test suite (13/13) all pass post-fix.
-Next Action: QA pass against the checklist in docs/superpowers/specs/2026-07-30-cross-category-logging-design.md (live-app verification — multi-member group check/uncheck is now the case to specifically re-check given the bug just fixed), then mark Cross-Category Logging closed in the Phase 5+ backlog block below.
+Blocker: None. Cross-Category Logging (Recommended Foods) implemented, reviewed, and live-QA'd — closed. Reviewer pass found one Critical bug (fixed in `9bdf19a` — see commit for detail); QA pass against `daniel.behrman+test1@gmail.com` on production (tippal.behrman.dev, commit `fd0e8d8`) confirmed all 7 scenarios pass, including the multi-member group check/uncheck the bug was in, the partial-group-completion transition guard, and Trailing Edit crediting the edited day's own week (verified with a genuinely different displayed week, not just same-value coincidence). Test fixtures (temporary food renames, a scratch group, week/day steppers, recommended_food_counts) were all created and fully reverted on the test account only — the real family account (Dan's) was never touched.
+Next Action: None — Cross-Category Logging closed. Deferred: Trailing Edit's case-insensitive matching and medication-key exclusion weren't separately live-verified (covered by the 13-test unit suite instead) — low-risk, no action needed unless a bug surfaces.
 
 ---
 
@@ -614,17 +614,12 @@ Key spec:
 
 ---
 
-#### Cross-Category Logging (Recommended Foods)
-**Goal:** Checking off a food group on the daily view should also credit any member food that appears in Recommended Foods toward its weekly frequency target — currently it does not.
+#### Cross-Category Logging (Recommended Foods) ✅ Shipped (2026-07-30, commits `f0bfef3`, `9bdf19a`)
+**Goal:** Checking a food on the daily view or in Trailing Edit should credit any matching Recommended Foods entry toward its weekly frequency target.
 
-**Status quo confirmed 2026-07-30:** `recommended_food_counts` (on `dose_state`) is only ever written from `app/foods/page.tsx`'s `handleGive`/`handleUndo` (direct +/- logging on the Recommended Foods screen, shipped via commit `01b66e0`). No write path exists from the daily view's group or individual food checkboxes — grepped every call site.
+**Status:** Built, reviewed, and live-QA'd — see `docs/superpowers/specs/2026-07-30-cross-category-logging-design.md` for the full design. Final scope, per Dan's direction during implementation, is broader than the original spec below: credit applies to **any** food checkbox on the daily view (standalone maintenance/weekly/treatment food, or a group member toggled individually or via the group's bulk checkbox) and in Trailing Edit — not group check-offs only. Symmetric on check/uncheck, case-insensitive name match, real-time, no new UI. `applyCrossCategoryCredit` (`lib/schedule.ts`) is the pure matching/credit function, covered by 13 unit tests (`lib/schedule.test.ts`, first test suite in this repo — added Vitest).
 
-Key spec (per original backlog intent, still valid):
-- Counter increments when a group containing a recommended food is checked off on the daily dose view, in addition to direct +/- logging on the Recommended Foods screen
-- Checking a single component in an expanded group (partial serve) does NOT increment the recommended foods counter — full group check only
-- Weekly counter resets at the start of each program week (existing behavior, unchanged)
-
-Open questions for brainstorm before a plan is written: exact-match vs. case-insensitive name matching between group member names and `recommendedFoods` entries; whether unchecking a group decrements the counter (undo); whether ungrouped foods that happen to share a name with a recommended food should also cross-log (currently out of scope — only group check-offs, per original spec).
+Superseded key-spec bullets (kept for history): ~~counter increments only on full group check-off~~ → now any individual or group check-off; ~~single-component checks never count~~ → they do now, per Dan's explicit direction.
 
 ---
 
