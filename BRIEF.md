@@ -623,6 +623,98 @@ Superseded key-spec bullets (kept for history): ~~counter increments only on ful
 
 ---
 
+#### Reaction Ramp
+**Goal:** When a reaction occurs mid-cycle, allow a parent to enter a clinic-prescribed ramp-back plan for any affected treatment and maintenance foods. The week/day counter freezes for the duration, treatment food doses are overridden per the ramp plan, and the counter resumes only when all treatment food ramp steps are complete.
+
+**Open decisions — Architect must resolve before Dev starts:**
+1. Storage: `reaction_ramp` as a new JSONB column on `families` table vs. a new dedicated table. Architect to evaluate and lock.
+2. `ramp_active: true` flag on `dose_log` rows written during ramp — confirm this fits the existing `dose_log` schema or document the required migration.
+3. Maintenance "same ramp for all" shortcut: app stores resolved doses per food (not the rule), so there's no ambiguity if foods have different units. Architect to confirm data model handles this correctly.
+
+**Data model:**
+```json
+{
+  "active": true,
+  "ramp_day": 0,
+  "started_at_week": 2,
+  "started_at_day": 4,
+  "treatmentFoods": [
+    {
+      "name": "Uncooked Mare Milk",
+      "steps": [
+        { "dose": 12.5, "unit": "ml", "days": 7 },
+        { "dose": 20, "unit": "ml", "days": 7 }
+      ],
+      "returnDose": 30,
+      "returnUnit": "ml",
+      "currentStep": 0,
+      "daysInStep": 0,
+      "complete": false
+    }
+  ],
+  "maintenanceFoods": [
+    {
+      "name": "Denatured Donkey Milk",
+      "steps": [
+        { "dose": 60, "unit": "ml", "days": 5 },
+        { "dose": 75, "unit": "ml", "days": 5 }
+      ],
+      "currentStep": 0,
+      "daysInStep": 0,
+      "complete": false
+    }
+  ]
+}
+```
+
+**Schema notes:**
+- `returnDose`/`returnUnit` on treatment foods: the food's current scheduled dose for that week, stored at ramp creation time so it survives any schedule re-parse during the ramp
+- Maintenance foods have no `returnDose` — they return to the scheduled maintenance dose automatically when complete
+- `ramp_day` is a simple incrementing counter of Complete Days since ramp started
+- `started_at_week`/`started_at_day` are the frozen counter values — counter resumes from here when ramp ends
+
+**Setup flow (Settings):**
+- "Start Reaction Ramp" option in Settings, below New Food Cycle
+- Screen 1 — Treatment Foods: all current treatment foods listed; current week dose shown as read-only reference; step editor (dose/unit/days per step, add/remove steps); foods can be excluded from the ramp
+- Screen 2 — Maintenance Foods: toggle "Also adjusting maintenance foods?" (default off); if on — Option A "Same ramp for all" (one set of steps applied to all foods, resolved per-food doses stored) or Option B "Different per food" (individual step editors); current dose shown as read-only reference per food
+- Screen 3 — Review + Confirm: full summary of every food and its steps; confirm writes ramp to Supabase and freezes counter immediately
+
+**Daily view during ramp:**
+- Banner below visit/week/day header: "Reaction Ramp · Day [N] — Edit" — tapping Edit routes to Settings ramp editor
+- Treatment foods show current ramp step dose instead of scheduled week dose; CAPPED label preserved if food was originally CAPPED
+- Maintenance foods show current ramp step dose instead of normal maintenance dose; prep notes unchanged
+- Foods not in the ramp show normal scheduled doses, unaffected
+- Complete Day gate unchanged — all evening treatment foods required
+- On Complete Day: logs to dose_log as normal with `ramp_active: true`; resets checkboxes; increments `ramp_day`; for each food in ramp increments `daysInStep` — when `daysInStep >= steps[currentStep].days` advance `currentStep` and reset `daysInStep`; when no next step mark food `complete: true`; does NOT advance week/day counter
+- When all treatment foods are `complete: true`: set `active: false`, resume counter from `started_at_week`/`started_at_day`, remove banner, write history entry "Reaction Ramp completed — Day N"
+- Maintenance foods that haven't finished their steps continue showing ramp doses after counter resumes — they do not block the counter
+
+**Cancel / Edit:**
+- Cancel (Settings): single confirmation tap, clears ramp, counter resumes from frozen position immediately, all foods return to scheduled doses
+- Edit (Settings): loads setup flow pre-populated with current ramp data; on confirm replaces ramp entirely; counter remains frozen
+
+**Constraints:**
+- No new food cycle — this is a temporary deviation within the current cycle
+- Complete Days during ramp do not count toward the 7-day minimum — that clock restarts when the ramp ends
+- Parser is never involved — ramp is entered manually only
+- Treatment foods not in the ramp show normal scheduled doses, unaffected
+- Both users see identical ramp state in real time
+
+**QA:**
+- Start ramp → counter freezes, banner appears, affected foods show ramp doses, unaffected foods unchanged
+- Complete Day during ramp → ramp_day +1, daysInStep increments per food, week/day counter unchanged
+- Step completion → food auto-advances to next step dose after correct number of Complete Days
+- All treatment food steps complete → counter resumes from frozen position, banner removed, foods return to returnDose/scheduled dose
+- Maintenance ramp outlasts treatment ramp → maintenance foods continue showing ramp dose, counter moves freely
+- Cancel → counter resumes immediately, all foods return to scheduled doses
+- Edit mid-stream → ramp replaced entirely, counter remains frozen
+- dose_log entries during ramp carry ramp_active: true
+- Both users see identical ramp state in real time
+- "Same ramp for all" maintenance: each food stores resolved doses, correct dose shown regardless of differing units
+- CAPPED label preserved on ramp dose if food was originally CAPPED
+
+---
+
 #### Native Push Notifications (via Capacitor)
 **Goal:** Replace web push with native iOS/Android push for more reliable delivery.
 
