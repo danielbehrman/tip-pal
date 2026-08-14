@@ -1,4 +1,4 @@
-import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood } from "./types"
+import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood, RampStep, RampTreatmentFood, RampMaintenanceFood, ReactionRamp, RampDoseOverride } from "./types"
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -241,4 +241,72 @@ export function applyCrossCategoryCredit(
     ...counts,
     [weekKey]: { ...weekCounts, [matchedFood.name]: updated },
   }
+}
+
+export function treatmentRampDone(ramp: ReactionRamp): boolean {
+  return ramp.treatmentFoods.length === 0 || ramp.treatmentFoods.every(f => f.complete)
+}
+
+export function treatmentRampActive(ramp: ReactionRamp | null): boolean {
+  if (!ramp) return false
+  return ramp.active && !treatmentRampDone(ramp)
+}
+
+interface RampStepState {
+  steps: RampStep[]
+  currentStep: number
+  daysInStep: number
+  complete: boolean
+}
+
+export function advanceRampStepState(
+  state: RampStepState
+): { currentStep: number; daysInStep: number; complete: boolean } {
+  if (state.complete) {
+    return { currentStep: state.currentStep, daysInStep: state.daysInStep, complete: true }
+  }
+  const step = state.steps[state.currentStep]
+  if (!step) {
+    return { currentStep: state.currentStep, daysInStep: state.daysInStep, complete: true }
+  }
+  const daysInStep = state.daysInStep + 1
+  if (daysInStep >= step.days) {
+    const nextStep = state.currentStep + 1
+    if (nextStep >= state.steps.length) {
+      return { currentStep: state.currentStep, daysInStep, complete: true }
+    }
+    return { currentStep: nextStep, daysInStep: 0, complete: false }
+  }
+  return { currentStep: state.currentStep, daysInStep, complete: false }
+}
+
+export function getRampOverrides(
+  ramp: ReactionRamp | null
+): { treatment: Map<string, RampDoseOverride>; maintenance: Map<string, RampDoseOverride> } {
+  const treatment = new Map<string, RampDoseOverride>()
+  const maintenance = new Map<string, RampDoseOverride>()
+  if (!ramp) return { treatment, maintenance }
+
+  if (treatmentRampActive(ramp)) {
+    for (const food of ramp.treatmentFoods) {
+      if (food.complete) {
+        treatment.set(food.name, { dose: food.returnDose, unit: food.returnUnit, capped: food.wasCapped })
+        continue
+      }
+      const step = food.steps[food.currentStep]
+      if (step) {
+        treatment.set(food.name, { dose: step.dose, unit: step.unit, capped: food.wasCapped })
+      }
+    }
+  }
+
+  for (const food of ramp.maintenanceFoods) {
+    if (food.complete) continue
+    const step = food.steps[food.currentStep]
+    if (step) {
+      maintenance.set(food.name, { dose: step.dose, unit: step.unit })
+    }
+  }
+
+  return { treatment, maintenance }
 }
