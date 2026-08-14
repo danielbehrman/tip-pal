@@ -42,6 +42,7 @@ export default function ReactionRampPage() {
   const [treatmentDrafts, setTreatmentDrafts] = useState<TreatmentDraft[]>([])
   const [maintenanceDrafts, setMaintenanceDrafts] = useState<MaintenanceDraft[]>([])
   const [adjustMaintenance, setAdjustMaintenance] = useState(false)
+  const [groupedFoodNames, setGroupedFoodNames] = useState<Set<string>>(new Set())
   const [maintenanceMode, setMaintenanceMode] = useState<"same" | "different">("different")
   const [sharedMaintenanceSteps, setSharedMaintenanceSteps] = useState<RampStep[]>([defaultStep(0, "ml")])
   const [saving, setSaving] = useState(false)
@@ -98,6 +99,7 @@ export default function ReactionRampPage() {
 
       setTreatmentDrafts(treatmentInit)
       setMaintenanceDrafts(maintenanceInit)
+      setGroupedFoodNames(groupedFoodNames)
       setAdjustMaintenance(maintenanceInit.some(d => d.included))
       setIsEditMode(!!ramp)
       setExistingRamp(ramp)
@@ -122,18 +124,31 @@ export default function ReactionRampPage() {
       const progress = await fetchFoodProgress()
       const globalPos = getGlobalPosition(progress)
 
-      const treatmentFoods: RampTreatmentFood[] = treatmentDrafts
-        .filter(d => d.included)
-        .map(d => ({
-          name: d.name,
-          steps: d.steps,
-          returnDose: d.returnDose,
-          returnUnit: d.returnUnit,
-          wasCapped: d.wasCapped,
-          currentStep: 0,
-          daysInStep: 0,
-          complete: false,
-        }))
+      // A treatment food that was already complete:true in the existing ramp
+      // and wasn't explicitly re-included in this edit must be preserved
+      // as-is, not dropped — otherwise it silently un-freezes mid-ramp (see
+      // handleCompleteDay's "not in ramp" branch).
+      const preservedComplete: RampTreatmentFood[] = isEditMode && existingRamp
+        ? existingRamp.treatmentFoods.filter(
+            f => f.complete && !treatmentDrafts.some(d => d.name === f.name && d.included)
+          )
+        : []
+
+      const treatmentFoods: RampTreatmentFood[] = [
+        ...treatmentDrafts
+          .filter(d => d.included)
+          .map(d => ({
+            name: d.name,
+            steps: d.steps,
+            returnDose: d.returnDose,
+            returnUnit: d.returnUnit,
+            wasCapped: d.wasCapped,
+            currentStep: 0,
+            daysInStep: 0,
+            complete: false,
+          })),
+        ...preservedComplete,
+      ]
 
       const maintenanceFoods: RampMaintenanceFood[] = adjustMaintenance
         ? maintenanceDrafts
@@ -250,9 +265,11 @@ export default function ReactionRampPage() {
               />
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Also adjusting maintenance foods?</span>
             </label>
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-              Foods that belong to a food group aren&apos;t shown here — ramp adjustments only apply to standalone maintenance foods.
-            </p>
+            {groupedFoodNames.size > 0 && (
+              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+                Foods that belong to a food group aren&apos;t shown here — ramp adjustments only apply to standalone maintenance foods.
+              </p>
+            )}
 
             {adjustMaintenance && (
               <>
