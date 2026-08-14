@@ -150,7 +150,11 @@ export default function DailyPage() {
         const yesterday = addDays(todayDateString(), -1)
         const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
         const floorSeq = (initialState.floorWeek - 1) * 7 + initialState.floorDay
-        if (initialState.cycleStartDate < todayDateString() && yesterdaySeq > floorSeq) {
+        if (
+          initialState.cycleStartDate < todayDateString() &&
+          yesterdaySeq > floorSeq &&
+          !treatmentRampActive(ramp)
+        ) {
           const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
           if (!hasRecord) {
             const yWeek = Math.floor((yesterdaySeq - 1) / 7) + 1

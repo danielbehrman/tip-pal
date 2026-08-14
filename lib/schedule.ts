@@ -300,11 +300,13 @@ export function getRampOverrides(
     }
   }
 
-  for (const food of ramp.maintenanceFoods) {
-    if (food.complete) continue
-    const step = food.steps[food.currentStep]
-    if (step) {
-      maintenance.set(food.name, { dose: step.dose, unit: step.unit })
+  if (ramp.active) {
+    for (const food of ramp.maintenanceFoods) {
+      if (food.complete) continue
+      const step = food.steps[food.currentStep]
+      if (step) {
+        maintenance.set(food.name, { dose: step.dose, unit: step.unit })
+      }
     }
   }
 

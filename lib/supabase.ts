@@ -577,13 +577,26 @@ export async function archiveAndStartNewCycle(
     : null
   const newCycles = archivedEntry ? [...existingCycles, archivedEntry] : existingCycles
 
-  // 2. Update families: archive, visit number, appointment date
+  // 2. Update families: archive, visit number, appointment date, and clear
+  // any active reaction ramp — a new cycle means the old cycle's exceptions
+  // no longer apply (silent, same as the treatment_food_progress/dose_state
+  // resets below).
+  const clearedRamp: ReactionRamp = {
+    active: false,
+    startedAt: "",
+    rampDay: 0,
+    startedAtWeek: 0,
+    startedAtDay: 0,
+    treatmentFoods: [],
+    maintenanceFoods: [],
+  }
   const { error: familyUpdateError } = await getClient()
     .from("families")
     .update({
       previous_cycles: newCycles,
       visit_number: visitNumber,
       next_appointment_date: newAppointmentDate,
+      reaction_ramp: clearedRamp,
     })
     .eq("id", familyId)
   if (familyUpdateError) throw familyUpdateError

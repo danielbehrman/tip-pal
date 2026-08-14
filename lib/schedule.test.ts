@@ -255,4 +255,11 @@ describe("getRampOverrides", () => {
     expect(treatment.size).toBe(0)
     expect(maintenance.get("Denatured Donkey Milk")).toEqual({ dose: 60, unit: "ml" })
   })
+
+  it("produces zero maintenance overrides for an inactive ramp, even with a non-complete maintenance food", () => {
+    const ramp = makeRamp({ active: false, maintenanceFoods: [makeMaintenanceFood()] })
+    const { treatment, maintenance } = getRampOverrides(ramp)
+    expect(treatment.size).toBe(0)
+    expect(maintenance.size).toBe(0)
+  })
 })
