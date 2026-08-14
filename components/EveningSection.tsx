@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ParsedSchedule, FoodProgress, Medication } from "@/lib/types"
+import { ParsedSchedule, FoodProgress, Medication, RampDoseOverride } from "@/lib/types"
 import { getMedicationSessions, getTreatmentFoodEntry, foodsAreInSync } from "@/lib/schedule"
 import FoodItem from "./FoodItem"
 import SectionHeader from "./ui/SectionHeader"
@@ -19,6 +19,7 @@ interface EveningSectionProps {
   isCurrentTreatmentDay: boolean
   isSkipped: boolean
   foodProgress: Map<string, FoodProgress>
+  treatmentRampOverrides?: Map<string, RampDoseOverride>
 }
 
 function getEveningMedications(medications: Medication[] | undefined): Medication[] {
@@ -37,6 +38,7 @@ export default function EveningSection({
   isCurrentTreatmentDay,
   isSkipped,
   foodProgress,
+  treatmentRampOverrides = new Map(),
 }: EveningSectionProps) {
   const inSync = foodsAreInSync(foodProgress)
   const treatmentFoods = schedule.treatmentFoods
@@ -88,14 +90,15 @@ export default function EveningSection({
             const { weekEntry, isContinuing } = getTreatmentFoodEntry(food, foodWeek)
             const weekBadge = !inSync && fp ? `Wk ${fp.week} · Day ${fp.day}` : undefined
             const key = `evening-${food.name}`
+            const rampOverride = treatmentRampOverrides.get(food.name)
             return (
               <FoodItem
                 key={key}
                 name={food.name}
-                dose={weekEntry.dose}
-                unit={weekEntry.unit}
+                dose={rampOverride?.dose ?? weekEntry.dose}
+                unit={rampOverride?.unit ?? weekEntry.unit}
                 prepNote={null}
-                capped={false}
+                capped={rampOverride?.capped ?? false}
                 session="evening"
                 isContinuing={isContinuing}
                 checked={!!checkedFoods[key]}

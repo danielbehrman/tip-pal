@@ -1,6 +1,6 @@
 "use client"
 
-import { ParsedSchedule, FoodGroup, MaintenanceFood, WeeklyFood, Medication } from "@/lib/types"
+import { ParsedSchedule, FoodGroup, MaintenanceFood, WeeklyFood, Medication, RampDoseOverride } from "@/lib/types"
 import { getMedicationSessions } from "@/lib/schedule"
 import FoodItem from "./FoodItem"
 import FoodGroupRow from "./FoodGroupRow"
@@ -13,6 +13,7 @@ interface MorningSectionProps {
   onCheck: (key: string, val: boolean) => void
   isFutureDay: boolean
   foodGroups: FoodGroup[]
+  maintenanceRampOverrides?: Map<string, RampDoseOverride>
 }
 
 type MorningItem =
@@ -94,6 +95,7 @@ export default function MorningSection({
   onCheck,
   isFutureDay,
   foodGroups,
+  maintenanceRampOverrides = new Map(),
 }: MorningSectionProps) {
   const showWeekly = currentDay === 7
   const items = buildMorningItems(
@@ -126,12 +128,13 @@ export default function MorningSection({
           }
           const isWeekly = item.type === "weekly"
           const key = `${item.prefix}-${item.food.name}`
+          const rampOverride = item.type === "standalone" ? maintenanceRampOverrides.get(item.food.name) : undefined
           return (
             <FoodItem
               key={key}
               name={item.food.name}
-              dose={item.food.dose}
-              unit={item.food.unit}
+              dose={rampOverride?.dose ?? item.food.dose}
+              unit={rampOverride?.unit ?? item.food.unit}
               prepNote={item.food.prepNote ?? null}
               capped={"capped" in item.food ? item.food.capped : false}
               session="morning"

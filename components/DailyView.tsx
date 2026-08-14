@@ -1,8 +1,8 @@
 "use client"
 
 import { useState, type RefObject } from "react"
-import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress } from "@/lib/types"
-import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit } from "@/lib/schedule"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress, ReactionRamp, RampDoseOverride } from "@/lib/types"
+import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit, treatmentRampDone } from "@/lib/schedule"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
 import Link from "next/link"
@@ -35,6 +35,9 @@ interface DailyViewProps {
   // the same batch sees the previous call's update.
   recommendedFoodCountsRef: RefObject<Record<string, Record<string, number>>>
   onCrossCategoryCredit: (updated: Record<string, Record<string, number>>) => void
+  reactionRamp: ReactionRamp | null
+  treatmentRampOverrides: Map<string, RampDoseOverride>
+  maintenanceRampOverrides: Map<string, RampDoseOverride>
 }
 
 function formatDateLabel(date: Date): string {
@@ -77,6 +80,9 @@ export default function DailyView({
   childPhotoUrl,
   recommendedFoodCountsRef,
   onCrossCategoryCredit,
+  reactionRamp,
+  treatmentRampOverrides,
+  maintenanceRampOverrides,
 }: DailyViewProps) {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
@@ -331,6 +337,20 @@ export default function DailyView({
 
       {/* Body */}
       <div className="flex-1 px-4 pt-4 pb-24">
+        {reactionRamp?.active && !treatmentRampDone(reactionRamp) && (
+          <div
+            className="mb-4 px-4 py-3 rounded-xl flex items-center justify-between"
+            style={{ background: "#fff8e1", border: "0.5px solid #ffe082" }}
+          >
+            <p className="text-sm font-medium" style={{ color: "#795548" }}>
+              Reaction Ramp · Day {reactionRamp.rampDay}
+            </p>
+            <Link href="/reaction-ramp" className="text-sm font-semibold underline" style={{ color: "#795548" }}>
+              Edit
+            </Link>
+          </div>
+        )}
+
         {bannerInfo && isCurrentTreatmentDay && (
           <div
             className="mb-4 px-4 py-3 rounded-xl"
@@ -374,6 +394,7 @@ export default function DailyView({
               onCheck={handleCheck}
               isFutureDay={isFutureDay}
               foodGroups={foodGroups}
+              maintenanceRampOverrides={maintenanceRampOverrides}
             />
             <EveningSection
               schedule={schedule}
@@ -386,6 +407,7 @@ export default function DailyView({
               isCurrentTreatmentDay={isCurrentTreatmentDay}
               isSkipped={isSkipped}
               foodProgress={foodProgress}
+              treatmentRampOverrides={treatmentRampOverrides}
             />
           </>
         )}
