@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FoodProgress, ReactionRamp, RampStep, RampTreatmentFood, RampMaintenanceFood } from "@/lib/types"
-import { fetchSchedule, fetchFoodProgress, fetchReactionRamp, saveReactionRamp, getSession } from "@/lib/supabase"
-import { getTreatmentFoodEntry, getGlobalPosition } from "@/lib/schedule"
+import { fetchSchedule, fetchFoodProgress, fetchReactionRamp, saveReactionRamp, getSession, fetchFoodGroups } from "@/lib/supabase"
+import { getTreatmentFoodEntry, getGlobalPosition, treatmentRampDone } from "@/lib/schedule"
 import RampStepEditor from "@/components/RampStepEditor"
 import CTAButton from "@/components/ui/CTAButton"
 
@@ -53,10 +53,11 @@ export default function ReactionRampPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
 
-      const [schedule, progress, ramp] = await Promise.all([
+      const [schedule, progress, ramp, groups] = await Promise.all([
         fetchSchedule().catch(() => null),
         fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
         fetchReactionRamp().catch(() => null),
+        fetchFoodGroups().catch(() => []),
       ])
       if (!schedule) { router.replace("/setup"); return }
 
@@ -67,7 +68,10 @@ export default function ReactionRampPage() {
         const existing = rampTreatmentByName.get(food.name)
         return {
           name: food.name,
-          included: !!existing,
+          // A treatment food already finished (complete: true) is never
+          // pre-checked — otherwise confirming an edit during the maintenance
+          // tail would re-freeze and restart an already-completed food.
+          included: !!existing && !existing.complete,
           steps: existing ? existing.steps.map(s => ({ ...s })) : [defaultStep(weekEntry.dose, weekEntry.unit)],
           returnDose: existing ? existing.returnDose : weekEntry.dose,
           returnUnit: existing ? existing.returnUnit : weekEntry.unit,
@@ -77,17 +81,20 @@ export default function ReactionRampPage() {
         }
       })
 
+      const groupedFoodNames = new Set(groups.flatMap(g => g.foodNames))
       const rampMaintenanceByName = new Map((ramp?.maintenanceFoods ?? []).map(f => [f.name, f]))
-      const maintenanceInit: MaintenanceDraft[] = schedule.maintenanceFoods.map(food => {
-        const existing = rampMaintenanceByName.get(food.name)
-        return {
-          name: food.name,
-          included: !!existing,
-          steps: existing ? existing.steps.map(s => ({ ...s })) : [defaultStep(food.dose, food.unit)],
-          referenceDose: food.dose,
-          referenceUnit: food.unit,
-        }
-      })
+      const maintenanceInit: MaintenanceDraft[] = schedule.maintenanceFoods
+        .filter(food => !groupedFoodNames.has(food.name))
+        .map(food => {
+          const existing = rampMaintenanceByName.get(food.name)
+          return {
+            name: food.name,
+            included: !!existing,
+            steps: existing ? existing.steps.map(s => ({ ...s })) : [defaultStep(food.dose, food.unit)],
+            referenceDose: food.dose,
+            referenceUnit: food.unit,
+          }
+        })
 
       setTreatmentDrafts(treatmentInit)
       setMaintenanceDrafts(maintenanceInit)
@@ -221,7 +228,13 @@ export default function ReactionRampPage() {
                 )}
               </div>
             ))}
-            <CTAButton onClick={() => setView("maintenance")} disabled={!treatmentDrafts.some(d => d.included)}>
+            <CTAButton
+              onClick={() => setView("maintenance")}
+              disabled={
+                !treatmentDrafts.some(d => d.included) &&
+                !(isEditMode && existingRamp && treatmentRampDone(existingRamp))
+              }
+            >
               Next: Maintenance foods
             </CTAButton>
           </>
@@ -237,6 +250,9 @@ export default function ReactionRampPage() {
               />
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Also adjusting maintenance foods?</span>
             </label>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
+              Foods that belong to a food group aren&apos;t shown here — ramp adjustments only apply to standalone maintenance foods.
+            </p>
 
             {adjustMaintenance && (
               <>
