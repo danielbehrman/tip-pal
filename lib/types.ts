@@ -93,3 +93,52 @@ export interface FoodProgress {
   completedDays: number
   lastCompletedAt: string | null
 }
+
+export interface RampStep {
+  dose: number
+  unit: string
+  days: number
+}
+
+export interface RampTreatmentFood {
+  name: string
+  steps: RampStep[]
+  returnDose: number
+  returnUnit: string
+  wasCapped: boolean
+  currentStep: number
+  daysInStep: number
+  complete: boolean
+}
+
+export interface RampMaintenanceFood {
+  name: string
+  steps: RampStep[]
+  currentStep: number
+  daysInStep: number
+  complete: boolean
+}
+
+export interface ReactionRamp {
+  active: boolean
+  startedAt: string
+  rampDay: number
+  startedAtWeek: number
+  startedAtDay: number
+  treatmentFoods: RampTreatmentFood[]
+  maintenanceFoods: RampMaintenanceFood[]
+}
+
+export interface PreviousRamp {
+  startedAt: string
+  endedAt: string
+  rampDayCount: number
+  treatmentFoods: RampTreatmentFood[]
+  maintenanceFoods: RampMaintenanceFood[]
+}
+
+export interface RampDoseOverride {
+  dose: number
+  unit: string
+  capped?: boolean
+}
