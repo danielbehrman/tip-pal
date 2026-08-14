@@ -123,6 +123,7 @@ export default function MorningSection({
                 checkedFoods={checkedFoods}
                 disabled={isFutureDay}
                 onCheck={onCheck}
+                maintenanceRampOverrides={maintenanceRampOverrides}
               />
             )
           }

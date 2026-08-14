@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { FoodGroup, MaintenanceFood, WeeklyFood } from "@/lib/types"
+import { FoodGroup, MaintenanceFood, WeeklyFood, RampDoseOverride } from "@/lib/types"
 import FoodCard from "./ui/FoodCard"
 import CheckCircle from "./ui/CheckCircle"
 
@@ -11,6 +11,7 @@ interface FoodGroupRowProps {
   checkedFoods: Record<string, boolean>
   disabled: boolean
   onCheck: (key: string, val: boolean) => void
+  maintenanceRampOverrides?: Map<string, RampDoseOverride>
 }
 
 export default function FoodGroupRow({
@@ -19,6 +20,7 @@ export default function FoodGroupRow({
   checkedFoods,
   disabled,
   onCheck,
+  maintenanceRampOverrides = new Map(),
 }: FoodGroupRowProps) {
   const [expanded, setExpanded] = useState(false)
 
@@ -93,6 +95,7 @@ export default function FoodGroupRow({
           {foods.map(({ food, prefix }) => {
             const key = `${prefix}-${food.name}`
             const isChecked = !!checkedFoods[key]
+            const rampOverride = maintenanceRampOverrides.get(food.name)
             return (
               <div
                 key={key}
@@ -111,7 +114,7 @@ export default function FoodGroupRow({
                     {food.name}
                   </span>
                   <p style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>
-                    {food.dose} {food.unit}
+                    {rampOverride?.dose ?? food.dose} {rampOverride?.unit ?? food.unit}
                     {"prepNote" in food && food.prepNote ? ` · ${food.prepNote}` : ""}
                   </p>
                 </div>

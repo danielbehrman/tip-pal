@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { FoodProgress, ReactionRamp, RampStep, RampTreatmentFood, RampMaintenanceFood } from "@/lib/types"
-import { fetchSchedule, fetchFoodProgress, fetchReactionRamp, saveReactionRamp, getSession, fetchFoodGroups } from "@/lib/supabase"
+import { fetchSchedule, fetchFoodProgress, fetchReactionRamp, saveReactionRamp, getSession } from "@/lib/supabase"
 import { getTreatmentFoodEntry, getGlobalPosition, treatmentRampDone } from "@/lib/schedule"
 import RampStepEditor from "@/components/RampStepEditor"
 import CTAButton from "@/components/ui/CTAButton"
@@ -42,7 +42,6 @@ export default function ReactionRampPage() {
   const [treatmentDrafts, setTreatmentDrafts] = useState<TreatmentDraft[]>([])
   const [maintenanceDrafts, setMaintenanceDrafts] = useState<MaintenanceDraft[]>([])
   const [adjustMaintenance, setAdjustMaintenance] = useState(false)
-  const [groupedFoodNames, setGroupedFoodNames] = useState<Set<string>>(new Set())
   const [maintenanceMode, setMaintenanceMode] = useState<"same" | "different">("different")
   const [sharedMaintenanceSteps, setSharedMaintenanceSteps] = useState<RampStep[]>([defaultStep(0, "ml")])
   const [saving, setSaving] = useState(false)
@@ -54,11 +53,10 @@ export default function ReactionRampPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
 
-      const [schedule, progress, ramp, groups] = await Promise.all([
+      const [schedule, progress, ramp] = await Promise.all([
         fetchSchedule().catch(() => null),
         fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
         fetchReactionRamp().catch(() => null),
-        fetchFoodGroups().catch(() => []),
       ])
       if (!schedule) { router.replace("/setup"); return }
 
@@ -82,10 +80,8 @@ export default function ReactionRampPage() {
         }
       })
 
-      const groupedFoodNames = new Set(groups.flatMap(g => g.foodNames))
       const rampMaintenanceByName = new Map((ramp?.maintenanceFoods ?? []).map(f => [f.name, f]))
       const maintenanceInit: MaintenanceDraft[] = schedule.maintenanceFoods
-        .filter(food => !groupedFoodNames.has(food.name))
         .map(food => {
           const existing = rampMaintenanceByName.get(food.name)
           return {
@@ -99,7 +95,6 @@ export default function ReactionRampPage() {
 
       setTreatmentDrafts(treatmentInit)
       setMaintenanceDrafts(maintenanceInit)
-      setGroupedFoodNames(groupedFoodNames)
       setAdjustMaintenance(maintenanceInit.some(d => d.included))
       setIsEditMode(!!ramp)
       setExistingRamp(ramp)
@@ -265,11 +260,6 @@ export default function ReactionRampPage() {
               />
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Also adjusting maintenance foods?</span>
             </label>
-            {groupedFoodNames.size > 0 && (
-              <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>
-                Foods that belong to a food group aren&apos;t shown here — ramp adjustments only apply to standalone maintenance foods.
-              </p>
-            )}
 
             {adjustMaintenance && (
               <>
