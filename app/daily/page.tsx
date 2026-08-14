@@ -384,8 +384,8 @@ export default function DailyPage() {
         }
       }
 
-      const maintenanceDone = nextRamp.maintenanceFoods.every(f => f.complete)
-      updatedRamp = justFinishedTreatment && maintenanceDone
+      const fullyDone = treatmentRampDone(nextRamp) && nextRamp.maintenanceFoods.every(f => f.complete)
+      updatedRamp = fullyDone
         ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
         : nextRamp
 
