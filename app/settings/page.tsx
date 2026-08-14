@@ -26,9 +26,11 @@ import {
   saveVisitNumber,
   fetchFoodProgress,
   saveFoodProgress,
+  fetchReactionRamp,
+  saveReactionRamp,
 } from "@/lib/supabase"
 import { isNative } from "@/lib/platform"
-import { DoseState, ParsedSchedule, FoodGroup, FoodProgress } from "@/lib/types"
+import { DoseState, ParsedSchedule, FoodGroup, FoodProgress, ReactionRamp } from "@/lib/types"
 import GroupsManager from "@/components/GroupsManager"
 import FoodPositionStepper from "@/components/FoodPositionStepper"
 import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
@@ -77,6 +79,9 @@ export default function SettingsPage() {
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [groupsSaved, setGroupsSaved] = useState(false)
   const groupsSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [activeRamp, setActiveRamp] = useState<ReactionRamp | null>(null)
+  const [confirmingCancelRamp, setConfirmingCancelRamp] = useState(false)
+  const [rampCancelError, setRampCancelError] = useState<string | null>(null)
 
   const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
   const pushAvailable = pushSupported && !!vapidPublicKey
@@ -87,7 +92,7 @@ export default function SettingsPage() {
       try { session = await getSession() } catch { router.replace("/login"); return }
       if (!session) { router.replace("/login"); return }
       try {
-        const [name, ds, notifSettings, groups, sched, photoUrl, vNum, progress] = await Promise.all([
+        const [name, ds, notifSettings, groups, sched, photoUrl, vNum, progress, ramp] = await Promise.all([
           fetchFamilyName().catch(() => null),
           fetchDoseState().catch(() => null),
           fetchNotificationSettings().catch(() => null),
@@ -96,6 +101,7 @@ export default function SettingsPage() {
           fetchChildPhotoUrl().catch(() => null),
           fetchVisitNumber().catch(() => null),
           fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
+          fetchReactionRamp().catch(() => null),
         ])
         try {
           const apptDate = await fetchAppointmentDate()
@@ -108,6 +114,7 @@ export default function SettingsPage() {
           setExistingDoseState(ds)
         }
         setFoodProgress(progress)
+        setActiveRamp(ramp)
         if (notifSettings) {
           setMorningReminder(notifSettings.morningReminder)
           setEveningReminder(notifSettings.eveningReminder)
@@ -173,6 +180,25 @@ export default function SettingsPage() {
       if (groupsSavedTimerRef.current) clearTimeout(groupsSavedTimerRef.current)
       groupsSavedTimerRef.current = setTimeout(() => setGroupsSaved(false), 2000)
     } catch {}
+  }
+
+  async function handleCancelRamp() {
+    setRampCancelError(null)
+    try {
+      await saveReactionRamp({
+        active: false,
+        startedAt: "",
+        rampDay: 0,
+        startedAtWeek: 0,
+        startedAtDay: 0,
+        treatmentFoods: [],
+        maintenanceFoods: [],
+      })
+      setActiveRamp(null)
+      setConfirmingCancelRamp(false)
+    } catch {
+      setRampCancelError("Cancel failed — please try again")
+    }
   }
 
   async function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -430,6 +456,39 @@ export default function SettingsPage() {
               <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
             <RowDivider />
+            {/* Reaction Ramp */}
+            {activeRamp ? (
+              <>
+                <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Edit Reaction Ramp</span>
+                  <span style={{ color: "var(--color-text-muted)" }}>›</span>
+                </Link>
+                <RowDivider />
+                {confirmingCancelRamp ? (
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Cancel ramp?</span>
+                    <button className="text-sm font-medium ml-auto" style={{ color: "#dc2626" }} onClick={handleCancelRamp}>
+                      Yes, cancel
+                    </button>
+                    <button className="text-sm" style={{ color: "var(--color-text-muted)" }} onClick={() => setConfirmingCancelRamp(false)}>
+                      Never mind
+                    </button>
+                  </div>
+                ) : (
+                  <button className="w-full flex items-center px-4 py-3 text-left" onClick={() => setConfirmingCancelRamp(true)}>
+                    <span className="text-sm" style={{ color: "#dc2626" }}>Cancel Reaction Ramp</span>
+                  </button>
+                )}
+                {rampCancelError && (
+                  <p className="px-4 pb-3 text-xs" style={{ color: "#dc2626" }}>{rampCancelError}</p>
+                )}
+              </>
+            ) : (
+              <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Start Reaction Ramp</span>
+                <span style={{ color: "var(--color-text-muted)" }}>›</span>
+              </Link>
+            )}
             {/* Re-parse schedule */}
             <Link href="/setup" className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Re-parse schedule</span>
