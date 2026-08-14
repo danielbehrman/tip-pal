@@ -4,11 +4,11 @@
 Tip Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 3.6 — Palette + iOS Hardening — ✅ Complete, signed off 2026-07-08
-Mode: Stable/maintenance
-Last Updated: 2026-07-30
-Blocker: None. Cross-Category Logging (Recommended Foods) implemented, reviewed, and live-QA'd — closed. Reviewer pass found one Critical bug (fixed in `9bdf19a` — see commit for detail); QA pass against `daniel.behrman+test1@gmail.com` on production (tippal.behrman.dev, commit `fd0e8d8`) confirmed all 7 scenarios pass, including the multi-member group check/uncheck the bug was in, the partial-group-completion transition guard, and Trailing Edit crediting the edited day's own week (verified with a genuinely different displayed week, not just same-value coincidence). Test fixtures (temporary food renames, a scratch group, week/day steppers, recommended_food_counts) were all created and fully reverted on the test account only — the real family account (Dan's) was never touched.
-Next Action: None — Cross-Category Logging closed. Deferred: Trailing Edit's case-insensitive matching and medication-key exclusion weren't separately live-verified (covered by the 13-test unit suite instead) — low-risk, no action needed unless a bug surfaces.
+Phase: Phase 4 — Engagement — Reaction Ramp implemented, pending QA + Project Owner UI sign-off
+Mode: Active Build
+Last Updated: 2026-08-14
+Blocker: None. Reaction Ramp (Phase 4 backlog) brainstormed → planned → built via subagent-driven-development (9 tasks) → reviewed. Final whole-branch review found 5 Important findings across two review rounds (`getRampOverrides` applying maintenance overrides on an inactive ramp; wizard edit restarting a finished treatment ramp with no escape path; grouped maintenance foods diverging display vs. ramp-step state; New Food Cycle not clearing a stale ramp; auto-rollover not ramp-aware), all fixed and independently re-verified — plus one further Important finding on the fix itself (edit silently dropping a partially-complete treatment food, un-freezing it), fixed and re-verified clean. Pushed to `origin/main` (`2b61eec`); Vercel auto-deployed to production (`tippal.behrman.dev`) on push. Design spec: `docs/superpowers/specs/2026-08-13-reaction-ramp-design.md`. Plan + full task/review ledger: `plans/PHASE-4-REACTION-RAMP.md`, `.superpowers/sdd/progress.md`.
+Next Action: QA pass against `daniel.behrman+test1@gmail.com` on production, then Project Owner UI sign-off (Settings wizard — Start/Edit/Cancel flow, daily view ramp banner + dose overrides) — required regardless of QA pass per this project's UI gate rule. QA scenarios are listed in the design spec's QA section and BRIEF's Reaction Ramp entry below.
 
 ---
 
@@ -623,8 +623,10 @@ Superseded key-spec bullets (kept for history): ~~counter increments only on ful
 
 ---
 
-#### Reaction Ramp
+#### Reaction Ramp 🔧 Implemented (2026-08-14), pending QA + Project Owner UI sign-off
 **Goal:** When a reaction occurs mid-cycle, allow a parent to enter a clinic-prescribed ramp-back plan for any affected treatment and maintenance foods. The week/day counter freezes for the duration, treatment food doses are overridden per the ramp plan, and the counter resumes only when all treatment food ramp steps are complete.
+
+**Status:** Built via brainstorm → plan → subagent-driven-development (9 tasks) → reviewed, on `main` (`2b61eec`), deployed to production via Vercel auto-deploy. Design spec: `docs/superpowers/specs/2026-08-13-reaction-ramp-design.md`. Implementation plan + full ledger: `plans/PHASE-4-REACTION-RAMP.md`. Not yet QA'd live or Dan-signed-off — see Current Status above.
 
 **Open decisions — Architect must resolve before Dev starts:**
 1. Storage: `reaction_ramp` as a new JSONB column on `families` table vs. a new dedicated table. Architect to evaluate and lock.
