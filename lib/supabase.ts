@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
-import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress } from "./types"
+import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress, ReactionRamp, PreviousRamp } from "./types"
 import { getCalendarPosition, todayDateString } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
@@ -239,7 +239,8 @@ export async function saveDoseLog(
   checkedFoods: Record<string, boolean>,
   completedAt: string,
   scheduleSnapshot: object,
-  isSkipped: boolean
+  isSkipped: boolean,
+  rampActive: boolean
 ): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()
@@ -253,6 +254,7 @@ export async function saveDoseLog(
       completed_at: completedAt,
       is_skipped: isSkipped,
       schedule_snapshot: scheduleSnapshot,
+      ramp_active: rampActive,
     })
   if (error) throw error
 }
@@ -708,4 +710,42 @@ export async function resetFoodProgress(week: number, day: number): Promise<void
     .from("treatment_food_progress")
     .upsert(rows, { onConflict: "family_id,food_name" })
   if (error) throw error
+}
+
+export async function fetchReactionRamp(): Promise<ReactionRamp | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("reaction_ramp")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  const ramp = data.reaction_ramp as ReactionRamp | { active: false }
+  if (!ramp || !ramp.active) return null
+  return ramp as ReactionRamp
+}
+
+export async function saveReactionRamp(ramp: ReactionRamp): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ reaction_ramp: ramp })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
+export async function appendPreviousRamp(entry: PreviousRamp): Promise<void> {
+  const familyId = await getFamilyId()
+  const { data: familyData, error: readError } = await getClient()
+    .from("families")
+    .select("previous_ramps")
+    .eq("id", familyId)
+    .single()
+  if (readError) throw readError
+  const existing = (familyData.previous_ramps ?? []) as PreviousRamp[]
+  const { error: writeError } = await getClient()
+    .from("families")
+    .update({ previous_ramps: [...existing, entry] })
+    .eq("id", familyId)
+  if (writeError) throw writeError
 }

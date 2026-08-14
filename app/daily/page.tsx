@@ -186,7 +186,7 @@ export default function DailyPage() {
             }
 
             try {
-              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped)
+              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped, false)
               await saveFoodProgress(advancedProgress)
               progress = advancedProgress
               globalPos = getGlobalPosition(advancedProgress)
@@ -316,7 +316,7 @@ export default function DailyPage() {
       !currentSchedule.treatmentFoods.some(food => !!checkedFoods[`evening-${food.name}`])
 
     try {
-      await saveDoseLog(globalBefore.week, globalBefore.day, checkedFoods, completedAt, currentSchedule, isSkipped)
+      await saveDoseLog(globalBefore.week, globalBefore.day, checkedFoods, completedAt, currentSchedule, isSkipped, false)
     } catch {
       // Log failed — local state still reflects the checked foods either way
     }
