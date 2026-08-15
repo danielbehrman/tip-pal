@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { RampStep } from "@/lib/types"
 
 interface RampStepEditorProps {
@@ -13,8 +14,37 @@ function emptyStep(): RampStep {
 }
 
 export default function RampStepEditor({ steps, onChange, disabled = false }: RampStepEditorProps) {
+  // Local text buffers let the dose/days inputs be legitimately empty or
+  // mid-edit (e.g. "" while backspacing to retype, "1." while typing a
+  // decimal) without every keystroke snapping back to a clamped number —
+  // the clamp only happens on blur. Keyed by step index; cleared entirely
+  // on add/remove since indices shift and stale buffers would otherwise
+  // overlay the wrong step.
+  const [doseText, setDoseText] = useState<Record<number, string>>({})
+  const [daysText, setDaysText] = useState<Record<number, string>>({})
+
   function updateStep(index: number, patch: Partial<RampStep>) {
     onChange(steps.map((s, i) => (i === index ? { ...s, ...patch } : s)))
+  }
+
+  function commitDose(index: number, raw: string) {
+    const parsed = parseFloat(raw)
+    updateStep(index, { dose: isNaN(parsed) ? 0 : Math.max(0, parsed) })
+    setDoseText(prev => {
+      const next = { ...prev }
+      delete next[index]
+      return next
+    })
+  }
+
+  function commitDays(index: number, raw: string) {
+    const parsed = parseInt(raw, 10)
+    updateStep(index, { days: isNaN(parsed) ? 1 : Math.max(1, parsed) })
+    setDaysText(prev => {
+      const next = { ...prev }
+      delete next[index]
+      return next
+    })
   }
 
   function addStep() {
@@ -23,6 +53,8 @@ export default function RampStepEditor({ steps, onChange, disabled = false }: Ra
 
   function removeStep(index: number) {
     onChange(steps.filter((_, i) => i !== index))
+    setDoseText({})
+    setDaysText({})
   }
 
   return (
@@ -36,8 +68,9 @@ export default function RampStepEditor({ steps, onChange, disabled = false }: Ra
           <span className="text-xs w-12" style={{ color: "var(--color-text-muted)" }}>Step {i + 1}</span>
           <input
             type="number"
-            value={step.dose}
-            onChange={e => updateStep(i, { dose: parseFloat(e.target.value) || 0 })}
+            value={doseText[i] ?? String(step.dose)}
+            onChange={e => setDoseText(prev => ({ ...prev, [i]: e.target.value }))}
+            onBlur={e => commitDose(i, e.target.value)}
             disabled={disabled}
             className="text-sm bg-white rounded px-2 py-1 w-16 outline-none"
             style={{ border: "0.5px solid var(--color-primary-border)", color: "var(--color-text-primary)" }}
@@ -54,8 +87,9 @@ export default function RampStepEditor({ steps, onChange, disabled = false }: Ra
           />
           <input
             type="number"
-            value={step.days}
-            onChange={e => updateStep(i, { days: parseInt(e.target.value, 10) || 1 })}
+            value={daysText[i] ?? String(step.days)}
+            onChange={e => setDaysText(prev => ({ ...prev, [i]: e.target.value }))}
+            onBlur={e => commitDays(i, e.target.value)}
             disabled={disabled}
             className="text-sm bg-white rounded px-2 py-1 w-14 outline-none"
             style={{ border: "0.5px solid var(--color-primary-border)", color: "var(--color-text-primary)" }}
