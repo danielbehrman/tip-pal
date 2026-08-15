@@ -407,6 +407,40 @@ export default function SettingsPage() {
               )
             })()}
             <RowDivider />
+            {/* Reaction Ramp */}
+            {activeRamp ? (
+              <>
+                <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Edit Reaction Ramp</span>
+                  <span style={{ color: "var(--color-text-muted)" }}>›</span>
+                </Link>
+                <RowDivider />
+                {confirmingCancelRamp ? (
+                  <div className="px-4 py-3 flex items-center gap-3">
+                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Cancel ramp?</span>
+                    <button className="text-sm font-medium ml-auto" style={{ color: "#dc2626" }} onClick={handleCancelRamp}>
+                      Yes, cancel
+                    </button>
+                    <button className="text-sm" style={{ color: "var(--color-text-muted)" }} onClick={() => setConfirmingCancelRamp(false)}>
+                      Never mind
+                    </button>
+                  </div>
+                ) : (
+                  <button className="w-full flex items-center px-4 py-3 text-left" onClick={() => setConfirmingCancelRamp(true)}>
+                    <span className="text-sm" style={{ color: "#dc2626" }}>Cancel Reaction Ramp</span>
+                  </button>
+                )}
+                {rampCancelError && (
+                  <p className="px-4 pb-3 text-xs" style={{ color: "#dc2626" }}>{rampCancelError}</p>
+                )}
+              </>
+            ) : (
+              <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
+                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Start Reaction Ramp</span>
+                <span style={{ color: "var(--color-text-muted)" }}>›</span>
+              </Link>
+            )}
+            <RowDivider />
             <FoodPositionStepper
               entries={[...foodProgress.values()]}
               onChange={saveFoodPosition}
@@ -456,39 +490,6 @@ export default function SettingsPage() {
               <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
             <RowDivider />
-            {/* Reaction Ramp */}
-            {activeRamp ? (
-              <>
-                <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
-                  <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Edit Reaction Ramp</span>
-                  <span style={{ color: "var(--color-text-muted)" }}>›</span>
-                </Link>
-                <RowDivider />
-                {confirmingCancelRamp ? (
-                  <div className="px-4 py-3 flex items-center gap-3">
-                    <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Cancel ramp?</span>
-                    <button className="text-sm font-medium ml-auto" style={{ color: "#dc2626" }} onClick={handleCancelRamp}>
-                      Yes, cancel
-                    </button>
-                    <button className="text-sm" style={{ color: "var(--color-text-muted)" }} onClick={() => setConfirmingCancelRamp(false)}>
-                      Never mind
-                    </button>
-                  </div>
-                ) : (
-                  <button className="w-full flex items-center px-4 py-3 text-left" onClick={() => setConfirmingCancelRamp(true)}>
-                    <span className="text-sm" style={{ color: "#dc2626" }}>Cancel Reaction Ramp</span>
-                  </button>
-                )}
-                {rampCancelError && (
-                  <p className="px-4 pb-3 text-xs" style={{ color: "#dc2626" }}>{rampCancelError}</p>
-                )}
-              </>
-            ) : (
-              <Link href="/reaction-ramp" className="flex items-center justify-between px-4 py-3">
-                <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Start Reaction Ramp</span>
-                <span style={{ color: "var(--color-text-muted)" }}>›</span>
-              </Link>
-            )}
             {/* Re-parse schedule */}
             <Link href="/setup" className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Re-parse schedule</span>
