@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides } from "./schedule"
-import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood } from "./types"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "./schedule"
+import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
   { name: "Pea Protein", dose: 1, unit: "tsp", frequencyPerWeek: "3-5" },
@@ -261,5 +261,192 @@ describe("getRampOverrides", () => {
     const { treatment, maintenance } = getRampOverrides(ramp)
     expect(treatment.size).toBe(0)
     expect(maintenance.size).toBe(0)
+  })
+})
+
+function makeSchedule(treatmentFoodNames: string[]): ParsedSchedule {
+  return {
+    maintenanceFoods: [],
+    weeklyFoods: [],
+    treatmentFoods: treatmentFoodNames.map(name => ({
+      name,
+      weeks: [{ week: 1, dose: 10, unit: "ml", isFinal: false }],
+    })),
+  }
+}
+
+function makeFoodProgress(overrides: Partial<FoodProgress> = {}): FoodProgress {
+  return {
+    foodName: "Cashew",
+    week: 1,
+    day: 3,
+    completedDays: 2,
+    lastCompletedAt: null,
+    ...overrides,
+  }
+}
+
+describe("advanceProgressForDay", () => {
+  it("advances foodProgress (day+1) for a checked treatment food not in the ramp, leaving ramp arrays untouched for it", () => {
+    const schedule = makeSchedule(["Cashew"])
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin" })] })
+    const progress = new Map([["Cashew", makeFoodProgress()]])
+    const checkedFoods = { "evening-Cashew": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, ramp, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedProgress.get("Cashew")).toEqual({
+      foodName: "Cashew",
+      week: 1,
+      day: 4,
+      completedDays: 3,
+      lastCompletedAt: "2026-08-15T12:00:00.000Z",
+    })
+    expect(result.updatedRampTreatmentFoods).toEqual(ramp.treatmentFoods)
+  })
+
+  it("rolls a checked non-ramp treatment food to the next week at day 7 completion", () => {
+    const schedule = makeSchedule(["Cashew"])
+    const progress = new Map([["Cashew", makeFoodProgress({ week: 2, day: 7, completedDays: 6 })]])
+    const checkedFoods = { "evening-Cashew": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, null, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedProgress.get("Cashew")).toEqual({
+      foodName: "Cashew",
+      week: 3,
+      day: 1,
+      completedDays: 0,
+      lastCompletedAt: "2026-08-15T12:00:00.000Z",
+    })
+  })
+
+  it("freezes foodProgress and instead advances the ramp step for a checked treatment food in an active, incomplete ramp entry", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const ramp = makeRamp({
+      treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 0 })],
+    })
+    const originalProgress = makeFoodProgress({ foodName: "Peanut Gelatin" })
+    const progress = new Map([["Peanut Gelatin", originalProgress]])
+    const checkedFoods = { "evening-Peanut Gelatin": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, ramp, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedProgress.get("Peanut Gelatin")).toEqual(originalProgress)
+    expect(result.updatedRampTreatmentFoods[0]).toEqual(
+      expect.objectContaining({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 1, complete: false })
+    )
+  })
+
+  it("advances neither foodProgress nor any ramp entry for an unchecked treatment food", () => {
+    const schedule = makeSchedule(["Cashew", "Peanut Gelatin"])
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin" })] })
+    const progress = new Map([
+      ["Cashew", makeFoodProgress({ foodName: "Cashew" })],
+      ["Peanut Gelatin", makeFoodProgress({ foodName: "Peanut Gelatin" })],
+    ])
+    const checkedFoods = {}
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, ramp, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedProgress.get("Cashew")).toEqual(progress.get("Cashew"))
+    expect(result.updatedProgress.get("Peanut Gelatin")).toEqual(progress.get("Peanut Gelatin"))
+    expect(result.updatedRampTreatmentFoods).toEqual(ramp.treatmentFoods)
+  })
+
+  it("advances a checked, incomplete maintenance ramp food's step; leaves a complete one alone; leaves an unchecked one alone", () => {
+    const schedule = makeSchedule([])
+    const ramp = makeRamp({
+      treatmentFoods: [],
+      maintenanceFoods: [
+        makeMaintenanceFood({ name: "A", complete: false, currentStep: 0, daysInStep: 0 }),
+        makeMaintenanceFood({ name: "B", complete: true, currentStep: 0, daysInStep: 4 }),
+        makeMaintenanceFood({ name: "C", complete: false, currentStep: 0, daysInStep: 0 }),
+      ],
+    })
+    const checkedFoods = { "morning-A": true, "morning-B": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, new Map(), ramp, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedRampMaintenanceFoods.find(f => f.name === "A")).toEqual(
+      expect.objectContaining({ name: "A", currentStep: 0, daysInStep: 1, complete: false })
+    )
+    expect(result.updatedRampMaintenanceFoods.find(f => f.name === "B")).toEqual(
+      ramp.maintenanceFoods.find(f => f.name === "B")
+    )
+    expect(result.updatedRampMaintenanceFoods.find(f => f.name === "C")).toEqual(
+      ramp.maintenanceFoods.find(f => f.name === "C")
+    )
+  })
+
+  it("with ramp: null, only advances foodProgress for checked treatment foods and returns empty ramp arrays", () => {
+    const schedule = makeSchedule(["Cashew"])
+    const progress = new Map([["Cashew", makeFoodProgress()]])
+    const checkedFoods = { "evening-Cashew": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, null, "2026-08-15T12:00:00.000Z")
+
+    expect(result.updatedProgress.get("Cashew")).toEqual({
+      foodName: "Cashew",
+      week: 1,
+      day: 4,
+      completedDays: 3,
+      lastCompletedAt: "2026-08-15T12:00:00.000Z",
+    })
+    expect(result.updatedRampTreatmentFoods).toEqual([])
+    expect(result.updatedRampMaintenanceFoods).toEqual([])
+  })
+})
+
+describe("resolveRampAfterAdvance", () => {
+  it("justFinishedTreatment is true when wasTreatmentRampActive was true and the resulting treatment side is now done", () => {
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ complete: false })] })
+    const updatedTreatmentFoods = [makeTreatmentFood({ complete: true })]
+
+    const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, [], true)
+
+    expect(result.justFinishedTreatment).toBe(true)
+  })
+
+  it("justFinishedTreatment is false (no double-fire) when the treatment side was already done going in", () => {
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ complete: true })] })
+    const updatedTreatmentFoods = [makeTreatmentFood({ complete: true })]
+
+    // wasTreatmentRampActive is false here because treatmentRampActive() is already
+    // false once the treatment side is done — exactly what the caller would have
+    // computed before this call.
+    const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, [], false)
+
+    expect(result.justFinishedTreatment).toBe(false)
+  })
+
+  it("fullyDone is false when treatment is done but maintenance is not", () => {
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ complete: false })] })
+    const updatedTreatmentFoods = [makeTreatmentFood({ complete: true })]
+    const updatedMaintenanceFoods = [makeMaintenanceFood({ complete: false })]
+
+    const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, updatedMaintenanceFoods, true)
+
+    expect(result.fullyDone).toBe(false)
+  })
+
+  it("fullyDone is true only when both treatment and maintenance are done", () => {
+    const ramp = makeRamp({ treatmentFoods: [makeTreatmentFood({ complete: false })] })
+    const updatedTreatmentFoods = [makeTreatmentFood({ complete: true })]
+    const updatedMaintenanceFoods = [makeMaintenanceFood({ complete: true })]
+
+    const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, updatedMaintenanceFoods, true)
+
+    expect(result.fullyDone).toBe(true)
+  })
+
+  it("increments rampDay only when ramp.active was true", () => {
+    const activeRamp = makeRamp({ active: true, rampDay: 3 })
+    const activeResult = resolveRampAfterAdvance(activeRamp, activeRamp.treatmentFoods, activeRamp.maintenanceFoods, true)
+    expect(activeResult.nextRamp.rampDay).toBe(4)
+
+    const inactiveRamp = makeRamp({ active: false, rampDay: 3 })
+    const inactiveResult = resolveRampAfterAdvance(inactiveRamp, inactiveRamp.treatmentFoods, inactiveRamp.maintenanceFoods, false)
+    expect(inactiveResult.nextRamp.rampDay).toBe(3)
   })
 })

@@ -312,3 +312,92 @@ export function getRampOverrides(
 
   return { treatment, maintenance }
 }
+
+export interface DayAdvanceResult {
+  updatedProgress: Map<string, FoodProgress>
+  updatedRampTreatmentFoods: RampTreatmentFood[]
+  updatedRampMaintenanceFoods: RampMaintenanceFood[]
+}
+
+// Decides, per checked food, whether its PERMANENT position (treatment_food_progress)
+// advances or its RAMP STEP advances instead — a food actively ramping (present in
+// ramp.treatmentFoods and the ramp's treatment side not yet fully done) is frozen here;
+// its ramp entry advances instead via advanceRampStepState. Every other checked
+// treatment food advances treatment_food_progress exactly as it always has. Maintenance
+// ramp foods advance independently, gated only on that specific food being checked
+// (morning-<name>) and not yet complete. Shared by handleCompleteDay (today's live
+// checkboxes) and the lazy auto-rollover reconciliation (a missed prior day's saved
+// checkbox snapshot) — both must resolve a day's checked foods identically.
+export function advanceProgressForDay(
+  schedule: ParsedSchedule,
+  checkedFoods: Record<string, boolean>,
+  foodProgress: Map<string, FoodProgress>,
+  ramp: ReactionRamp | null,
+  completedAt: string
+): DayAdvanceResult {
+  const wasTreatmentRampActive = treatmentRampActive(ramp)
+  const updatedProgress = new Map(foodProgress)
+  const updatedRampTreatmentFoods = ramp ? ramp.treatmentFoods.map(f => ({ ...f })) : []
+
+  for (const food of schedule.treatmentFoods) {
+    const key = `evening-${food.name}`
+    if (!checkedFoods[key]) continue
+
+    const rampIndex = updatedRampTreatmentFoods.findIndex(f => f.name === food.name)
+    if (wasTreatmentRampActive && rampIndex !== -1) {
+      const rampFood = updatedRampTreatmentFoods[rampIndex]
+      updatedRampTreatmentFoods[rampIndex] = { ...rampFood, ...advanceRampStepState(rampFood) }
+      continue
+    }
+
+    const fp = updatedProgress.get(food.name)
+    if (!fp) continue
+    const newCompletedDays = fp.completedDays + 1
+    if (newCompletedDays >= 7) {
+      updatedProgress.set(food.name, { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: completedAt })
+    } else {
+      updatedProgress.set(food.name, { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt })
+    }
+  }
+
+  const updatedRampMaintenanceFoods = ramp
+    ? ramp.maintenanceFoods.map(f => {
+        if (f.complete) return { ...f }
+        if (!checkedFoods[`morning-${f.name}`]) return { ...f }
+        return { ...f, ...advanceRampStepState(f) }
+      })
+    : []
+
+  return { updatedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods }
+}
+
+export interface RampAdvanceResult {
+  nextRamp: ReactionRamp
+  justFinishedTreatment: boolean
+  fullyDone: boolean
+}
+
+// Given a ramp and its post-advancement treatment/maintenance food arrays (from
+// advanceProgressForDay), decides: did the treatment side just transition from
+// not-done to done this call (justFinishedTreatment — gates the one-time
+// appendPreviousRamp history write), and is the WHOLE ramp now done, treatment
+// and maintenance both (fullyDone — gates clearing reaction_ramp back to
+// inactive). Callers still own the actual I/O (appendPreviousRamp/saveReactionRamp)
+// and the rampDay increment decision — this only computes what the resulting
+// ramp object and its two lifecycle flags should be.
+export function resolveRampAfterAdvance(
+  ramp: ReactionRamp,
+  updatedRampTreatmentFoods: RampTreatmentFood[],
+  updatedRampMaintenanceFoods: RampMaintenanceFood[],
+  wasTreatmentRampActive: boolean
+): RampAdvanceResult {
+  const nextRamp: ReactionRamp = {
+    ...ramp,
+    rampDay: ramp.active ? ramp.rampDay + 1 : ramp.rampDay,
+    treatmentFoods: updatedRampTreatmentFoods,
+    maintenanceFoods: updatedRampMaintenanceFoods,
+  }
+  const justFinishedTreatment = wasTreatmentRampActive && treatmentRampDone(nextRamp)
+  const fullyDone = treatmentRampDone(nextRamp) && nextRamp.maintenanceFoods.every(f => f.complete)
+  return { nextRamp, justFinishedTreatment, fullyDone }
+}
