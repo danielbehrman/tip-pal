@@ -756,6 +756,7 @@ export async function appendPreviousRamp(entry: PreviousRamp): Promise<void> {
     .single()
   if (readError) throw readError
   const existing = (familyData.previous_ramps ?? []) as PreviousRamp[]
+  if (existing.some(r => r.startedAt === entry.startedAt)) return
   const { error: writeError } = await getClient()
     .from("families")
     .update({ previous_ramps: [...existing, entry] })
