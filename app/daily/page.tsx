@@ -29,7 +29,7 @@ import {
   saveReactionRamp,
   appendPreviousRamp,
 } from "@/lib/supabase"
-import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, treatmentRampDone, advanceRampStepState, getRampOverrides } from "@/lib/schedule"
+import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 type BannerInfo =
@@ -86,7 +86,7 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, ramp] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, rawRamp] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
@@ -115,6 +115,7 @@ export default function DailyPage() {
 
         // Seed food progress on first load if the table is empty for this family
         let progress = rawProgress
+        let ramp = rawRamp
         if (progress.size === 0 && s.treatmentFoods.length > 0) {
           try {
             progress = await seedFoodProgress(
@@ -152,8 +153,7 @@ export default function DailyPage() {
         const floorSeq = (initialState.floorWeek - 1) * 7 + initialState.floorDay
         if (
           initialState.cycleStartDate < todayDateString() &&
-          yesterdaySeq > floorSeq &&
-          !treatmentRampActive(ramp)
+          yesterdaySeq > floorSeq
         ) {
           const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
           if (!hasRecord) {
@@ -181,27 +181,44 @@ export default function DailyPage() {
               ? await fetchLastLoggedDate().catch(() => null)
               : null
 
-            const advancedProgress = new Map(progress)
-            for (const { food } of yEveningItems) {
-              if (!yCheckedFoods[`evening-${food.name}`]) continue
-              const fp = advancedProgress.get(food.name)
-              if (!fp) continue
-              const newCompletedDays = fp.completedDays + 1
-              advancedProgress.set(
-                food.name,
-                newCompletedDays >= 7
-                  ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: recordedAt }
-                  : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: recordedAt }
-              )
-            }
+            const wasTreatmentRampActiveYesterday = treatmentRampActive(ramp)
+            const { updatedProgress: advancedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
+              advanceProgressForDay(s, yCheckedFoods, progress, ramp, recordedAt)
 
             try {
-              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped, false)
+              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped, ramp?.active ?? false)
               await saveFoodProgress(advancedProgress)
               progress = advancedProgress
               globalPos = getGlobalPosition(advancedProgress)
               stateWithGlobalPos.currentWeek = globalPos.week
               stateWithGlobalPos.currentDay = globalPos.day
+
+              if (ramp) {
+                const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+                  ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActiveYesterday
+                )
+                if (justFinishedTreatment) {
+                  try {
+                    await appendPreviousRamp({
+                      startedAt: ramp.startedAt,
+                      endedAt: recordedAt,
+                      rampDayCount: nextRamp.rampDay,
+                      treatmentFoods: nextRamp.treatmentFoods,
+                      maintenanceFoods: nextRamp.maintenanceFoods,
+                    })
+                  } catch {
+                    // History write failed — non-critical
+                  }
+                }
+                ramp = fullyDone
+                  ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
+                  : nextRamp
+                try {
+                  await saveReactionRamp(ramp)
+                } catch {
+                  // Save failed — non-critical, next load re-fetches truth
+                }
+              }
 
               const nextDayRecords = new Map(finalDayRecords)
               nextDayRecords.set(yPosKey, { date: dayDate, skipped: yIsSkipped })
@@ -301,41 +318,8 @@ export default function DailyPage() {
     const ramp = reactionRampRef.current
     const wasTreatmentRampActive = treatmentRampActive(ramp)
 
-    // Advance per-food progress for every checked evening treatment food.
-    // A food that's actively ramping (and not yet done with its own steps)
-    // is frozen here — its ramp entry advances instead, see below.
-    const updatedProgress = new Map(foodProgress)
-    const updatedRampTreatmentFoods = ramp ? ramp.treatmentFoods.map(f => ({ ...f })) : []
-    for (const food of currentSchedule.treatmentFoods) {
-      const key = `evening-${food.name}`
-      if (!checkedFoods[key]) continue
-
-      const rampIndex = updatedRampTreatmentFoods.findIndex(f => f.name === food.name)
-      if (wasTreatmentRampActive && rampIndex !== -1) {
-        const rampFood = updatedRampTreatmentFoods[rampIndex]
-        updatedRampTreatmentFoods[rampIndex] = { ...rampFood, ...advanceRampStepState(rampFood) }
-        continue
-      }
-
-      const fp = updatedProgress.get(food.name)
-      if (!fp) continue
-      const newCompletedDays = fp.completedDays + 1
-      if (newCompletedDays >= 7) {
-        updatedProgress.set(food.name, { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: completedAt })
-      } else {
-        updatedProgress.set(food.name, { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt })
-      }
-    }
-
-    // Maintenance ramp foods advance independently of the treatment side,
-    // gated on that specific food having been checked this morning.
-    const updatedRampMaintenanceFoods = ramp
-      ? ramp.maintenanceFoods.map(f => {
-          if (f.complete) return { ...f }
-          if (!checkedFoods[`morning-${f.name}`]) return { ...f }
-          return { ...f, ...advanceRampStepState(f) }
-        })
-      : []
+    const { updatedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
+      advanceProgressForDay(currentSchedule, checkedFoods, foodProgress, ramp, completedAt)
 
     // Log uses the global position BEFORE advancement (the position just completed)
     const globalBefore = getGlobalPosition(foodProgress)
@@ -366,14 +350,9 @@ export default function DailyPage() {
 
     let updatedRamp: ReactionRamp | null = null
     if (ramp) {
-      const nextRamp: ReactionRamp = {
-        ...ramp,
-        rampDay: ramp.active ? ramp.rampDay + 1 : ramp.rampDay,
-        treatmentFoods: updatedRampTreatmentFoods,
-        maintenanceFoods: updatedRampMaintenanceFoods,
-      }
-
-      const justFinishedTreatment = wasTreatmentRampActive && treatmentRampDone(nextRamp)
+      const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+        ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActive
+      )
       if (justFinishedTreatment) {
         try {
           await appendPreviousRamp({
@@ -387,12 +366,9 @@ export default function DailyPage() {
           // History write failed — non-critical, ramp state itself still updates below
         }
       }
-
-      const fullyDone = treatmentRampDone(nextRamp) && nextRamp.maintenanceFoods.every(f => f.complete)
       updatedRamp = fullyDone
         ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
         : nextRamp
-
       try {
         await saveReactionRamp(updatedRamp)
       } catch {
