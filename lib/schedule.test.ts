@@ -396,6 +396,31 @@ describe("advanceProgressForDay", () => {
     expect(result.updatedRampTreatmentFoods).toEqual([])
     expect(result.updatedRampMaintenanceFoods).toEqual([])
   })
+
+  it("advances real foodProgress (not the frozen ramp step) for a checked treatment food when ramp.active is true but the treatment side is already done — the maintenance-tail case", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const ramp = makeRamp({
+      active: true,
+      treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin", complete: true })],
+    })
+    const originalProgress = makeFoodProgress({ foodName: "Peanut Gelatin", week: 1, day: 3, completedDays: 2 })
+    const progress = new Map([["Peanut Gelatin", originalProgress]])
+    const checkedFoods = { "evening-Peanut Gelatin": true }
+
+    const result = advanceProgressForDay(schedule, checkedFoods, progress, ramp, "2026-08-15T12:00:00.000Z")
+
+    // treatmentRampActive(ramp) is false here (treatmentRampDone is true), even though
+    // ramp.active is true — this is the maintenance-tail condition. Real dosing position
+    // must advance, not freeze against the (already-finished) ramp step.
+    expect(result.updatedProgress.get("Peanut Gelatin")).toEqual({
+      foodName: "Peanut Gelatin",
+      week: 1,
+      day: 4,
+      completedDays: 3,
+      lastCompletedAt: "2026-08-15T12:00:00.000Z",
+    })
+    expect(result.updatedRampTreatmentFoods).toEqual(ramp.treatmentFoods)
+  })
 })
 
 describe("resolveRampAfterAdvance", () => {
@@ -416,6 +441,26 @@ describe("resolveRampAfterAdvance", () => {
     // false once the treatment side is done — exactly what the caller would have
     // computed before this call.
     const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, [], false)
+
+    expect(result.justFinishedTreatment).toBe(false)
+  })
+
+  it("justFinishedTreatment is false when wasTreatmentRampActive is true but the treatment side is still in progress (another treatment food in the array is still incomplete)", () => {
+    const ramp = makeRamp({
+      treatmentFoods: [
+        makeTreatmentFood({ name: "Peanut Gelatin", complete: false }),
+        makeTreatmentFood({ name: "Cashew", complete: false }),
+      ],
+    })
+    const updatedTreatmentFoods = [
+      makeTreatmentFood({ name: "Peanut Gelatin", complete: true }),
+      makeTreatmentFood({ name: "Cashew", complete: false }),
+    ]
+
+    // Distinct from "no double-fire" above: here the treatment side genuinely has not
+    // finished yet (Cashew still incomplete), rather than having already been done
+    // going in.
+    const result = resolveRampAfterAdvance(ramp, updatedTreatmentFoods, [], true)
 
     expect(result.justFinishedTreatment).toBe(false)
   })
