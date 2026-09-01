@@ -9,6 +9,7 @@ import {
   fetchDoseState,
   fetchAppointmentDate,
   saveFamilyConfig,
+  saveFliesToAppointments,
   saveDoseState,
   saveVisitNumber,
   uploadChildPhoto,
@@ -18,6 +19,7 @@ import {
 import { ParsedSchedule, DoseState } from "@/lib/types"
 import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition } from "@/lib/schedule"
 import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
+import TravelDayToggle from "@/components/TravelDayToggle"
 
 const VISIT_SEQUENCE = [
   "Launch",
@@ -54,6 +56,8 @@ export default function OnboardingPage() {
 
   // Appointment date
   const [appointmentDate, setAppointmentDate] = useState("")
+  const [fliesToAppointments, setFliesToAppointments] = useState<boolean | null>(null)
+  const [travelError, setTravelError] = useState(false)
 
   // Position
   const [visitIdx, setVisitIdx] = useState(0)
@@ -114,6 +118,11 @@ export default function OnboardingPage() {
     setStep(2)
   }
 
+  function handleStep2Continue() {
+    if (fliesToAppointments === null) { setTravelError(true); return }
+    setStep(3)
+  }
+
   function handleConfirm() {
     saveAndRedirect()
   }
@@ -127,6 +136,7 @@ export default function OnboardingPage() {
     setSaveError(null)
     try {
       await saveFamilyConfig(childName.trim(), appointmentDate || null)
+      await saveFliesToAppointments(fliesToAppointments ?? false)
       await saveVisitNumber(VISIT_SEQUENCE[visitIdx])
       const seededProgress = await seedFoodProgress(positionEntries)
       const globalPos = getGlobalPosition(seededProgress)
@@ -159,7 +169,7 @@ export default function OnboardingPage() {
     return getGlobalPosition(map)
   })()
   const bufferResult = schedule
-    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, slowestPosition.week, slowestPosition.day - 1, false)
+    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, slowestPosition.week, slowestPosition.day - 1, fliesToAppointments ?? false)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days"
@@ -364,10 +374,15 @@ export default function OnboardingPage() {
           <p className="text-sm text-center" style={{ color: "var(--color-text-muted)" }}>
             Tap to pick a date from the calendar.
           </p>
+          <TravelDayToggle
+            value={fliesToAppointments}
+            onChange={v => { setFliesToAppointments(v); setTravelError(false) }}
+            error={travelError}
+          />
           <button
             className="w-full py-4 rounded-xl text-base font-semibold text-white"
             style={{ background: "var(--color-primary-mid)" }}
-            onClick={() => setStep(3)}
+            onClick={handleStep2Continue}
           >
             Continue
           </button>
@@ -448,6 +463,7 @@ export default function OnboardingPage() {
                     })
                   : "—",
               },
+              { label: "Travel day", value: fliesToAppointments ? "Yes" : "No" },
               {
                 label: "Starting position",
                 value: positionsInSync
