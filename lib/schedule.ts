@@ -151,7 +151,8 @@ export function calculateBufferFromProgress(
   appointmentDateStr: string | null,
   totalTreatmentWeeks: number,
   slowestWeek: number,
-  slowestCompletedDays: number
+  slowestCompletedDays: number,
+  fliesToAppointments: boolean
 ): BufferResult {
   if (!appointmentDateStr || totalTreatmentWeeks === 0) return { kind: "hidden" }
 
@@ -166,7 +167,7 @@ export function calculateBufferFromProgress(
     (totalTreatmentWeeks - slowestWeek) * 7 + (6 - slowestCompletedDays)
   const finalDay7Date = parseDateOnly(addDays(todayDateString(), remainingDays))
   const bufferDays =
-    Math.round((apptDate.getTime() - finalDay7Date.getTime()) / MS_PER_DAY) - 1
+    Math.round((apptDate.getTime() - finalDay7Date.getTime()) / MS_PER_DAY) - 1 - (fliesToAppointments ? 1 : 0)
 
   if (bufferDays < 0) return { kind: "behind", count: Math.abs(bufferDays) }
   return { kind: "days", count: bufferDays }

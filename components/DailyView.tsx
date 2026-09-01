@@ -105,7 +105,8 @@ export default function DailyView({
     appointmentDate,
     totalTreatmentWeeks,
     doseState.currentWeek,
-    slowestCompletedDays
+    slowestCompletedDays,
+    false
   )
 
   const bufferDisplay =

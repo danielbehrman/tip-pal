@@ -165,7 +165,7 @@ export default function NewCyclePage() {
   const blueOffset = ringAnimated ? targetOffset : CIRCUM
 
   const bufferResult = parsedSchedule
-    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(parsedSchedule), 1, 0)
+    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(parsedSchedule), 1, 0, false)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days" ? `${bufferResult.count} buffer day${bufferResult.count !== 1 ? "s" : ""}`

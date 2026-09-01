@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "./schedule"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays } from "./schedule"
 import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
@@ -493,5 +493,36 @@ describe("resolveRampAfterAdvance", () => {
     const inactiveRamp = makeRamp({ active: false, rampDay: 3 })
     const inactiveResult = resolveRampAfterAdvance(inactiveRamp, inactiveRamp.treatmentFoods, inactiveRamp.maintenanceFoods, false)
     expect(inactiveResult.nextRamp.rampDay).toBe(3)
+  })
+})
+
+describe("calculateBufferFromProgress — fliesToAppointments", () => {
+  it("subtracts one additional day from a positive buffer when the flag is true", () => {
+    // totalTreatmentWeeks === slowestWeek and slowestCompletedDays === 6 means
+    // the slowest food is already on day 7 of the final week — remainingDays is 0,
+    // so finalDay7Date is today, isolating the flag's effect on the result.
+    const appointmentDateStr = addDays(todayDateString(), 11)
+    const withoutFlag = calculateBufferFromProgress(appointmentDateStr, 4, 4, 6, false)
+    const withFlag = calculateBufferFromProgress(appointmentDateStr, 4, 4, 6, true)
+    expect(withoutFlag).toEqual({ kind: "days", count: 10 })
+    expect(withFlag).toEqual({ kind: "days", count: 9 })
+  })
+
+  it("makes an already-behind family show one day more behind when the flag is true", () => {
+    // remainingDays = (4-4)*7 + (6-3) = 3, so finalDay7Date is 3 days from today.
+    const appointmentDateStr = addDays(todayDateString(), 2)
+    const withoutFlag = calculateBufferFromProgress(appointmentDateStr, 4, 4, 3, false)
+    const withFlag = calculateBufferFromProgress(appointmentDateStr, 4, 4, 3, true)
+    expect(withoutFlag).toEqual({ kind: "behind", count: 2 })
+    expect(withFlag).toEqual({ kind: "behind", count: 3 })
+  })
+
+  it("does not affect the hidden case (no appointment date)", () => {
+    expect(calculateBufferFromProgress(null, 4, 4, 6, true)).toEqual({ kind: "hidden" })
+  })
+
+  it("does not affect the past case (appointment date already elapsed)", () => {
+    const pastDate = addDays(todayDateString(), -5)
+    expect(calculateBufferFromProgress(pastDate, 4, 4, 6, true)).toEqual({ kind: "past" })
   })
 })

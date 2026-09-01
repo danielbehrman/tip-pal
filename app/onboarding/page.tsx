@@ -159,7 +159,7 @@ export default function OnboardingPage() {
     return getGlobalPosition(map)
   })()
   const bufferResult = schedule
-    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, slowestPosition.week, slowestPosition.day - 1)
+    ? calculateBufferFromProgress(appointmentDate || null, maxWeek, slowestPosition.week, slowestPosition.day - 1, false)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days"
