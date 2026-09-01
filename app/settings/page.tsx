@@ -396,8 +396,8 @@ export default function SettingsPage() {
             {/* Travel day */}
             <div className="px-4 py-3">
               <TravelDayToggle
-                value={fliesToAppointments}
-                onChange={v => setFliesToAppointments(v)}
+                value={fliesToAppointmentsLoaded.current ? fliesToAppointments : null}
+                onChange={v => { setFliesToAppointments(v); fliesToAppointmentsLoaded.current = true }}
               />
             </div>
             <RowDivider />
