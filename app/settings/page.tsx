@@ -16,6 +16,8 @@ import {
   saveChildPhotoUrl,
   fetchChildPhotoUrl,
   saveAppointmentDate,
+  fetchFliesToAppointments,
+  saveFliesToAppointments,
   saveDoseState,
   saveNotificationSettings,
   savePushSubscription,
@@ -33,6 +35,7 @@ import { isNative } from "@/lib/platform"
 import { DoseState, ParsedSchedule, FoodGroup, FoodProgress, ReactionRamp } from "@/lib/types"
 import GroupsManager from "@/components/GroupsManager"
 import FoodPositionStepper from "@/components/FoodPositionStepper"
+import TravelDayToggle from "@/components/TravelDayToggle"
 import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
 
 const APP_VERSION = "0.1.0"
@@ -60,6 +63,7 @@ export default function SettingsPage() {
   const [photoError, setPhotoError] = useState<string | null>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [appointmentDate, setAppointmentDate] = useState("")
+  const [fliesToAppointments, setFliesToAppointments] = useState(false)
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress>>(new Map())
   const [existingDoseState, setExistingDoseState] = useState<DoseState | null>(null)
   const [morningReminder, setMorningReminder] = useState("08:00")
@@ -74,6 +78,7 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appointmentDateLoaded = useRef(false)
+  const fliesToAppointmentsLoaded = useRef(false)
   const [visitNumber, setVisitNumber] = useState<string>("")
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
@@ -107,6 +112,11 @@ export default function SettingsPage() {
           const apptDate = await fetchAppointmentDate()
           setAppointmentDate(apptDate ?? "")
           appointmentDateLoaded.current = true
+        } catch {}
+        try {
+          const flies = await fetchFliesToAppointments()
+          setFliesToAppointments(flies)
+          fliesToAppointmentsLoaded.current = true
         } catch {}
         if (name) setChildName(name)
         setChildPhotoUrl(photoUrl)
@@ -261,6 +271,9 @@ export default function SettingsPage() {
       if (appointmentDateLoaded.current) {
         await saveAppointmentDate(appointmentDate || null)
       }
+      if (fliesToAppointmentsLoaded.current) {
+        await saveFliesToAppointments(fliesToAppointments)
+      }
       await saveVisitNumber(visitNumber.trim() || null)
       await saveNotificationSettings(morningReminder, eveningReminder, timezone)
       setSaved(true)
@@ -377,6 +390,14 @@ export default function SettingsPage() {
                 onChange={e => setAppointmentDate(e.target.value)}
                 className="text-sm bg-transparent text-right outline-none border-none"
                 style={{ color: "var(--color-text-secondary)" }}
+              />
+            </div>
+            <RowDivider />
+            {/* Travel day */}
+            <div className="px-4 py-3">
+              <TravelDayToggle
+                value={fliesToAppointments}
+                onChange={v => setFliesToAppointments(v)}
               />
             </div>
             <RowDivider />
