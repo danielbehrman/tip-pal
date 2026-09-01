@@ -6,6 +6,7 @@ import { ParsedSchedule } from "@/lib/types"
 import {
   fetchSchedule,
   fetchChildPhotoUrl,
+  fetchFliesToAppointments,
   archiveAndStartNewCycle,
   getSession,
   seedFoodProgress,
@@ -60,6 +61,7 @@ export default function NewCyclePage() {
   const [currentSchedule, setCurrentSchedule] = useState<ParsedSchedule | null>(null)
   const [parsedSchedule, setParsedSchedule] = useState<ParsedSchedule | null>(null)
   const [appointmentDate, setAppointmentDate] = useState("")
+  const [fliesToAppointments, setFliesToAppointments] = useState(false)
   const [childPhotoUrl, setChildPhotoUrl] = useState<string | null>(null)
   const [error, setError] = useState("")
   const [ringAnimated, setRingAnimated] = useState(false)
@@ -71,12 +73,14 @@ export default function NewCyclePage() {
     async function init() {
       const session = await getSession()
       if (!session) { router.replace("/login"); return }
-      const [s, photo] = await Promise.all([
+      const [s, photo, flies] = await Promise.all([
         fetchSchedule().catch(() => null),
         fetchChildPhotoUrl().catch(() => null),
+        fetchFliesToAppointments().catch(() => false),
       ])
       setCurrentSchedule(s)
       setChildPhotoUrl(photo)
+      setFliesToAppointments(flies)
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -165,7 +169,7 @@ export default function NewCyclePage() {
   const blueOffset = ringAnimated ? targetOffset : CIRCUM
 
   const bufferResult = parsedSchedule
-    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(parsedSchedule), 1, 0, false)
+    ? calculateBufferFromProgress(appointmentDate || null, getMaxWeek(parsedSchedule), 1, 0, fliesToAppointments)
     : { kind: "hidden" as const }
   const bufferText =
     bufferResult.kind === "days" ? `${bufferResult.count} buffer day${bufferResult.count !== 1 ? "s" : ""}`
