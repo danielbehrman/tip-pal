@@ -14,6 +14,7 @@ interface DailyViewProps {
   onCompleteDay: () => void
   onSkipMorning: () => void
   appointmentDate: string | null
+  fliesToAppointments: boolean
   familyName: string | null
   completedPositions: Set<string>
   dayRecords: Map<string, DayRecord>
@@ -55,11 +56,16 @@ function getDaysToAppointment(appointmentDate: string | null): number | null {
 
 const CIRCUMFERENCE = 2 * Math.PI * 26 // ≈ 163.4
 
-const BUFFER_INFO_COPY =
-  "Buffer days are the days between completing your final week of dosing and your next clinic appointment. " +
-  "Your program requires at least 7 days on the final week's dose before your visit. " +
-  "Buffer days show how much cushion you have — so you know you're on track. " +
-  "Note: The day of your appointment and the day before (for travel) are not counted as buffer days."
+function getBufferInfoCopy(fliesToAppointments: boolean): string {
+  const base =
+    "Buffer days are the days between completing your final week of dosing and your next clinic appointment. " +
+    "Your program requires at least 7 days on the final week's dose before your visit. " +
+    "Buffer days show how much cushion you have — so you know you're on track. " +
+    "Note: The day of your appointment"
+  return fliesToAppointments
+    ? base + " and the day before (for travel) are not counted as buffer days."
+    : base + " is not counted as a buffer day."
+}
 
 export default function DailyView({
   schedule,
@@ -68,6 +74,7 @@ export default function DailyView({
   onCompleteDay,
   onSkipMorning,
   appointmentDate,
+  fliesToAppointments,
   familyName,
   completedPositions,
   dayRecords,
@@ -106,7 +113,7 @@ export default function DailyView({
     totalTreatmentWeeks,
     doseState.currentWeek,
     slowestCompletedDays,
-    false
+    fliesToAppointments
   )
 
   const bufferDisplay =
@@ -427,7 +434,7 @@ export default function DailyView({
             onClick={e => e.stopPropagation()}
           >
             <p className="text-sm leading-relaxed" style={{ color: "var(--color-text-primary)" }}>
-              {BUFFER_INFO_COPY}
+              {getBufferInfoCopy(fliesToAppointments)}
             </p>
             <button
               className="mt-5 w-full py-3 rounded-xl text-sm font-medium"

@@ -15,6 +15,7 @@ import {
   fetchDateHasDayRecord,
   fetchLastLoggedDate,
   fetchAppointmentDate,
+  fetchFliesToAppointments,
   fetchFamilyName,
   fetchFoodGroups,
   fetchVisitNumber,
@@ -43,6 +44,7 @@ export default function DailyPage() {
   const [doseState, setDoseState] = useState<DoseState | null>(null)
   const [hydrated, setHydrated] = useState(false)
   const [appointmentDate, setAppointmentDate] = useState<string | null>(null)
+  const [fliesToAppointments, setFliesToAppointments] = useState(false)
   const [familyName, setFamilyName] = useState<string | null>(null)
   const [completedPositions, setCompletedPositions] = useState<Set<string>>(new Set())
   const [dayRecords, setDayRecords] = useState<Map<string, DayRecord>>(new Map())
@@ -86,7 +88,7 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, rawRamp] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, rawRamp, flies] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
@@ -97,6 +99,7 @@ export default function DailyPage() {
           fetchFoodProgress().catch(() => new Map<string, FoodProgress>()),
           fetchChildPhotoUrl().catch(() => null),
           fetchReactionRamp().catch(() => null),
+          fetchFliesToAppointments().catch(() => false),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -255,6 +258,7 @@ export default function DailyPage() {
         setTreatmentAnchor({ week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay })
         recommendedFoodCountsRef.current = initialState.recommendedFoodCounts ?? {}
         setAppointmentDate(apptDate)
+        setFliesToAppointments(flies)
         setFamilyName(name)
         setCompletedPositions(finalCompletedPositions)
         setDayRecords(finalDayRecords)
@@ -427,6 +431,7 @@ export default function DailyPage() {
       onCompleteDay={handleCompleteDay}
       onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
+      fliesToAppointments={fliesToAppointments}
       familyName={familyName}
       completedPositions={completedPositions}
       dayRecords={dayRecords}
