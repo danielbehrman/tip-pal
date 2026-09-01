@@ -4,11 +4,11 @@
 Tip Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 4 — Engagement — Reaction Ramp complete (Project Owner UI sign-off received 2026-09-01). Remaining Phase 4 backlog: Milestone Email, Emergency Medication Expiry Tracker, Travel Day Buffer, Native Push Notifications.
+Phase: Phase 4 — Engagement — Reaction Ramp complete (Project Owner UI sign-off received 2026-09-01). Travel Day Buffer built via brainstorm → plan → subagent-driven-development (8 tasks, all reviewed clean) and a whole-branch review, pending Project Owner UI sign-off. Remaining Phase 4 backlog: Milestone Email, Emergency Medication Expiry Tracker, Native Push Notifications.
 Mode: Active Build
 Last Updated: 2026-09-01
-Blocker: None. Reaction Ramp signed off in full — Settings wizard (Start/Edit/Cancel), daily view banner, and treatment/maintenance dose overrides all approved. Note: no separate formal QA-agent test-suite pass was recorded before sign-off; validation instead came from four rounds of dogfooding-driven post-ship fixes (missed-day reconciliation, editor snap-back, grouped-food wizard gap) plus Project Owner's direct production review. UI sign-off is valid regardless of QA status per this project's gate rule, but the QA step itself was not formally closed — documented here per the "decisions made in chat must be captured in BRIEF" rule.
-Next Action: Select and ticket the next Phase 4 feature (Milestone Email — Donation Ask, Emergency Medication Expiry Tracker, or Travel Day Buffer) via PM Agent.
+Blocker: None. Travel Day Buffer: `flies_to_appointments` migration applied to production (verified directly against live DB), all 8 tasks + whole-branch review complete. Whole-branch review found 3 Important findings: (1) Settings toggle could paint a confident "No" and silently skip saving if its load fetch failed — fixed, now shows unanswered until loaded or explicitly answered; (2) migration-must-be-applied-before-deploy — already resolved, confirmed live in production; (3) this BRIEF entry was stale — now corrected. 5 Minor findings recorded in `.superpowers/sdd/progress.md` for a future pass (toggle a11y, time-relative test determinism, new-cycle affordance, a dead defensive fallback, a cosmetic divider) — none blocking. Design spec: `docs/superpowers/specs/2026-09-01-travel-day-buffer-design.md`. Plan + full task ledger: `plans/PHASE-4-TRAVEL-DAY-BUFFER.md`, `.superpowers/sdd/progress.md`.
+Next Action: Project Owner UI sign-off on Travel Day Buffer (onboarding required Yes/No question, Settings toggle, daily view buffer number + info-sheet copy) — required regardless of review status per this project's UI gate rule. After that, select and ticket the next Phase 4 feature (Milestone Email or Emergency Medication Expiry Tracker) via PM Agent.
 
 ---
 
@@ -334,7 +334,7 @@ Required env var: `NEXT_PUBLIC_API_BASE_URL` = `https://tippal.behrman.dev` — 
 | Bottom nav | 4 tabs: Today · History · Rec. Foods · Settings — replaces link-based nav |
 | Program progress | SVG ring around child avatar — fills clockwise, Visit N of 25 |
 | Buffer days | Replaces week progress bar in header — label + bold number + ⓘ info button |
-| Buffer days ⓘ explanation | "Buffer days are the days between completing your final week of dosing and your next clinic appointment. Your program requires at least 7 days on the final week's dose before your visit. Buffer days show how much cushion you have — so you know you're on track. Note: The day of your appointment and the day before (for travel) are not counted as buffer days." |
+| Buffer days ⓘ explanation | Conditional on `flies_to_appointments` (Travel Day Buffer, Phase 4). Base text: "Buffer days are the days between completing your final week of dosing and your next clinic appointment. Your program requires at least 7 days on the final week's dose before your visit. Buffer days show how much cushion you have — so you know you're on track. Note: The day of your appointment..." — if the family flies to appointments: "...and the day before (for travel) are not counted as buffer days." If not: "...is not counted as a buffer day." |
 | Week badges on treatment foods | Hidden when all foods in sync; shown per-food only when diverged |
 | Group food interaction | Checkbox completes all; chevron expands/collapses independently; no auto-expand on check |
 | Medications on daily view | Inline in AM/PM food list — not a separate screen |
@@ -723,8 +723,10 @@ Superseded key-spec bullets (kept for history): ~~counter increments only on ful
 
 ---
 
-#### Travel Day Buffer
+#### Travel Day Buffer 🔧 Implemented (2026-09-01), pending Project Owner UI sign-off
 **Goal:** Families who fly to appointments have a planned skip day before their appointment accounted for automatically in the buffer calculation.
+
+**Status:** Built via brainstorm → plan → subagent-driven-development (8 tasks) → whole-branch review, all clean. Design spec: `docs/superpowers/specs/2026-09-01-travel-day-buffer-design.md`. Plan + full task ledger: `plans/PHASE-4-TRAVEL-DAY-BUFFER.md`, `.superpowers/sdd/progress.md`. Migration applied to production, confirmed live via direct SQL query. Not yet Project Owner-signed-off — see Current Status above.
 
 Key spec:
 - Onboarding asks: "Do you travel to your appointments?" with note: "If you fly or travel the day before, we'll automatically account for one extra skip day in your buffer calculation."
