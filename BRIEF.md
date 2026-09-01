@@ -4,11 +4,11 @@
 Tip Pal — a daily dosing assistant for families in food allergy tolerance induction programs.
 
 ## Current Status
-Phase: Phase 4 — Engagement — Reaction Ramp implemented, pending QA + Project Owner UI sign-off
+Phase: Phase 4 — Engagement — Reaction Ramp complete (Project Owner UI sign-off received 2026-09-01). Remaining Phase 4 backlog: Milestone Email, Emergency Medication Expiry Tracker, Travel Day Buffer, Native Push Notifications.
 Mode: Active Build
-Last Updated: 2026-08-14
-Blocker: None. Reaction Ramp (Phase 4 backlog) brainstormed → planned → built via subagent-driven-development (9 tasks) → reviewed. Final whole-branch review found 5 Important findings across two review rounds (`getRampOverrides` applying maintenance overrides on an inactive ramp; wizard edit restarting a finished treatment ramp with no escape path; grouped maintenance foods diverging display vs. ramp-step state; New Food Cycle not clearing a stale ramp; auto-rollover not ramp-aware), all fixed and independently re-verified — plus one further Important finding on the fix itself (edit silently dropping a partially-complete treatment food, un-freezing it), fixed and re-verified clean. Pushed to `origin/main` (`2b61eec`); Vercel auto-deployed to production (`tippal.behrman.dev`) on push. Design spec: `docs/superpowers/specs/2026-08-13-reaction-ramp-design.md`. Plan + full task/review ledger: `plans/PHASE-4-REACTION-RAMP.md`, `.superpowers/sdd/progress.md`.
-Next Action: QA pass against `daniel.behrman+test1@gmail.com` on production, then Project Owner UI sign-off (Settings wizard — Start/Edit/Cancel flow, daily view ramp banner + dose overrides) — required regardless of QA pass per this project's UI gate rule. QA scenarios are listed in the design spec's QA section and BRIEF's Reaction Ramp entry below.
+Last Updated: 2026-09-01
+Blocker: None. Reaction Ramp signed off in full — Settings wizard (Start/Edit/Cancel), daily view banner, and treatment/maintenance dose overrides all approved. Note: no separate formal QA-agent test-suite pass was recorded before sign-off; validation instead came from four rounds of dogfooding-driven post-ship fixes (missed-day reconciliation, editor snap-back, grouped-food wizard gap) plus Project Owner's direct production review. UI sign-off is valid regardless of QA status per this project's gate rule, but the QA step itself was not formally closed — documented here per the "decisions made in chat must be captured in BRIEF" rule.
+Next Action: Select and ticket the next Phase 4 feature (Milestone Email — Donation Ask, Emergency Medication Expiry Tracker, or Travel Day Buffer) via PM Agent.
 
 ---
 
@@ -180,7 +180,7 @@ Target schema for Phase 3 parser update. Adds `recommendedFoods` and `medication
 | Auth | Supabase Auth, email/password. Two users (Dan + wife) for MVP. Schema supports multi-family expansion (families → users → schedules) but MVP does not build multi-family UI. |
 | Push notifications | Web push only for MVP. Native push is long-term target — out of scope for Phase 2. |
 | Trailing edit | **⚠️ Superseded 2026-07-15 (Stable/maintenance bundle):** Trailing edits CAN affect advancement — correcting a previously-unchecked treatment food within the 3-day trailing window retroactively advances that food's position from that day forward. `getGlobalPosition()` re-derives after any trailing edit, same as after a Settings per-food edit, so foods that drifted out of sync from a missed dose can resync. Morning food checkbox state is unaffected — still no impact on day completion, informational only. |
-| Buffer days | Buffer = days from the day after the final treatment food's final complete week Day 7 through the day before the next appointment. Excludes appointment day and travel day (day before appointment). |
+| Buffer days | Buffer = days from the day after the final treatment food's final complete week Day 7 through the day before the next appointment. Excludes appointment day. If `flies_to_appointments: true` on the family record, one additional travel day (day before appointment) is subtracted from the buffer — no logging, pure math. |
 | State on refresh | Server wins. Refresh always fetches latest from Supabase. No stale cookie or localStorage override. |
 | Buffer anchor date | Buffer calculated against the furthest-behind treatment food's projected final week completion. Global header always shows the slowest food's position. |
 | Dose log session model | One row per day (`session: 'day'`). Skip morning or skip evening creates a separate additional row. |
@@ -623,10 +623,10 @@ Superseded key-spec bullets (kept for history): ~~counter increments only on ful
 
 ---
 
-#### Reaction Ramp 🔧 Implemented (2026-08-14), pending QA + Project Owner UI sign-off
+#### Reaction Ramp ✅ Complete — Project Owner UI sign-off received (2026-09-01)
 **Goal:** When a reaction occurs mid-cycle, allow a parent to enter a clinic-prescribed ramp-back plan for any affected treatment and maintenance foods. The week/day counter freezes for the duration, treatment food doses are overridden per the ramp plan, and the counter resumes only when all treatment food ramp steps are complete.
 
-**Status:** Built via brainstorm → plan → subagent-driven-development (9 tasks) → reviewed, deployed to production via Vercel auto-deploy. Design spec: `docs/superpowers/specs/2026-08-13-reaction-ramp-design.md`. Implementation plan + full ledger: `plans/PHASE-4-REACTION-RAMP.md`. Not yet QA'd live or Dan-signed-off — see Current Status above.
+**Status:** Built via brainstorm → plan → subagent-driven-development (9 tasks) → reviewed, deployed to production via Vercel auto-deploy. Design spec: `docs/superpowers/specs/2026-08-13-reaction-ramp-design.md`. Implementation plan + full ledger: `plans/PHASE-4-REACTION-RAMP.md`. **Signed off in full by Project Owner 2026-09-01** — Settings wizard (Start/Edit/Cancel flow), daily view ramp banner, and treatment/maintenance dose overrides all approved. No separate formal QA-agent test-suite pass was run beforehand; the sign-off covers UI only and stands independent of that per this project's gate rule. Real-world validation came from dogfooding: four rounds of post-ship P0/production fixes below, all found via live production use and each independently re-verified.
 
 **Post-ship P0 fix (`d47357e`, `6b314fe`, `235d5ef`) — missed-day reconciliation:** Dan reported a missed day (Saturday) during an active ramp was invisible in History with nothing to correct via Trailing Edit. Root cause: the original final review's Fix 5 made the lazy auto-rollover skip *entirely* whenever a ramp is treatment-active, instead of just correctly branching its position-advancement logic — so no `dose_log` row got written at all for a missed day mid-ramp. Fixed by extracting the ramp-vs-position decision (previously only inline in `handleCompleteDay`) into two new pure, tested functions in `lib/schedule.ts` (`advanceProgressForDay`, `resolveRampAfterAdvance`) and using them in both `handleCompleteDay` and the reconciliation block — reviewed at the highest scrutiny level used in this project (opus reviewer, 12 named correctness checks, all confirmed, no-ramp case independently re-verified byte-identical). Two Important follow-ups closed same-day: `appendPreviousRamp` now dedupes by `startedAt` (prevented a duplicate history-entry risk on a specific write-order failure), and added the missing regression test for the exact branch deciding whether a real dosing position advances during a maintenance-only ramp tail. 47/47 tests passing. Time-sensitive: fix must be live and Dan must reload before the missed day ages out of the single-most-recent-day reconciliation window.
 
@@ -723,6 +723,24 @@ Superseded key-spec bullets (kept for history): ~~counter increments only on ful
 
 ---
 
+#### Travel Day Buffer
+**Goal:** Families who fly to appointments have a planned skip day before their appointment accounted for automatically in the buffer calculation.
+
+Key spec:
+- Onboarding asks: "Do you travel to your appointments?" with note: "If you fly or travel the day before, we'll automatically account for one extra skip day in your buffer calculation."
+- Yes/No — no default. User must explicitly choose.
+- Same setting accessible in Settings under appointment configuration — families can update if circumstances change
+- If Yes: buffer subtracts one additional day from available dosing days. No logging, no tracking, pure math.
+- If No: buffer calculation unchanged
+- Travel day is always the day immediately before the appointment
+- Setting stored on `families` table (`flies_to_appointments: boolean`)
+
+**Constraints:**
+- No travel day logging — buffer math only
+- No skip entry written to dose_log for the travel day
+
+---
+
 #### Native Push Notifications (via Capacitor)
 **Goal:** Replace web push with native iOS/Android push for more reliable delivery.
 
@@ -740,6 +758,8 @@ Key spec: TBD — depends on Capacitor wrapper from Phase 3.
 - Reaction reporting
 - Sourcing reminders (source specialty foods 4+ weeks before appointment)
 - Multi-child support (single account, multiple children)
+- **Digital Food Passport (P2):** Stamp-style UI for each food cleared at a challenge visit. "Cleared" = introduced at challenge and graduated to maintenance — sourced from plan of care parse, not dose log. Visual progress artifact for a multi-year program.
+- **Appointment day copy bug (P1, stable/maintenance):** Appointment day card shows "Today is Visit [N]" — stale since the new visit number isn't known until the new plan of care is parsed. Fix: show "Today is an appointment day" with no visit number. Copy change only, no data model changes.
 
 ---
 
