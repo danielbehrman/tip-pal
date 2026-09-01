@@ -213,6 +213,26 @@ export async function saveAppointmentDate(date: string | null): Promise<void> {
   if (error) throw error
 }
 
+export async function fetchFliesToAppointments(): Promise<boolean> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("families")
+    .select("flies_to_appointments")
+    .eq("id", familyId)
+    .single()
+  if (error) throw error
+  return data.flies_to_appointments as boolean
+}
+
+export async function saveFliesToAppointments(value: boolean): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("families")
+    .update({ flies_to_appointments: value })
+    .eq("id", familyId)
+  if (error) throw error
+}
+
 export async function saveSkipLog(
   week: number,
   day: number,
