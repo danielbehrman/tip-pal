@@ -4,14 +4,20 @@ interface TravelDayToggleProps {
   value: boolean | null
   onChange: (value: boolean) => void
   error?: boolean
+  saved?: boolean
 }
 
-export default function TravelDayToggle({ value, onChange, error = false }: TravelDayToggleProps) {
+export default function TravelDayToggle({ value, onChange, error = false, saved = false }: TravelDayToggleProps) {
   return (
     <div>
-      <p className="text-sm font-medium mb-1" style={{ color: "var(--color-text-primary)" }}>
-        Do you travel to your appointments?
-      </p>
+      <div className="flex items-center gap-2 mb-1">
+        <p className="text-sm font-medium" style={{ color: "var(--color-text-primary)" }}>
+          Do you travel to your appointments?
+        </p>
+        {saved && (
+          <span className="text-xs" style={{ color: "#22c55e" }}>Saved</span>
+        )}
+      </div>
       <p className="text-xs mb-2" style={{ color: "var(--color-text-muted)" }}>
         If you fly or travel the day before, we&apos;ll automatically account for one extra skip day in your buffer calculation.
       </p>

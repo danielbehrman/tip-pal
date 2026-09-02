@@ -79,6 +79,9 @@ export default function SettingsPage() {
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const appointmentDateLoaded = useRef(false)
   const fliesToAppointmentsLoaded = useRef(false)
+  const [travelSaved, setTravelSaved] = useState(false)
+  const [travelSaveError, setTravelSaveError] = useState<string | null>(null)
+  const travelSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [visitNumber, setVisitNumber] = useState<string>("")
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
   const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
@@ -182,6 +185,20 @@ export default function SettingsPage() {
     setSubscribing(false)
   }
 
+  async function handleTravelChange(value: boolean) {
+    setFliesToAppointments(value)
+    fliesToAppointmentsLoaded.current = true
+    setTravelSaveError(null)
+    try {
+      await saveFliesToAppointments(value)
+      setTravelSaved(true)
+      if (travelSavedTimerRef.current) clearTimeout(travelSavedTimerRef.current)
+      travelSavedTimerRef.current = setTimeout(() => setTravelSaved(false), 2000)
+    } catch {
+      setTravelSaveError("Save failed — please try again")
+    }
+  }
+
   async function handleGroupsChange(groups: FoodGroup[]) {
     setFoodGroups(groups)
     try {
@@ -270,9 +287,6 @@ export default function SettingsPage() {
       await saveChildName(childName.trim())
       if (appointmentDateLoaded.current) {
         await saveAppointmentDate(appointmentDate || null)
-      }
-      if (fliesToAppointmentsLoaded.current) {
-        await saveFliesToAppointments(fliesToAppointments)
       }
       await saveVisitNumber(visitNumber.trim() || null)
       await saveNotificationSettings(morningReminder, eveningReminder, timezone)
@@ -397,8 +411,12 @@ export default function SettingsPage() {
             <div className="px-4 py-3">
               <TravelDayToggle
                 value={fliesToAppointmentsLoaded.current ? fliesToAppointments : null}
-                onChange={v => { setFliesToAppointments(v); fliesToAppointmentsLoaded.current = true }}
+                onChange={handleTravelChange}
+                saved={travelSaved}
               />
+              {travelSaveError && (
+                <p className="text-xs mt-1" style={{ color: "#dc2626" }}>{travelSaveError}</p>
+              )}
             </div>
             <RowDivider />
             {/* Auto-derived program day */}
