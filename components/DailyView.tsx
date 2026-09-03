@@ -366,8 +366,13 @@ export default function DailyView({
           >
             <p className="text-sm font-medium" style={{ color: "#795548" }}>
               {bannerInfo.kind === "single"
-                ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given. Go back and fix it if that's wrong.`
-                : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward — go back to each day to log what actually happened.`}
+                ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given.`
+                : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward.`}
+              {" "}If that's wrong,{" "}
+              <Link href="/history/edit" className="underline font-semibold">
+                fix it here
+              </Link>
+              .
             </p>
           </div>
         )}
