@@ -1,7 +1,7 @@
 "use client"
 
 import { ParsedSchedule, DoseLogDay } from "@/lib/types"
-import { classifyDoseLogDay, DayStatus } from "@/lib/schedule"
+import { classifyDoseLogDay, DayStatus, todayDateString } from "@/lib/schedule"
 
 interface HistoryCalendarProps {
   schedule: ParsedSchedule
@@ -29,21 +29,21 @@ function DayStatusIcon({ status }: { status: DayStatus | null }) {
   if (status === "complete") {
     return (
       <span
-        style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid #22c55e" }}
+        style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid var(--color-complete)" }}
         className="flex items-center justify-center text-xs font-bold"
       >
-        <span style={{ color: "#22c55e" }}>✓</span>
+        <span style={{ color: "var(--color-complete)" }}>✓</span>
       </span>
     )
   }
   if (status === "treatment-complete") {
-    return <span style={{ color: "#22c55e", fontSize: 16, fontWeight: 700 }}>✓</span>
+    return <span style={{ color: "var(--color-complete)", fontSize: 16, fontWeight: 700 }}>✓</span>
   }
   if (status === "treatment-partial") {
-    return <span style={{ width: 16, height: 3, background: "#22c55e", borderRadius: 2, display: "inline-block" }} />
+    return <span style={{ width: 16, height: 3, background: "var(--color-complete)", borderRadius: 2, display: "inline-block" }} />
   }
   if (status === "treatment-missed") {
-    return <span style={{ color: "#dc2626", fontSize: 16, fontWeight: 700 }}>✕</span>
+    return <span style={{ color: "var(--color-danger)", fontSize: 16, fontWeight: 700 }}>✕</span>
   }
   return null
 }
@@ -63,7 +63,7 @@ export default function HistoryCalendar({
   const firstOfMonth = new Date(year, m - 1, 1)
   const leadingBlanks = firstOfMonth.getDay()
   const daysInMonth = new Date(year, m, 0).getDate()
-  const todayStr = new Date().toISOString().slice(0, 10)
+  const todayStr = todayDateString()
 
   const byDate = new Map<string, DoseLogDay>()
   for (const d of monthDays) byDate.set(d.completedAt.slice(0, 10), d)
@@ -124,11 +124,11 @@ export default function HistoryCalendar({
                 borderRadius: 8,
                 opacity: isFuture ? 0.35 : 1,
                 background: isToday
-                  ? "var(--accent-soft, #fef3c7)"
+                  ? "var(--color-warning-bg)"
                   : selected
                   ? "var(--color-primary-border)"
                   : "var(--color-bg-secondary)",
-                border: isToday ? "1px solid #f59e0b" : selected ? "1.5px solid var(--color-primary-mid)" : "none",
+                border: isToday ? "1px solid var(--color-warning-border)" : selected ? "1.5px solid var(--color-primary-mid)" : "none",
               }}
             >
               <span style={{ fontSize: 12, opacity: 0.8, fontWeight: isToday ? 700 : 400 }}>{dayNum}</span>
