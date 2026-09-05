@@ -185,7 +185,11 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
         }
       }
       if (runningCounts !== recommendedFoodCounts) {
-        setRecommendedFoodCounts(runningCounts)
+        // Deliberately not calling setRecommendedFoodCounts here: on success this
+        // component unmounts via onClose() below, so nothing reads the new value —
+        // and if a later step in this save throws, leaving the state at its
+        // original baseline means a retry recomputes the same net delta from the
+        // same starting point (idempotent) instead of double-applying it.
         saveRecommendedGiven(runningCounts).catch(() => {})
       }
 
