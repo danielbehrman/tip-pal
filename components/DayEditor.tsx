@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { DoseLogDay, ParsedSchedule, FoodProgress, ReactionRamp } from "@/lib/types"
+import { DoseLogDay, ParsedSchedule, FoodProgress, ReactionRamp, FoodGroup } from "@/lib/types"
 import {
   getFoodEdgeState,
   advanceFoodProgress,
@@ -23,12 +23,19 @@ import {
   saveRecommendedGiven,
 } from "@/lib/supabase"
 import FoodItem from "@/components/FoodItem"
+import { buildMorningItems, MorningItem } from "./MorningSection"
+import FoodGroupRow from "./FoodGroupRow"
 
 interface DayEditorProps {
   entry: DoseLogDay
   fallbackSchedule: ParsedSchedule
   onClose: () => void
   onSaved: (updated: DoseLogDay) => void
+  foodGroups: FoodGroup[]
+}
+
+function formatEntryDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
 }
 
 interface Row {
@@ -40,7 +47,7 @@ interface Row {
   isEdgeFood: boolean
 }
 
-export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }: DayEditorProps) {
+export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, foodGroups }: DayEditorProps) {
   const s = entry.scheduleSnapshot ?? fallbackSchedule
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, boolean>>(entry.checkedFoods)
@@ -74,6 +81,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
         }))
       : []),
   ]
+  const morningItems: MorningItem[] = buildMorningItems(s.maintenanceFoods, s.weeklyFoods, entry.day === 7, foodGroups)
   const medicationRows: Row[] = (s.medications ?? []).flatMap(med =>
     getMedicationSessions(med.frequency).map(session => ({
       key: `${session}-med-${med.name}`, name: med.name, dose: med.dose, unit: med.unit, session: "med" as const, isEdgeFood: false,
@@ -207,8 +215,6 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
                 currentWeek: newGlobal.week,
                 currentDay: newGlobal.day,
                 cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-                floorWeek: newGlobal.week,
-                floorDay: newGlobal.day,
                 skipCount: 0,
               })
             }
@@ -260,7 +266,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
         style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <button onClick={onClose} className="text-white" aria-label="Close">‹ Close</button>
-        <h1 className="text-base font-semibold text-white">Week {entry.week}, Day {entry.day}</h1>
+        <h1 className="text-base font-semibold text-white">{formatEntryDate(entry.completedAt)}</h1>
         {editing ? (
           <button onClick={handleSaveTap} disabled={saving} className="text-white font-semibold disabled:opacity-50">
             {saving ? "Saving…" : "Save"}
@@ -275,7 +281,40 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
       <div className="flex-1 overflow-y-auto px-4 pt-4 pb-24 flex flex-col gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>Maintenance</p>
-          <div className="flex flex-col gap-2">{maintenanceRows.map(renderRow)}</div>
+          <div className="flex flex-col gap-2">
+            {morningItems.map(item => {
+              if (item.type === "group") {
+                return (
+                  <FoodGroupRow
+                    key={`group-${item.group.id}`}
+                    group={item.group}
+                    foods={item.foods}
+                    checkedFoods={draft}
+                    disabled={!editing}
+                    onCheck={toggle}
+                  />
+                )
+              }
+              const isWeekly = item.type === "weekly"
+              const key = `${item.prefix}-${item.food.name}`
+              return (
+                <FoodItem
+                  key={key}
+                  name={item.food.name}
+                  dose={item.food.dose}
+                  unit={item.food.unit}
+                  prepNote={item.food.prepNote ?? null}
+                  capped={"capped" in item.food ? item.food.capped : false}
+                  session="morning"
+                  isWeekly={isWeekly}
+                  isContinuing={false}
+                  checked={!!draft[key]}
+                  disabled={!editing}
+                  onChange={val => toggle(key, val)}
+                />
+              )
+            })}
+          </div>
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: "var(--color-text-secondary)" }}>Treatment</p>

@@ -17,12 +17,12 @@ interface MorningSectionProps {
   maintenanceRampOverrides?: Map<string, RampDoseOverride>
 }
 
-type MorningItem =
+export type MorningItem =
   | { type: "standalone"; food: MaintenanceFood; prefix: "morning" }
   | { type: "weekly"; food: WeeklyFood; prefix: "morning-weekly" }
   | { type: "group"; group: FoodGroup; foods: Array<{ food: MaintenanceFood | WeeklyFood; prefix: "morning" | "morning-weekly" }> }
 
-function buildMorningItems(
+export function buildMorningItems(
   maintenanceFoods: MaintenanceFood[],
   weeklyFoods: WeeklyFood[],
   showWeekly: boolean,

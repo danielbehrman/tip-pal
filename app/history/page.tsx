@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ParsedSchedule, DoseLogDay } from "@/lib/types"
+import { ParsedSchedule, DoseLogDay, FoodGroup } from "@/lib/types"
 import {
   getSession,
   fetchSchedule,
   fetchDoseLogDaysInRange,
   fetchEarliestDoseLogDate,
+  fetchFoodGroups,
   deleteDoseLogDays,
   deleteAllDoseLogDays,
 } from "@/lib/supabase"
@@ -19,6 +20,7 @@ export default function HistoryPage() {
   const router = useRouter()
   const now = new Date()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
+  const [foodGroups, setFoodGroups] = useState<FoodGroup[]>([])
   const [month, setMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [monthDays, setMonthDays] = useState<DoseLogDay[]>([])
   const [earliestMonth, setEarliestMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
@@ -52,15 +54,17 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, earliestDate] = await Promise.all([
+        const [s, earliestDate, groups] = await Promise.all([
           fetchSchedule(),
           fetchEarliestDoseLogDate(),
+          fetchFoodGroups().catch(() => []),
         ])
         if (!s) {
           router.replace("/setup")
           return
         }
         setSchedule(s)
+        setFoodGroups(groups)
         if (earliestDate) {
           const [y, m] = earliestDate.split("-").map(Number)
           setEarliestMonth({ year: y, month: m })
@@ -191,6 +195,7 @@ export default function HistoryPage() {
             setEditingEntry(null)
             setEditingDateStr(null)
           }}
+          foodGroups={foodGroups}
         />
       )}
       {confirmTarget && (

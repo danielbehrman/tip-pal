@@ -499,6 +499,7 @@ export default function DailyView({
           fallbackSchedule={schedule}
           onClose={() => setEditingEntry(null)}
           onSaved={() => { setEditingEntry(null); window.location.reload() }}
+          foodGroups={foodGroups}
         />
       )}
     </div>
