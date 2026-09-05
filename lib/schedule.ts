@@ -1,4 +1,4 @@
-import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood, RampStep, RampTreatmentFood, RampMaintenanceFood, ReactionRamp, RampDoseOverride } from "./types"
+import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood, RampStep, RampTreatmentFood, RampMaintenanceFood, ReactionRamp, RampDoseOverride, DoseLogDay } from "./types"
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -429,4 +429,29 @@ export function resolveRampAfterAdvance(
   const justFinishedTreatment = wasTreatmentRampActive && treatmentRampDone(nextRamp)
   const fullyDone = treatmentRampDone(nextRamp) && nextRamp.maintenanceFoods.every(f => f.complete)
   return { nextRamp, justFinishedTreatment, fullyDone }
+}
+
+export type DayStatus = "complete" | "treatment-complete" | "treatment-partial" | "treatment-missed" | "none-scheduled"
+
+export function classifyDoseLogDay(entry: DoseLogDay, fallbackSchedule: ParsedSchedule): DayStatus {
+  const s = entry.scheduleSnapshot ?? fallbackSchedule
+
+  const treatmentKeys = getTreatmentFoodsForWeek(s, entry.week).map(({ food }) => `evening-${food.name}`)
+  if (treatmentKeys.length === 0) return "none-scheduled"
+
+  const treatmentCheckedCount = treatmentKeys.filter(k => entry.checkedFoods[k]).length
+  if (treatmentCheckedCount === 0) return "treatment-missed"
+  if (treatmentCheckedCount < treatmentKeys.length) return "treatment-partial"
+
+  const maintenanceKeys = [
+    ...s.maintenanceFoods.map(f => `morning-${f.name}`),
+    ...(entry.day === 7 ? s.weeklyFoods.map(f => `morning-weekly-${f.name}`) : []),
+  ]
+  const medicationKeys = (s.medications ?? []).flatMap(med =>
+    getMedicationSessions(med.frequency).map(session => `${session}-med-${med.name}`)
+  )
+  const allMaintenanceChecked = maintenanceKeys.every(k => entry.checkedFoods[k])
+  const allMedsChecked = medicationKeys.every(k => entry.checkedFoods[k])
+
+  return allMaintenanceChecked && allMedsChecked ? "complete" : "treatment-complete"
 }

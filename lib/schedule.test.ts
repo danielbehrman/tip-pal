@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, getFoodEdgeState, advanceFoodProgress, regressFoodProgress } from "./schedule"
-import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress } from "./types"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, getFoodEdgeState, advanceFoodProgress, regressFoodProgress, classifyDoseLogDay } from "./schedule"
+import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress, DoseLogDay } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
   { name: "Pea Protein", dose: 1, unit: "tsp", frequencyPerWeek: "3-5" },
@@ -594,5 +594,96 @@ describe("regressFoodProgress", () => {
     const advanced = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
     const regressed = regressFoodProgress(advanced)
     expect(regressed).toEqual({ ...fp, lastCompletedAt: null })
+  })
+})
+
+const classifierSchedule: ParsedSchedule = {
+  maintenanceFoods: [{ name: "Denatured Donkey Milk", dose: 60, unit: "ml", capped: false, prepNote: "" }],
+  weeklyFoods: [],
+  treatmentFoods: [{ name: "Peanut Gelatin", weeks: [{ week: 1, dose: 10, unit: "ml", isFinal: false }] }],
+  medications: [
+    { name: "Zyrtec", dose: "5", unit: "ml", frequency: "once daily" },
+    { name: "Flovent", dose: "2", unit: "puffs", frequency: "twice daily" },
+  ],
+}
+
+function makeDoseLogDay(overrides: Partial<DoseLogDay> = {}): DoseLogDay {
+  return {
+    id: "day-1",
+    week: 1,
+    day: 3,
+    completedAt: "2026-09-01T12:00:00.000Z",
+    checkedFoods: {},
+    scheduleSnapshot: classifierSchedule,
+    morningSkipped: false,
+    eveningSkipped: false,
+    ...overrides,
+  }
+}
+
+describe("classifyDoseLogDay", () => {
+  it("is 'complete' when every maintenance food, treatment food, and medication is checked", () => {
+    const entry = makeDoseLogDay({
+      checkedFoods: {
+        "evening-Peanut Gelatin": true,
+        "morning-Denatured Donkey Milk": true,
+        "morning-med-Zyrtec": true,
+        "morning-med-Flovent": true,
+        "evening-med-Flovent": true,
+      },
+    })
+    expect(classifyDoseLogDay(entry, classifierSchedule)).toBe("complete")
+  })
+
+  it("is 'treatment-complete' when all treatment foods are checked but a medication is missed", () => {
+    const entry = makeDoseLogDay({
+      checkedFoods: {
+        "evening-Peanut Gelatin": true,
+        "morning-Denatured Donkey Milk": true,
+        "morning-med-Zyrtec": true,
+        // evening-med-Flovent and morning-med-Flovent both missing
+      },
+    })
+    expect(classifyDoseLogDay(entry, classifierSchedule)).toBe("treatment-complete")
+  })
+
+  it("is 'treatment-partial' when at least one but not all treatment foods are checked", () => {
+    const twoFoodSchedule: ParsedSchedule = {
+      ...classifierSchedule,
+      treatmentFoods: [
+        { name: "Peanut Gelatin", weeks: [{ week: 1, dose: 10, unit: "ml", isFinal: false }] },
+        { name: "Cashew", weeks: [{ week: 1, dose: 5, unit: "ml", isFinal: false }] },
+      ],
+    }
+    const entry = makeDoseLogDay({
+      scheduleSnapshot: twoFoodSchedule,
+      checkedFoods: { "evening-Peanut Gelatin": true },
+    })
+    expect(classifyDoseLogDay(entry, twoFoodSchedule)).toBe("treatment-partial")
+  })
+
+  it("is 'treatment-missed' when zero treatment foods are checked", () => {
+    const entry = makeDoseLogDay({ checkedFoods: {} })
+    expect(classifyDoseLogDay(entry, classifierSchedule)).toBe("treatment-missed")
+  })
+
+  it("is 'none-scheduled' when the day's schedule snapshot has zero treatment foods", () => {
+    const noTreatmentSchedule: ParsedSchedule = { ...classifierSchedule, treatmentFoods: [] }
+    const entry = makeDoseLogDay({ scheduleSnapshot: noTreatmentSchedule })
+    expect(classifyDoseLogDay(entry, noTreatmentSchedule)).toBe("none-scheduled")
+  })
+
+  it("falls back to the passed-in schedule when scheduleSnapshot is null", () => {
+    const entry = makeDoseLogDay({
+      scheduleSnapshot: null,
+      checkedFoods: {
+        "evening-Peanut Gelatin": true,
+        "morning-Denatured Donkey Milk": true,
+        "morning-med-Zyrtec": true,
+        "morning-med-Flovent": true,
+        "evening-med-Flovent": true,
+      },
+    })
+    expect(classifyDoseLogDay(entry, classifierSchedule)).toBe("complete")
   })
 })
