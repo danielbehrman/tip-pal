@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { DoseLogDay, ParsedSchedule, FoodProgress } from "@/lib/types"
+import { useEffect, useState } from "react"
+import { DoseLogDay, ParsedSchedule, FoodProgress, ReactionRamp } from "@/lib/types"
 import {
   getFoodEdgeState,
   advanceFoodProgress,
@@ -10,6 +10,8 @@ import {
   getMedicationSessions,
   getGlobalPosition,
   cycleStartDateForPosition,
+  treatmentRampActive,
+  applyCrossCategoryCredit,
 } from "@/lib/schedule"
 import {
   updateDoseLogCheckedFoods,
@@ -17,6 +19,8 @@ import {
   saveFoodProgress,
   fetchDoseState,
   saveDoseState,
+  fetchReactionRamp,
+  saveRecommendedGiven,
 } from "@/lib/supabase"
 import FoodItem from "@/components/FoodItem"
 
@@ -41,10 +45,23 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, boolean>>(entry.checkedFoods)
   const [foodProgress, setFoodProgress] = useState<Map<string, FoodProgress> | null>(null)
+  const [activeRamp, setActiveRamp] = useState<ReactionRamp | null>(null)
+  const [recommendedFoodCounts, setRecommendedFoodCounts] = useState<Record<string, Record<string, number>>>({})
   const [loadingProgress, setLoadingProgress] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setDraft(entry.checkedFoods)
+    setEditing(false)
+    setFoodProgress(null)
+    setActiveRamp(null)
+    setRecommendedFoodCounts({})
+    setConfirming(false)
+    setSaveError(null)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry.id])
 
   const treatmentEntries = getTreatmentFoodsForWeek(s, entry.week)
   const maintenanceRows: Row[] = [
@@ -69,8 +86,14 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
   async function startEditing() {
     setLoadingProgress(true)
     try {
-      const progress = await fetchFoodProgress()
+      const [progress, ramp, ds] = await Promise.all([
+        fetchFoodProgress(),
+        fetchReactionRamp(),
+        fetchDoseState(),
+      ])
       setFoodProgress(progress)
+      setActiveRamp(ramp)
+      setRecommendedFoodCounts(ds?.recommendedFoodCounts ?? {})
       setEditing(true)
     } catch {
       setSaveError("Couldn't load current progress — please try again")
@@ -79,8 +102,14 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
     }
   }
 
+  function isRampFrozen(foodName: string): boolean {
+    if (!treatmentRampActive(activeRamp)) return false
+    return !!activeRamp?.treatmentFoods.some(f => f.name === foodName)
+  }
+
   function isTreatmentRowEditable(foodName: string, wasChecked: boolean): boolean {
     if (!foodProgress) return false
+    if (isRampFrozen(foodName)) return false
     const fp = foodProgress.get(foodName)
     if (!fp) return false
     const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
@@ -89,6 +118,21 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
 
   function toggle(key: string, val: boolean) {
     setDraft(prev => ({ ...prev, [key]: val }))
+
+    const entrySchedule = s
+    const wasChecked = !!entry.checkedFoods[key]
+    const updatedCounts = applyCrossCategoryCredit(
+      entrySchedule.recommendedFoods ?? [],
+      recommendedFoodCounts,
+      String(entry.week),
+      key,
+      val,
+      wasChecked
+    )
+    if (updatedCounts) {
+      setRecommendedFoodCounts(updatedCounts)
+      saveRecommendedGiven(updatedCounts).catch(() => {})
+    }
   }
 
   function willChangePosition(): boolean {
@@ -108,12 +152,14 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
       await updateDoseLogCheckedFoods(entry.id, draft)
 
       if (foodProgress) {
+        const oldGlobal = getGlobalPosition(foodProgress)
         let nextProgress = foodProgress
         let changed = false
         for (const row of treatmentRows) {
           const wasChecked = !!entry.checkedFoods[row.key]
           const nowChecked = !!draft[row.key]
           if (wasChecked === nowChecked) continue
+          if (isRampFrozen(row.name)) continue
           const fp = nextProgress.get(row.name)
           if (!fp) continue
           const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
@@ -132,16 +178,18 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
         if (changed) {
           await saveFoodProgress(nextProgress)
           const newGlobal = getGlobalPosition(nextProgress)
-          const existing = await fetchDoseState().catch(() => null)
-          if (existing) {
-            await saveDoseState({
-              ...existing,
-              currentWeek: newGlobal.week,
-              currentDay: newGlobal.day,
-              cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-              floorWeek: newGlobal.week,
-              floorDay: newGlobal.day,
-            })
+          if (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) {
+            const existing = await fetchDoseState()
+            if (existing) {
+              await saveDoseState({
+                ...existing,
+                currentWeek: newGlobal.week,
+                currentDay: newGlobal.day,
+                cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
+                floorWeek: newGlobal.week,
+                floorDay: newGlobal.day,
+              })
+            }
           }
         }
       }
