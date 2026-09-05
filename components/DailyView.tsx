@@ -97,6 +97,7 @@ export default function DailyView({
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
   const [editorLoading, setEditorLoading] = useState(false)
+  const [editorError, setEditorError] = useState<string | null>(null)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
   const totalTreatmentWeeks = getTotalTreatmentWeeks(schedule)
@@ -335,6 +336,7 @@ export default function DailyView({
           className="text-center"
           disabled={!isPastDay || editorLoading}
           onClick={async () => {
+            setEditorError(null)
             setEditorLoading(true)
             try {
               // Same source of truth as the displayed `dateLabel` above, so the
@@ -342,6 +344,9 @@ export default function DailyView({
               const dateStr = formatDateOnly(projectedDate)
               const [day] = await fetchDoseLogDaysInRange(dateStr, dateStr)
               if (day) setEditingEntry(day)
+              else setEditorError("Couldn't load that day — please try again")
+            } catch {
+              setEditorError("Couldn't load that day — please try again")
             } finally {
               setEditorLoading(false)
             }
@@ -356,6 +361,7 @@ export default function DailyView({
           {isPastDay && (
             <p style={{ fontSize: 10, color: "var(--color-primary-mid)" }}>{editorLoading ? "Loading…" : "Tap to edit"}</p>
           )}
+          {editorError && <p style={{ fontSize: 10, color: "#dc2626" }}>{editorError}</p>}
         </button>
 
         <button
@@ -405,7 +411,7 @@ export default function DailyView({
               {bannerInfo.kind === "single"
                 ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given.`
                 : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward.`}
-              {" "}If that's wrong, tap the date above to fix it.
+              {" "}If that's wrong, use the ‹ arrow to go back to that day, then tap the date to fix it.
             </p>
           </div>
         )}
@@ -439,6 +445,7 @@ export default function DailyView({
               checkedFoods={checkedFoods}
               onCheck={handleCheck}
               isFutureDay={isFutureDay}
+              isPastDay={isPastDay}
               foodGroups={foodGroups}
               maintenanceRampOverrides={maintenanceRampOverrides}
             />
@@ -450,6 +457,7 @@ export default function DailyView({
               onSkipMorning={onSkipMorning}
               onCompleteDayTap={onCompleteDay}
               isFutureDay={isFutureDay}
+              isPastDay={isPastDay}
               isCurrentTreatmentDay={isCurrentTreatmentDay}
               isSkipped={isSkipped}
               foodProgress={foodProgress}
@@ -490,7 +498,7 @@ export default function DailyView({
           entry={editingEntry}
           fallbackSchedule={schedule}
           onClose={() => setEditingEntry(null)}
-          onSaved={() => setEditingEntry(null)}
+          onSaved={() => { setEditingEntry(null); window.location.reload() }}
         />
       )}
     </div>

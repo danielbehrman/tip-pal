@@ -7,6 +7,7 @@ import {
   getSession,
   fetchSchedule,
   fetchDoseLogDaysInRange,
+  fetchEarliestDoseLogDate,
   deleteDoseLogDays,
   deleteAllDoseLogDays,
 } from "@/lib/supabase"
@@ -51,19 +52,18 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, firstMonthDays] = await Promise.all([
+        const [s, earliestDate] = await Promise.all([
           fetchSchedule(),
-          fetchDoseLogDaysInRange("2000-01-01", todayDateString()),
+          fetchEarliestDoseLogDate(),
         ])
         if (!s) {
           router.replace("/setup")
           return
         }
         setSchedule(s)
-        if (firstMonthDays.length > 0) {
-          const earliest = firstMonthDays[firstMonthDays.length - 1]
-          const d = new Date(earliest.completedAt)
-          setEarliestMonth({ year: d.getFullYear(), month: d.getMonth() + 1 })
+        if (earliestDate) {
+          const [y, m] = earliestDate.split("-").map(Number)
+          setEarliestMonth({ year: y, month: m })
         }
         await loadMonth(month)
       } catch {
@@ -78,10 +78,15 @@ export default function HistoryPage() {
 
   async function handleMonthChange(next: { year: number; month: number }) {
     setMonth(next)
+    setSelectedIds(new Set())
     await loadMonth(next)
   }
 
   function handleDayClick(dateStr: string, entry: DoseLogDay | null) {
+    if (dateStr === todayDateString()) {
+      router.push("/daily")
+      return
+    }
     if (!entry) return
     setEditingEntry(entry)
     setEditingDateStr(dateStr)
@@ -148,7 +153,6 @@ export default function HistoryPage() {
             <button
               type="button"
               onClick={() => setConfirmTarget("all")}
-              disabled={monthDays.length === 0}
               className="text-sm font-medium disabled:opacity-40"
               style={{ color: "rgba(255,255,255,0.85)" }}
             >
@@ -186,6 +190,7 @@ export default function HistoryPage() {
             setMonthDays(prev => prev.map(d => (d.id === updated.id ? updated : d)))
             setEditingEntry(null)
             setEditingDateStr(null)
+            window.location.reload()
           }}
         />
       )}

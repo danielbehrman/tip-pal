@@ -16,6 +16,7 @@ interface EveningSectionProps {
   onSkipMorning: () => void
   onCompleteDayTap: () => void
   isFutureDay: boolean
+  isPastDay: boolean
   isCurrentTreatmentDay: boolean
   isSkipped: boolean
   foodProgress: Map<string, FoodProgress>
@@ -35,6 +36,7 @@ export default function EveningSection({
   onSkipMorning,
   onCompleteDayTap,
   isFutureDay,
+  isPastDay,
   isCurrentTreatmentDay,
   isSkipped,
   foodProgress,
@@ -83,6 +85,13 @@ export default function EveningSection({
         </div>
       ) : (
         <>
+          {isPastDay && (
+            <div className="px-4 py-2 mb-2 rounded-xl" style={{ background: "var(--color-bg-secondary)" }}>
+              <p className="text-xs" style={{ color: "var(--color-text-secondary)" }}>
+                This day has passed — tap the date above to make changes.
+              </p>
+            </div>
+          )}
           {/* Treatment foods */}
           {treatmentFoods.map(food => {
             const fp = foodProgress.get(food.name)
@@ -102,6 +111,7 @@ export default function EveningSection({
                 session="evening"
                 isContinuing={isContinuing}
                 checked={!!checkedFoods[key]}
+                disabled={isPastDay}
                 onChange={val => onCheck(key, val)}
                 weekBadge={weekBadge}
               />
@@ -121,6 +131,7 @@ export default function EveningSection({
                 capped={false}
                 session="med"
                 checked={!!checkedFoods[key]}
+                disabled={isPastDay}
                 onChange={val => onCheck(key, val)}
               />
             )

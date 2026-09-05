@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
 import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress, ReactionRamp, PreviousRamp } from "./types"
-import { getCalendarPosition, todayDateString } from "./schedule"
+import { getCalendarPosition, todayDateString, addDays, formatDateOnly } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
 // during static export builds — process.env is not available at runtime in Capacitor.
@@ -359,16 +359,26 @@ export async function fetchLastLoggedDate(): Promise<string | null> {
 
 export async function fetchDoseLogDaysInRange(startDate: string, endDate: string): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
+  // Widen the query bounds by a day on each side to catch rows whose UTC
+  // completed_at falls just outside [startDate, endDate] but whose LOCAL
+  // calendar date (the public contract of this function) falls within it —
+  // e.g. a dose logged at 6:30pm PDT has a UTC completed_at on the next day.
+  const queryStart = addDays(startDate, -1)
+  const queryEnd = addDays(endDate, 1)
   const { data, error } = await getClient()
     .from("dose_log")
     .select("id, week, day, session, checked_foods, completed_at, is_skipped, schedule_snapshot")
     .eq("family_id", familyId)
-    .gte("completed_at", `${startDate}T00:00:00.000Z`)
-    .lte("completed_at", `${endDate}T23:59:59.999Z`)
+    .gte("completed_at", `${queryStart}T00:00:00.000Z`)
+    .lte("completed_at", `${queryEnd}T23:59:59.999Z`)
     .order("completed_at", { ascending: false })
   if (error) throw error
   if (!data) return []
-  const dayRows = data.filter(r => r.session === "day")
+  const dayRows = data.filter(r => {
+    if (r.session !== "day") return false
+    const localDate = formatDateOnly(new Date(r.completed_at as string))
+    return localDate >= startDate && localDate <= endDate
+  })
   return dayRows.map(dayRow => ({
     id: dayRow.id as string,
     week: dayRow.week as number,
@@ -383,6 +393,20 @@ export async function fetchDoseLogDaysInRange(startDate: string, endDate: string
       r => r.week === dayRow.week && r.day === dayRow.day && r.session === "evening" && r.is_skipped
     ),
   }))
+}
+
+export async function fetchEarliestDoseLogDate(): Promise<string | null> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("dose_log")
+    .select("completed_at")
+    .eq("family_id", familyId)
+    .eq("session", "day")
+    .order("completed_at", { ascending: true })
+    .limit(1)
+  if (error) throw error
+  if (!data || data.length === 0) return null
+  return formatDateOnly(new Date(data[0].completed_at as string))
 }
 
 export async function updateDoseLogCheckedFoods(

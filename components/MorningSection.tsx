@@ -12,6 +12,7 @@ interface MorningSectionProps {
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
   isFutureDay: boolean
+  isPastDay: boolean
   foodGroups: FoodGroup[]
   maintenanceRampOverrides?: Map<string, RampDoseOverride>
 }
@@ -94,6 +95,7 @@ export default function MorningSection({
   checkedFoods,
   onCheck,
   isFutureDay,
+  isPastDay,
   foodGroups,
   maintenanceRampOverrides = new Map(),
 }: MorningSectionProps) {
@@ -121,7 +123,7 @@ export default function MorningSection({
                 group={item.group}
                 foods={item.foods}
                 checkedFoods={checkedFoods}
-                disabled={isFutureDay}
+                disabled={isFutureDay || isPastDay}
                 onCheck={onCheck}
                 maintenanceRampOverrides={maintenanceRampOverrides}
               />
@@ -142,7 +144,7 @@ export default function MorningSection({
               isWeekly={isWeekly}
               isContinuing={false}
               checked={!!checkedFoods[key]}
-              disabled={isFutureDay}
+              disabled={isFutureDay || isPastDay}
               onChange={val => onCheck(key, val)}
             />
           )
@@ -159,7 +161,7 @@ export default function MorningSection({
               capped={false}
               session="med"
               checked={!!checkedFoods[key]}
-              disabled={isFutureDay}
+              disabled={isFutureDay || isPastDay}
               onChange={val => onCheck(key, val)}
             />
           )
