@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays } from "./schedule"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, getFoodEdgeState, advanceFoodProgress, regressFoodProgress } from "./schedule"
 import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
@@ -524,5 +524,75 @@ describe("calculateBufferFromProgress — fliesToAppointments", () => {
   it("does not affect the past case (appointment date already elapsed)", () => {
     const pastDate = addDays(todayDateString(), -5)
     expect(calculateBufferFromProgress(pastDate, 4, 4, 6, true)).toEqual({ kind: "past" })
+  })
+})
+
+describe("getFoodEdgeState", () => {
+  it("canAdvance is true when the day matches the food's current (waiting-on) position exactly", () => {
+    const fp = makeFoodProgress({ week: 2, day: 3 })
+    expect(getFoodEdgeState(fp, 2, 3)).toEqual({ canAdvance: true, canRegress: false })
+  })
+
+  it("canRegress is true when the day matches the day immediately before the food's current position", () => {
+    const fp = makeFoodProgress({ week: 2, day: 3 })
+    expect(getFoodEdgeState(fp, 2, 2)).toEqual({ canAdvance: false, canRegress: true })
+  })
+
+  it("canRegress correctly crosses a week boundary backward", () => {
+    const fp = makeFoodProgress({ week: 2, day: 1, completedDays: 0 })
+    expect(getFoodEdgeState(fp, 1, 7)).toEqual({ canAdvance: false, canRegress: true })
+  })
+
+  it("neither is true for a day two or more steps away from the edge", () => {
+    const fp = makeFoodProgress({ week: 2, day: 3 })
+    expect(getFoodEdgeState(fp, 2, 1)).toEqual({ canAdvance: false, canRegress: false })
+    expect(getFoodEdgeState(fp, 3, 1)).toEqual({ canAdvance: false, canRegress: false })
+  })
+
+  it("a brand-new food (week 1, day 1, completedDays 0) can advance but never regress", () => {
+    const fp = makeFoodProgress({ week: 1, day: 1, completedDays: 0 })
+    expect(getFoodEdgeState(fp, 1, 1)).toEqual({ canAdvance: true, canRegress: false })
+  })
+})
+
+describe("advanceFoodProgress", () => {
+  it("increments completedDays and day together mid-week", () => {
+    const fp = makeFoodProgress({ week: 2, day: 3, completedDays: 2 })
+    const result = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
+    expect(result).toEqual({ ...fp, day: 4, completedDays: 3, lastCompletedAt: "2026-09-01T00:00:00.000Z" })
+  })
+
+  it("rolls into the next week when completedDays reaches 7", () => {
+    const fp = makeFoodProgress({ week: 2, day: 7, completedDays: 6 })
+    const result = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
+    expect(result).toEqual({ ...fp, week: 3, day: 1, completedDays: 0, lastCompletedAt: "2026-09-01T00:00:00.000Z" })
+  })
+})
+
+describe("regressFoodProgress", () => {
+  it("decrements completedDays and day together mid-week", () => {
+    const fp = makeFoodProgress({ week: 2, day: 4, completedDays: 3 })
+    const result = regressFoodProgress(fp)
+    expect(result).toEqual({ ...fp, day: 3, completedDays: 2, lastCompletedAt: null })
+  })
+
+  it("rolls back into the previous week when completedDays would go below 0", () => {
+    const fp = makeFoodProgress({ week: 3, day: 1, completedDays: 0 })
+    const result = regressFoodProgress(fp)
+    expect(result).toEqual({ ...fp, week: 2, day: 7, completedDays: 6, lastCompletedAt: null })
+  })
+
+  it("is the exact inverse of advanceFoodProgress at a week boundary", () => {
+    const fp = makeFoodProgress({ week: 2, day: 7, completedDays: 6 })
+    const advanced = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
+    const regressed = regressFoodProgress(advanced)
+    expect(regressed).toEqual({ ...fp, lastCompletedAt: null })
+  })
+
+  it("is the exact inverse of advanceFoodProgress mid-week", () => {
+    const fp = makeFoodProgress({ week: 2, day: 3, completedDays: 2 })
+    const advanced = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
+    const regressed = regressFoodProgress(advanced)
+    expect(regressed).toEqual({ ...fp, lastCompletedAt: null })
   })
 })

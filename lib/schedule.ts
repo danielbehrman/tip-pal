@@ -135,6 +135,34 @@ export function getFurthestAheadPosition(
   return result
 }
 
+export function getFoodEdgeState(
+  fp: FoodProgress,
+  week: number,
+  day: number
+): { canAdvance: boolean; canRegress: boolean } {
+  const canAdvance = fp.week === week && fp.day === day
+  const prevIndex = positionIndexOf(fp.week, fp.day) - 1
+  const canRegress = prevIndex >= 0 && (() => {
+    const prev = positionFromIndex(prevIndex)
+    return prev.week === week && prev.day === day
+  })()
+  return { canAdvance, canRegress }
+}
+
+export function advanceFoodProgress(fp: FoodProgress, completedAt: string): FoodProgress {
+  const newCompletedDays = fp.completedDays + 1
+  return newCompletedDays >= 7
+    ? { ...fp, week: fp.week + 1, day: 1, completedDays: 0, lastCompletedAt: completedAt }
+    : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt }
+}
+
+export function regressFoodProgress(fp: FoodProgress): FoodProgress {
+  const newCompletedDays = fp.completedDays - 1
+  return newCompletedDays < 0
+    ? { ...fp, week: fp.week - 1, day: 7, completedDays: 6, lastCompletedAt: null }
+    : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: null }
+}
+
 export function parseFrequencyLow(freq: string): number {
   const match = freq.match(/\d+/)
   return match ? parseInt(match[0], 10) : 0
