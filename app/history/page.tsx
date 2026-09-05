@@ -190,7 +190,6 @@ export default function HistoryPage() {
             setMonthDays(prev => prev.map(d => (d.id === updated.id ? updated : d)))
             setEditingEntry(null)
             setEditingDateStr(null)
-            window.location.reload()
           }}
         />
       )}
