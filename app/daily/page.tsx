@@ -164,11 +164,12 @@ export default function DailyPage() {
           yesterdaySeq > floorSeq
         ) {
           // Safety cap: a real multi-month gap shouldn't silently write hundreds
-          // of rows in one page load. floorSeq is the earliest index eligible for
-          // backfill (matches the existing loop-entry condition above); this only
-          // narrows that further for an unusually large gap.
+          // of rows in one page load. floorSeq - 1 is the floor's own 0-based
+          // position index (floorSeq itself is positionIndexOf(floorWeek, floorDay) + 1),
+          // so the floor day itself is the earliest index eligible for backfill;
+          // this only narrows that further for an unusually large gap.
           const MAX_BACKFILL_DAYS = 60
-          const firstIdx = Math.max(floorSeq, yesterdaySeq - MAX_BACKFILL_DAYS)
+          const firstIdx = Math.max(floorSeq - 1, yesterdaySeq - MAX_BACKFILL_DAYS)
 
           // One range fetch instead of one existence-check per day (this also
           // gives every backfilled day the same correct local-calendar-date
