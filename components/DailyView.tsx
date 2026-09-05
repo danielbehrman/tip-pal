@@ -2,9 +2,12 @@
 
 import { useState, type RefObject } from "react"
 import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress, ReactionRamp, RampDoseOverride } from "@/lib/types"
-import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit, treatmentRampDone } from "@/lib/schedule"
+import { getTotalTreatmentWeeks, calculateBufferFromProgress, getVisitIndex, applyCrossCategoryCredit, treatmentRampDone, todayDateString, addDays, formatDateOnly } from "@/lib/schedule"
+import { fetchDoseLogDaysInRange } from "@/lib/supabase"
 import MorningSection from "./MorningSection"
 import EveningSection from "./EveningSection"
+import DayEditor from "./DayEditor"
+import { DoseLogDay } from "@/lib/types"
 import Link from "next/link"
 
 interface DailyViewProps {
@@ -92,6 +95,8 @@ export default function DailyView({
   maintenanceRampOverrides,
 }: DailyViewProps) {
   const [infoSheetOpen, setInfoSheetOpen] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
+  const [editorLoading, setEditorLoading] = useState(false)
   const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
 
   const totalTreatmentWeeks = getTotalTreatmentWeeks(schedule)
@@ -126,6 +131,7 @@ export default function DailyView({
   const floorSeq = (floorWeek - 1) * 7 + floorDay
   const isFutureDay = viewSeq > anchorSeq
   const isCurrentTreatmentDay = viewSeq === anchorSeq
+  const isPastDay = viewSeq < anchorSeq
 
   const posKey = `${currentWeek}-${currentDay}`
   const record = dayRecords.get(posKey)
@@ -144,7 +150,19 @@ export default function DailyView({
   // Appointment bubble
   const daysToAppt = getDaysToAppointment(appointmentDate)
 
-  const leftDisabled = viewSeq <= floorSeq
+  const tenDaysAgo = addDays(todayDateString(), -10)
+  // The left arrow navigates to viewSeq - 1. Its real calendar date follows
+  // the same today + (seq - anchorSeq) offset used for `projectedDate` above
+  // (this is a trailing 10 REAL calendar days bound, not a treatment-position
+  // count). Deliberately not using cycleStartDateForPosition/positionFromIndex
+  // here (as an earlier draft of this bound did) — cycleStartDateForPosition
+  // answers "what's the cycle start date if (week,day) were today," which is
+  // only correct for the actual treatment anchor; for any other position it
+  // silently ignores anchorSeq and produces the wrong date (verified by hand:
+  // it disables the arrow near "today" and re-enables it further into the
+  // past, the opposite of the intended bound).
+  const targetDate = addDays(todayDateString(), (viewSeq - 1) - anchorSeq)
+  const leftDisabled = viewSeq <= floorSeq || targetDate < tenDaysAgo
   const rightDisabled = !completedPositions.has(posKey)
 
   function handleNavigate(delta: number) {
@@ -312,14 +330,33 @@ export default function DailyView({
           </svg>
         </button>
 
-        <div className="text-center">
+        <button
+          type="button"
+          className="text-center"
+          disabled={!isPastDay || editorLoading}
+          onClick={async () => {
+            setEditorLoading(true)
+            try {
+              // Same source of truth as the displayed `dateLabel` above, so the
+              // fetched entry always matches the day actually being viewed.
+              const dateStr = formatDateOnly(projectedDate)
+              const [day] = await fetchDoseLogDaysInRange(dateStr, dateStr)
+              if (day) setEditingEntry(day)
+            } finally {
+              setEditorLoading(false)
+            }
+          }}
+        >
           <p className="font-medium" style={{ fontSize: 13, color: "var(--color-text-primary)" }}>
             {isSkipped ? "Skipped" : dateLabel}
           </p>
           {isToday && (
             <p style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>Today</p>
           )}
-        </div>
+          {isPastDay && (
+            <p style={{ fontSize: 10, color: "var(--color-primary-mid)" }}>{editorLoading ? "Loading…" : "Tap to edit"}</p>
+          )}
+        </button>
 
         <button
           onClick={() => handleNavigate(1)}
@@ -368,11 +405,7 @@ export default function DailyView({
               {bannerInfo.kind === "single"
                 ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given.`
                 : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward.`}
-              {" "}If that's wrong,{" "}
-              <Link href="/history/edit" className="underline font-semibold">
-                fix it here
-              </Link>
-              .
+              {" "}If that's wrong, tap the date above to fix it.
             </p>
           </div>
         )}
@@ -450,6 +483,15 @@ export default function DailyView({
             </button>
           </div>
         </div>
+      )}
+
+      {editingEntry && (
+        <DayEditor
+          entry={editingEntry}
+          fallbackSchedule={schedule}
+          onClose={() => setEditingEntry(null)}
+          onSaved={() => setEditingEntry(null)}
+        />
       )}
     </div>
   )
