@@ -175,7 +175,8 @@ export default function DailyPage() {
           // bucketing fetchDoseLogDaysInRange already uses, rather than the
           // UTC-based fetchDateHasDayRecord this replaces).
           const rangeStart = addDays(yesterday, firstIdx - (yesterdaySeq - 1))
-          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => [])
+          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => null)
+          if (existingDays !== null) {
           const existingDates = new Set(existingDays.map(d => formatDateOnly(new Date(d.completedAt))))
 
           let gapFirstDate: string | null = null
@@ -202,7 +203,9 @@ export default function DailyPage() {
             // fetch finds this row (idempotency) and so History shows the
             // correct date. recordedAt (when reconciliation actually ran) is
             // used only for the informational FoodProgress.lastCompletedAt field.
-            const dDayDate = `${dDate}T12:00:00.000Z`
+            const dDayDateObj = new Date(dDate + "T00:00:00")
+            dDayDateObj.setHours(12, 0, 0, 0)
+            const dDayDate = dDayDateObj.toISOString()
             const recordedAt = new Date().toISOString()
 
             const wasTreatmentRampActiveThatDay = treatmentRampActive(ramp)
@@ -217,7 +220,7 @@ export default function DailyPage() {
               stateWithGlobalPos.currentWeek = globalPos.week
               stateWithGlobalPos.currentDay = globalPos.day
 
-              if (ramp) {
+              if (ramp && Object.values(dCheckedFoods).some(Boolean)) {
                 const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
                   ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActiveThatDay
                 )
@@ -278,6 +281,7 @@ export default function DailyPage() {
                   startDate: gapFirstDate,
                   endDate: gapLastDate,
                 }
+          }
           }
         }
 
