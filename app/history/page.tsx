@@ -2,26 +2,40 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import Link from "next/link"
 import { ParsedSchedule, DoseLogDay } from "@/lib/types"
 import {
   getSession,
   fetchSchedule,
-  fetchAllDoseLogDays,
+  fetchDoseLogDaysInRange,
   deleteDoseLogDays,
   deleteAllDoseLogDays,
 } from "@/lib/supabase"
-import DoseHistoryLog from "@/components/DoseHistoryLog"
+import { todayDateString } from "@/lib/schedule"
+import HistoryCalendar from "@/components/HistoryCalendar"
+import DayEditor from "@/components/DayEditor"
 
 export default function HistoryPage() {
   const router = useRouter()
+  const now = new Date()
   const [schedule, setSchedule] = useState<ParsedSchedule | null>(null)
-  const [days, setDays] = useState<DoseLogDay[]>([])
+  const [month, setMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
+  const [monthDays, setMonthDays] = useState<DoseLogDay[]>([])
+  const [earliestMonth, setEarliestMonth] = useState({ year: now.getFullYear(), month: now.getMonth() + 1 })
   const [loading, setLoading] = useState(true)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [confirmTarget, setConfirmTarget] = useState<"selection" | "all" | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
+  const [editingDateStr, setEditingDateStr] = useState<string | null>(null)
+
+  async function loadMonth(target: { year: number; month: number }) {
+    const start = `${target.year}-${String(target.month).padStart(2, "0")}-01`
+    const lastDay = new Date(target.year, target.month, 0).getDate()
+    const end = `${target.year}-${String(target.month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`
+    const days = await fetchDoseLogDaysInRange(start, end).catch(() => [])
+    setMonthDays(days)
+  }
 
   useEffect(() => {
     async function load() {
@@ -37,13 +51,21 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, allDays] = await Promise.all([fetchSchedule(), fetchAllDoseLogDays()])
+        const [s, firstMonthDays] = await Promise.all([
+          fetchSchedule(),
+          fetchDoseLogDaysInRange("2000-01-01", todayDateString()),
+        ])
         if (!s) {
           router.replace("/setup")
           return
         }
         setSchedule(s)
-        setDays(allDays)
+        if (firstMonthDays.length > 0) {
+          const earliest = firstMonthDays[firstMonthDays.length - 1]
+          const d = new Date(earliest.completedAt)
+          setEarliestMonth({ year: d.getFullYear(), month: d.getMonth() + 1 })
+        }
+        await loadMonth(month)
       } catch {
         router.replace("/daily")
       } finally {
@@ -53,6 +75,17 @@ export default function HistoryPage() {
     load()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  async function handleMonthChange(next: { year: number; month: number }) {
+    setMonth(next)
+    await loadMonth(next)
+  }
+
+  function handleDayClick(dateStr: string, entry: DoseLogDay | null) {
+    if (!entry) return
+    setEditingEntry(entry)
+    setEditingDateStr(dateStr)
+  }
 
   function toggleSelect(id: string) {
     setSelectedIds(prev => {
@@ -74,11 +107,11 @@ export default function HistoryPage() {
     try {
       if (confirmTarget === "all") {
         await deleteAllDoseLogDays()
-        setDays([])
+        setMonthDays([])
       } else {
         const ids = [...selectedIds]
         await deleteDoseLogDays(ids)
-        setDays(prev => prev.filter(d => !selectedIds.has(d.id)))
+        setMonthDays(prev => prev.filter(d => !selectedIds.has(d.id)))
       }
       exitSelectMode()
     } catch {
@@ -100,15 +133,6 @@ export default function HistoryPage() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-white">History</h1>
           <div className="flex items-center gap-4">
-            {!selectMode && (
-              <Link
-                href="/history/edit"
-                className="text-sm font-medium"
-                style={{ color: "rgba(255,255,255,0.85)" }}
-              >
-                Edit
-              </Link>
-            )}
             <button
               type="button"
               onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
@@ -124,7 +148,7 @@ export default function HistoryPage() {
             <button
               type="button"
               onClick={() => setConfirmTarget("all")}
-              disabled={days.length === 0}
+              disabled={monthDays.length === 0}
               className="text-sm font-medium disabled:opacity-40"
               style={{ color: "rgba(255,255,255,0.85)" }}
             >
@@ -142,13 +166,29 @@ export default function HistoryPage() {
           </div>
         )}
       </header>
-      <DoseHistoryLog
+      <HistoryCalendar
         schedule={schedule}
-        days={days}
+        monthDays={monthDays}
+        month={month}
+        onMonthChange={handleMonthChange}
+        onDayClick={handleDayClick}
         selectMode={selectMode}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
+        earliestMonth={earliestMonth}
       />
+      {editingEntry && editingDateStr && editingDateStr !== todayDateString() && (
+        <DayEditor
+          entry={editingEntry}
+          fallbackSchedule={schedule}
+          onClose={() => { setEditingEntry(null); setEditingDateStr(null) }}
+          onSaved={updated => {
+            setMonthDays(prev => prev.map(d => (d.id === updated.id ? updated : d)))
+            setEditingEntry(null)
+            setEditingDateStr(null)
+          }}
+        />
+      )}
       {confirmTarget && (
         <div className="fixed inset-0 z-[60] flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
           <div
@@ -157,7 +197,7 @@ export default function HistoryPage() {
           >
             <p className="text-base font-semibold mb-5" style={{ color: "var(--color-text-primary)" }}>
               {confirmTarget === "all"
-                ? `Delete all ${days.length} logged day${days.length !== 1 ? "s" : ""}? This can't be undone.`
+                ? "Delete all logged history? This can't be undone."
                 : `Delete ${selectedIds.size} selected day${selectedIds.size !== 1 ? "s" : ""}? This can't be undone.`}
             </p>
             <div className="flex gap-3">
