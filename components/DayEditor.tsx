@@ -118,31 +118,42 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
 
   function toggle(key: string, val: boolean) {
     setDraft(prev => ({ ...prev, [key]: val }))
+  }
 
-    const entrySchedule = s
-    const wasChecked = !!entry.checkedFoods[key]
-    const updatedCounts = applyCrossCategoryCredit(
-      entrySchedule.recommendedFoods ?? [],
-      recommendedFoodCounts,
-      String(entry.week),
-      key,
-      val,
-      wasChecked
-    )
-    if (updatedCounts) {
-      setRecommendedFoodCounts(updatedCounts)
-      saveRecommendedGiven(updatedCounts).catch(() => {})
+  function simulateProgressChange(): { nextProgress: Map<string, FoodProgress>; changed: boolean } | null {
+    if (!foodProgress) return null
+    let nextProgress = foodProgress
+    let changed = false
+    for (const row of treatmentRows) {
+      const wasChecked = !!entry.checkedFoods[row.key]
+      const nowChecked = !!draft[row.key]
+      if (wasChecked === nowChecked) continue
+      if (isRampFrozen(row.name)) continue
+      const fp = nextProgress.get(row.name)
+      if (!fp) continue
+      const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
+      if (nowChecked && canAdvance) {
+        const updated = new Map(nextProgress)
+        updated.set(row.name, advanceFoodProgress(fp, new Date().toISOString()))
+        nextProgress = updated
+        changed = true
+      } else if (!nowChecked && canRegress) {
+        const updated = new Map(nextProgress)
+        updated.set(row.name, regressFoodProgress(fp))
+        nextProgress = updated
+        changed = true
+      }
     }
+    return { nextProgress, changed }
   }
 
   function willChangePosition(): boolean {
     if (!foodProgress) return false
-    return treatmentRows.some(row => {
-      const wasChecked = !!entry.checkedFoods[row.key]
-      const nowChecked = !!draft[row.key]
-      if (wasChecked === nowChecked) return false
-      return isTreatmentRowEditable(row.name, wasChecked)
-    })
+    const result = simulateProgressChange()
+    if (!result || !result.changed) return false
+    const oldGlobal = getGlobalPosition(foodProgress)
+    const newGlobal = getGlobalPosition(result.nextProgress)
+    return newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day
   }
 
   async function commitSave() {
@@ -151,33 +162,39 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
     try {
       await updateDoseLogCheckedFoods(entry.id, draft)
 
+      // Cross-category recommended-food credit: compute as a single net delta
+      // from the immutable entry.checkedFoods baseline vs. the final draft at
+      // Save time, so repeated toggling before Save never over- or under-counts,
+      // and nothing is persisted unless Save actually happens.
+      const allRows = [...maintenanceRows, ...treatmentRows, ...medicationRows]
+      let runningCounts = recommendedFoodCounts
+      for (const row of allRows) {
+        const wasChecked = !!entry.checkedFoods[row.key]
+        const nowChecked = !!draft[row.key]
+        if (nowChecked === wasChecked) continue
+        const updated = applyCrossCategoryCredit(
+          s.recommendedFoods ?? [],
+          runningCounts,
+          String(entry.week),
+          row.key,
+          nowChecked,
+          wasChecked
+        )
+        if (updated) {
+          runningCounts = updated
+        }
+      }
+      if (runningCounts !== recommendedFoodCounts) {
+        setRecommendedFoodCounts(runningCounts)
+        saveRecommendedGiven(runningCounts).catch(() => {})
+      }
+
       if (foodProgress) {
         const oldGlobal = getGlobalPosition(foodProgress)
-        let nextProgress = foodProgress
-        let changed = false
-        for (const row of treatmentRows) {
-          const wasChecked = !!entry.checkedFoods[row.key]
-          const nowChecked = !!draft[row.key]
-          if (wasChecked === nowChecked) continue
-          if (isRampFrozen(row.name)) continue
-          const fp = nextProgress.get(row.name)
-          if (!fp) continue
-          const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
-          if (nowChecked && canAdvance) {
-            const updated = new Map(nextProgress)
-            updated.set(row.name, advanceFoodProgress(fp, new Date().toISOString()))
-            nextProgress = updated
-            changed = true
-          } else if (!nowChecked && canRegress) {
-            const updated = new Map(nextProgress)
-            updated.set(row.name, regressFoodProgress(fp))
-            nextProgress = updated
-            changed = true
-          }
-        }
-        if (changed) {
-          await saveFoodProgress(nextProgress)
-          const newGlobal = getGlobalPosition(nextProgress)
+        const result = simulateProgressChange()
+        if (result && result.changed) {
+          await saveFoodProgress(result.nextProgress)
+          const newGlobal = getGlobalPosition(result.nextProgress)
           if (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) {
             const existing = await fetchDoseState()
             if (existing) {
@@ -188,6 +205,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved }:
                 cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
                 floorWeek: newGlobal.week,
                 floorDay: newGlobal.day,
+                skipCount: 0,
               })
             }
           }
