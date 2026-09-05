@@ -330,33 +330,6 @@ export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
   return map
 }
 
-export async function fetchDateHasDayRecord(dateStr: string): Promise<boolean> {
-  const familyId = await getFamilyId()
-  const { count, error } = await getClient()
-    .from("dose_log")
-    .select("*", { count: "exact", head: true })
-    .eq("family_id", familyId)
-    .eq("session", "day")
-    .gte("completed_at", `${dateStr}T00:00:00`)
-    .lt("completed_at", `${dateStr}T23:59:59.999`)
-  if (error) throw error
-  return (count ?? 0) > 0
-}
-
-export async function fetchLastLoggedDate(): Promise<string | null> {
-  const familyId = await getFamilyId()
-  const { data, error } = await getClient()
-    .from("dose_log")
-    .select("completed_at")
-    .eq("family_id", familyId)
-    .eq("session", "day")
-    .order("completed_at", { ascending: false })
-    .limit(1)
-  if (error) throw error
-  if (!data || data.length === 0) return null
-  return (data[0].completed_at as string).slice(0, 10)
-}
-
 export async function fetchDoseLogDaysInRange(startDate: string, endDate: string): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
   // Widen the query bounds by a day on each side to catch rows whose UTC

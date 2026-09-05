@@ -12,8 +12,7 @@ import {
   saveSkipMorning,
   fetchCompletedPositions,
   fetchDayRecords,
-  fetchDateHasDayRecord,
-  fetchLastLoggedDate,
+  fetchDoseLogDaysInRange,
   fetchAppointmentDate,
   fetchFliesToAppointments,
   fetchFamilyName,
@@ -30,7 +29,7 @@ import {
   saveReactionRamp,
   appendPreviousRamp,
 } from "@/lib/supabase"
-import { todayDateString, addDays, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "@/lib/schedule"
+import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 type BannerInfo =
@@ -148,9 +147,15 @@ export default function DailyPage() {
         let finalCompletedPositions = positions
         let banner: BannerInfo = null
 
-        // Lazy auto-rollover: finalize only the single most recent missed day.
-        // Skips entirely if there's no genuine prior tracked day — yesterday's
-        // position falling at or before the floor set at the last reset/onboarding.
+        // Lazy auto-rollover: backfill every missed day between the floor and
+        // yesterday (inclusive), not just the single most recent one. Each
+        // missing day gets tagged with the calendar-projected position it
+        // represents (today's calendar position minus however many days back
+        // it is) — NOT the frozen FoodProgress position, which may not have
+        // moved at all during the gap. Iterates oldest-to-newest so ramp/
+        // FoodProgress state threads forward correctly, though a fully-
+        // unchecked day is a no-op for both (advanceProgressForDay only
+        // advances a food whose checkbox was actually checked).
         const yesterday = addDays(todayDateString(), -1)
         const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
         const floorSeq = (initialState.floorWeek - 1) * 7 + initialState.floorDay
@@ -158,38 +163,54 @@ export default function DailyPage() {
           initialState.cycleStartDate < todayDateString() &&
           yesterdaySeq > floorSeq
         ) {
-          const hasRecord = await fetchDateHasDayRecord(yesterday).catch(() => true)
-          if (!hasRecord) {
-            const yWeek = Math.floor((yesterdaySeq - 1) / 7) + 1
-            const yDay = ((yesterdaySeq - 1) % 7) + 1
-            const yPosKey = `${yWeek}-${yDay}`
-            const yCheckedFoods = initialState.completedDays?.[yPosKey] ?? {}
-            const yEveningItems = getTreatmentFoodsForWeek(s, yWeek)
-            const yUncheckedNames = yEveningItems
-              .filter(({ food }) => !yCheckedFoods[`evening-${food.name}`])
+          // Safety cap: a real multi-month gap shouldn't silently write hundreds
+          // of rows in one page load. floorSeq is the earliest index eligible for
+          // backfill (matches the existing loop-entry condition above); this only
+          // narrows that further for an unusually large gap.
+          const MAX_BACKFILL_DAYS = 60
+          const firstIdx = Math.max(floorSeq, yesterdaySeq - MAX_BACKFILL_DAYS)
+
+          // One range fetch instead of one existence-check per day (this also
+          // gives every backfilled day the same correct local-calendar-date
+          // bucketing fetchDoseLogDaysInRange already uses, rather than the
+          // UTC-based fetchDateHasDayRecord this replaces).
+          const rangeStart = addDays(yesterday, firstIdx - (yesterdaySeq - 1))
+          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => [])
+          const existingDates = new Set(existingDays.map(d => formatDateOnly(new Date(d.completedAt))))
+
+          let gapFirstDate: string | null = null
+          let gapLastDate: string | null = null
+          let gapUncheckedNames: string[] = []
+
+          for (let idx = firstIdx; idx < yesterdaySeq; idx++) {
+            const dWeek = Math.floor(idx / 7) + 1
+            const dDay = (idx % 7) + 1
+            const dPosKey = `${dWeek}-${dDay}`
+            const dDate = addDays(yesterday, idx - (yesterdaySeq - 1))
+
+            if (existingDates.has(dDate)) continue
+
+            const dCheckedFoods = initialState.completedDays?.[dPosKey] ?? {}
+            const dEveningItems = getTreatmentFoodsForWeek(s, dWeek)
+            const dUncheckedNames = dEveningItems
+              .filter(({ food }) => !dCheckedFoods[`evening-${food.name}`])
               .map(({ food }) => food.name)
-            const yIsSkipped = yEveningItems.length > 0 && yUncheckedNames.length === yEveningItems.length
+            const dIsSkipped = dEveningItems.length > 0 && dUncheckedNames.length === dEveningItems.length
 
-            // dayDate anchors this reconciled row to the calendar day it represents
-            // (yesterday), not to "now" — required so fetchDateHasDayRecord's
-            // idempotency guard actually finds this row on a later same-day reload,
-            // and so fetchLastLoggedDate/History show the correct date instead of
-            // today's. recordedAt (when the reconciliation itself actually ran) is
+            // dDayDate anchors this reconciled row to the calendar day it
+            // represents, not to "now" — required so a later reload's range
+            // fetch finds this row (idempotency) and so History shows the
+            // correct date. recordedAt (when reconciliation actually ran) is
             // used only for the informational FoodProgress.lastCompletedAt field.
-            const dayDate = `${yesterday}T12:00:00.000Z`
+            const dDayDate = `${dDate}T12:00:00.000Z`
             const recordedAt = new Date().toISOString()
-            // Must be read BEFORE saveDoseLog writes yesterday's row below, or this
-            // would find the row we're about to write instead of the true prior one.
-            const lastLoggedBeforeThisWrite = yUncheckedNames.length > 0
-              ? await fetchLastLoggedDate().catch(() => null)
-              : null
 
-            const wasTreatmentRampActiveYesterday = treatmentRampActive(ramp)
+            const wasTreatmentRampActiveThatDay = treatmentRampActive(ramp)
             const { updatedProgress: advancedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
-              advanceProgressForDay(s, yCheckedFoods, progress, ramp, recordedAt)
+              advanceProgressForDay(s, dCheckedFoods, progress, ramp, recordedAt)
 
             try {
-              await saveDoseLog(yWeek, yDay, yCheckedFoods, dayDate, s, yIsSkipped, ramp?.active ?? false)
+              await saveDoseLog(dWeek, dDay, dCheckedFoods, dDayDate, s, dIsSkipped, ramp?.active ?? false)
               await saveFoodProgress(advancedProgress)
               progress = advancedProgress
               globalPos = getGlobalPosition(advancedProgress)
@@ -198,7 +219,7 @@ export default function DailyPage() {
 
               if (ramp) {
                 const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
-                  ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActiveYesterday
+                  ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActiveThatDay
                 )
                 if (justFinishedTreatment) {
                   try {
@@ -224,30 +245,39 @@ export default function DailyPage() {
               }
 
               const nextDayRecords = new Map(finalDayRecords)
-              nextDayRecords.set(yPosKey, { date: dayDate, skipped: yIsSkipped })
+              nextDayRecords.set(dPosKey, { date: dDayDate, skipped: dIsSkipped })
               finalDayRecords = nextDayRecords
 
               const nextCompletedPositions = new Set(finalCompletedPositions)
-              nextCompletedPositions.add(yPosKey)
+              nextCompletedPositions.add(dPosKey)
               finalCompletedPositions = nextCompletedPositions
 
-              if (yUncheckedNames.length > 0) {
-                const gapStart = lastLoggedBeforeThisWrite ? addDays(lastLoggedBeforeThisWrite, 1) : null
-                const gapEnd = addDays(yesterday, -1)
-                if (gapStart && gapStart <= gapEnd) {
-                  const gapDays = Math.round(
-                    (new Date(gapEnd + "T00:00:00").getTime() - new Date(gapStart + "T00:00:00").getTime()) / (1000 * 60 * 60 * 24)
-                  ) + 1
-                  banner = { kind: "multi", count: gapDays, startDate: gapStart, endDate: gapEnd }
-                } else {
-                  banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
-                }
+              if (dUncheckedNames.length > 0) {
+                if (!gapFirstDate) gapFirstDate = dDate
+                gapLastDate = dDate
+                gapUncheckedNames = dUncheckedNames
               }
             } catch {
-              if (yUncheckedNames.length > 0) {
-                banner = { kind: "single", date: yesterday, foods: yUncheckedNames }
+              if (dUncheckedNames.length > 0 && !gapFirstDate) {
+                gapFirstDate = dDate
+                gapLastDate = dDate
+                gapUncheckedNames = dUncheckedNames
               }
             }
+          }
+
+          if (gapFirstDate && gapLastDate) {
+            banner = gapFirstDate === gapLastDate
+              ? { kind: "single", date: gapFirstDate, foods: gapUncheckedNames }
+              : {
+                  kind: "multi",
+                  count: Math.round(
+                    (new Date(gapLastDate + "T00:00:00").getTime() - new Date(gapFirstDate + "T00:00:00").getTime())
+                      / (1000 * 60 * 60 * 24)
+                  ) + 1,
+                  startDate: gapFirstDate,
+                  endDate: gapLastDate,
+                }
           }
         }
 
