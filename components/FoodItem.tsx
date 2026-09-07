@@ -17,6 +17,7 @@ interface FoodItemProps {
   onChange: (checked: boolean) => void
   disabled?: boolean
   weekBadge?: string
+  lockedHint?: string
 }
 
 export default function FoodItem({
@@ -32,6 +33,7 @@ export default function FoodItem({
   onChange,
   disabled = false,
   weekBadge,
+  lockedHint,
 }: FoodItemProps) {
   return (
     <FoodCard checked={checked} session={session}>
@@ -74,6 +76,11 @@ export default function FoodItem({
             {dose} {unit}
             {prepNote ? ` · ${prepNote}` : ""}
           </p>
+          {lockedHint && (
+            <p style={{ fontSize: 11, color: "var(--color-primary-mid)", marginTop: 2 }}>
+              {lockedHint}
+            </p>
+          )}
         </div>
       </div>
     </FoodCard>

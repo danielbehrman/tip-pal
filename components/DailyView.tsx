@@ -411,7 +411,11 @@ export default function DailyView({
               {bannerInfo.kind === "single"
                 ? `${formatDateLabel(new Date(bannerInfo.date + "T00:00:00"))} wasn't logged — ${bannerInfo.foods.join(", ")} weren't given.`
                 : `${bannerInfo.count} days weren't logged (${formatDateLabel(new Date(bannerInfo.startDate + "T00:00:00"))}–${formatDateLabel(new Date(bannerInfo.endDate + "T00:00:00"))}). Only your current position is tracked going forward.`}
-              {" "}If that's wrong, use the ‹ arrow to go back to that day, then tap the date to fix it.
+              {" "}If that's wrong,{" "}
+              <Link href="/history" className="underline font-semibold">
+                open History
+              </Link>{" "}
+              and edit that day — each food can only be corrected on the specific day it's frozen at.
             </p>
           </div>
         )}

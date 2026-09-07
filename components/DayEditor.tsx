@@ -124,6 +124,21 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     return wasChecked ? canRegress : canAdvance
   }
 
+  // Explains why a treatment checkbox is locked: this app only lets a food's
+  // checked state change on the one day sitting at that food's own tracked
+  // edge (see getFoodEdgeState) — every other day is intentionally locked so
+  // editing can't silently corrupt position tracking. Without this hint a
+  // locked box just looks broken, especially once a food has stalled several
+  // real calendar days behind where its dose_log rows say "today" is.
+  function treatmentLockedHint(foodName: string, wasChecked: boolean): string | undefined {
+    if (!editing || !foodProgress) return undefined
+    if (isTreatmentRowEditable(foodName, wasChecked)) return undefined
+    if (isRampFrozen(foodName)) return "Locked — active during your Reaction Ramp"
+    const fp = foodProgress.get(foodName)
+    if (!fp) return "Not yet tracked for this food"
+    return `Edit Week ${fp.week} · Day ${fp.day} to change this`
+  }
+
   function toggle(key: string, val: boolean) {
     setDraft(prev => ({ ...prev, [key]: val }))
   }
@@ -242,7 +257,8 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
 
   function renderRow(row: Row) {
     const checked = !!draft[row.key]
-    const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name, !!entry.checkedFoods[row.key]))
+    const wasChecked = !!entry.checkedFoods[row.key]
+    const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name, wasChecked))
     return (
       <FoodItem
         key={row.key}
@@ -255,6 +271,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         checked={checked}
         onChange={val => toggle(row.key, val)}
         disabled={!editable}
+        lockedHint={row.session === "evening" ? treatmentLockedHint(row.name, wasChecked) : undefined}
       />
     )
   }
