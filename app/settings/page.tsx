@@ -259,14 +259,17 @@ export default function SettingsPage() {
       await saveFoodProgress(nextProgress)
       const newGlobal = getGlobalPosition(nextProgress)
       if ((newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) && existingDoseState) {
+        // Deliberately not touching floorWeek/floorDay here — same fix as DayEditor's
+        // commitSave (round 2 dogfooding): pinning the floor to every position-changing
+        // correction walls off everything before it from ever being backfilled or
+        // opened in History again, with no way to recover those days once overwritten.
+        // The floor should only move on an actual new-cycle reset (archiveAndStartNewCycle).
         await saveDoseState({
           ...existingDoseState,
           currentWeek: newGlobal.week,
           currentDay: newGlobal.day,
           checkedFoods: {},
           cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-          floorWeek: newGlobal.week,
-          floorDay: newGlobal.day,
         })
       }
       setSaved(true)
