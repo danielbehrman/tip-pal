@@ -76,8 +76,6 @@ export interface DoseState {
   completedDays?: Record<string, Record<string, boolean>>
   cycleStartDate: string
   skipCount: number
-  floorWeek: number
-  floorDay: number
   recommendedFoodCounts?: Record<string, Record<string, number>>
 }
 
