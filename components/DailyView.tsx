@@ -98,7 +98,7 @@ export default function DailyView({
   const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
   const [editorLoading, setEditorLoading] = useState(false)
   const [editorError, setEditorError] = useState<string | null>(null)
-  const { currentWeek, currentDay, checkedFoods, floorWeek, floorDay } = doseState
+  const { currentWeek, currentDay, checkedFoods, cycleStartDate } = doseState
 
   const totalTreatmentWeeks = getTotalTreatmentWeeks(schedule)
 
@@ -129,7 +129,6 @@ export default function DailyView({
 
   const viewSeq = (currentWeek - 1) * 7 + currentDay
   const anchorSeq = (treatmentAnchor.week - 1) * 7 + treatmentAnchor.day
-  const floorSeq = (floorWeek - 1) * 7 + floorDay
   const isFutureDay = viewSeq > anchorSeq
   const isCurrentTreatmentDay = viewSeq === anchorSeq
   const isPastDay = viewSeq < anchorSeq
@@ -163,7 +162,7 @@ export default function DailyView({
   // it disables the arrow near "today" and re-enables it further into the
   // past, the opposite of the intended bound).
   const targetDate = addDays(todayDateString(), (viewSeq - 1) - anchorSeq)
-  const leftDisabled = viewSeq <= floorSeq || targetDate < tenDaysAgo
+  const leftDisabled = targetDate < cycleStartDate || targetDate < tenDaysAgo
   const rightDisabled = !completedPositions.has(posKey)
 
   function handleNavigate(delta: number) {
@@ -174,8 +173,8 @@ export default function DailyView({
       else if (nextDay < 1) { nextWeek -= 1; nextDay = 7 }
       if (nextWeek < 1) return prev
       const nextSeq = (nextWeek - 1) * 7 + nextDay
-      const fSeq = (prev.floorWeek - 1) * 7 + prev.floorDay
-      if (nextSeq < fSeq) return prev
+      const nextTargetDate = addDays(todayDateString(), (nextSeq - 1) - anchorSeq)
+      if (nextTargetDate < prev.cycleStartDate) return prev
       const completedDays = { ...(prev.completedDays ?? {}), [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods }
       const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
       return { ...prev, currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
