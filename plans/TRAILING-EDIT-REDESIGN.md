@@ -53,7 +53,9 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `dose_state` table without `floor_week`/`floor_day` columns. Tasks 3, 4, 6 depend on these columns being gone (or at least unused) before their code changes land.
+- Produces: the migration SQL file, committed but **not applied to production yet** — see the sequencing note before Step 2. `dose_state` keeps the columns physically until deploy time; Tasks 3, 4, 6 only need the *code* to stop reading/writing them, which doesn't require the columns to already be gone from the live table.
+
+**Sequencing note (found during execution, not in the original plan text):** the live, currently-deployed app still reads/writes `floor_week`/`floor_day` on every `dose_state` save. Applying this migration to production now — before the corresponding code changes are deployed — would break the live app immediately for the real family using it, since a database migration isn't scoped to a git branch the way code is. **Do not apply this migration during Task 1.** Write and commit the file only. It gets applied as part of the actual deploy step, alongside the code changes from Tasks 3-9, not in isolation here.
 
 - [ ] **Step 1: Write the migration**
 
@@ -74,9 +76,7 @@ ALTER TABLE dose_state
   DROP COLUMN IF EXISTS floor_day;
 ```
 
-- [ ] **Step 2: Apply the migration to production via Supabase MCP**
-
-Use `mcp__claude_ai_Supabase__apply_migration` with the SQL above, or the Supabase CLI if working locally first. Confirm via `mcp__claude_ai_Supabase__list_tables` (verbose) that `dose_state` no longer lists `floor_week`/`floor_day`.
+- [ ] **Step 2 (deferred — do not run yet):** Apply the migration to production via Supabase MCP (`mcp__claude_ai_Supabase__apply_migration`) and confirm via `mcp__claude_ai_Supabase__list_tables` (verbose) that `dose_state` no longer lists `floor_week`/`floor_day`. This step moves to the actual deploy step (after Task 10, when the code is ready to ship), not part of Task 1's execution.
 
 - [ ] **Step 3: Commit**
 
@@ -1434,3 +1434,5 @@ Mark the "Trailing Edit Redesign + Re-parse Redemotion" ticket's status line (cu
 git add BRIEF.md
 git commit -m "docs: mark Trailing Edit Redesign + New Food Cycle bugs 1-3 complete"
 ```
+
+- [ ] **Step 5 (deploy time, not part of this task — controller/human action, not a subagent):** After this branch is merged and deployed (Vercel auto-deploy from `main`, per this project's convention), apply Task 1's deferred migration to production: `mcp__claude_ai_Supabase__apply_migration` with the SQL from `supabase/migrations/20260909_drop_navigation_floor.sql`, then confirm via `mcp__claude_ai_Supabase__list_tables` (verbose) that `dose_state` no longer lists `floor_week`/`floor_day`. Only do this once the new code is live — applying it any earlier breaks the still-deployed old code for the real family using this app.
