@@ -11,8 +11,10 @@ import {
   getSession,
   seedFoodProgress,
   clearFoodProgress,
+  fetchDoseState,
+  saveDoseState,
 } from "@/lib/supabase"
-import { getVisitIndex, calculateBufferFromProgress } from "@/lib/schedule"
+import { getVisitIndex, calculateBufferFromProgress, getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
 import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
 
 type View = "confirm" | "paste" | "loading" | "review" | "confirming" | "position" | "success" | "error"
@@ -153,7 +155,18 @@ export default function NewCyclePage() {
     setPositionSaving(true)
     setPositionError(null)
     try {
-      await seedFoodProgress(positionEntries)
+      const seededProgress = await seedFoodProgress(positionEntries)
+      const globalPos = getGlobalPosition(seededProgress)
+      const existing = await fetchDoseState()
+      if (existing) {
+        await saveDoseState({
+          ...existing,
+          currentWeek: globalPos.week,
+          currentDay: globalPos.day,
+          cycleStartDate: cycleStartDateForPosition(globalPos.week, globalPos.day),
+          skipCount: 0,
+        })
+      }
       setView("success")
     } catch (err) {
       setPositionError(err instanceof Error ? err.message : "Save failed — please try again")
