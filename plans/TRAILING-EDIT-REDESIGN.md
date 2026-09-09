@@ -610,11 +610,13 @@ Change (inside `handleNavigate`, around line 177):
 to:
 
 ```ts
-      const nextTargetDate = addDays(todayDateString(), (nextSeq - 1) - anchorSeq)
+      const nextTargetDate = addDays(todayDateString(), nextSeq - anchorSeq)
       if (nextTargetDate < prev.cycleStartDate) return prev
 ```
 
 `anchorSeq` is already in scope (defined earlier in the component, line 131, from `treatmentAnchor`); `addDays`/`todayDateString` are already imported at the top of this file.
+
+Note this deliberately does **not** copy the `-1` from `targetDate`'s formula above (`addDays(todayDateString(), (viewSeq - 1) - anchorSeq)`) — that `-1` exists because `targetDate` represents the calendar date of *one step before* the currently-viewed `viewSeq`. Here, `nextSeq` already *is* the destination position being navigated to, so its calendar date is `today + (nextSeq - anchorSeq)` directly, with no additional offset. Applying the `-1` here would incorrectly block navigation to the cycle's actual start date (the exact boundary this check exists to allow) — verified by hand-tracing both formulas against a cycle that started 3 days ago: the correct formula places the cycle-start day exactly at `cycleStartDate` (not less than it, so not blocked); the `-1` variant places it one day earlier than `cycleStartDate` (incorrectly blocked).
 
 - [ ] **Step 4: Type-check and build**
 
