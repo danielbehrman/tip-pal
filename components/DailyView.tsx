@@ -173,7 +173,7 @@ export default function DailyView({
       else if (nextDay < 1) { nextWeek -= 1; nextDay = 7 }
       if (nextWeek < 1) return prev
       const nextSeq = (nextWeek - 1) * 7 + nextDay
-      const nextTargetDate = addDays(todayDateString(), (nextSeq - 1) - anchorSeq)
+      const nextTargetDate = addDays(todayDateString(), nextSeq - anchorSeq)
       if (nextTargetDate < prev.cycleStartDate) return prev
       const completedDays = { ...(prev.completedDays ?? {}), [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods }
       const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
