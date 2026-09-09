@@ -658,6 +658,7 @@ Remove `isRampFrozen`, `isTreatmentRowEditable`, `treatmentLockedHint`, `simulat
 
   function isTreatmentRowEditable(foodName: string): boolean {
     if (!isRampControlled(foodName)) return true
+    if (entry.checkedFoods[`evening-${foodName}`]) return false
     const start = rampStartDate()
     const entryDate = formatDateOnly(new Date(entry.completedAt))
     return start !== null && entryDate >= start && entryDate <= todayDateString()
@@ -666,9 +667,14 @@ Remove `isRampFrozen`, `isTreatmentRowEditable`, `treatmentLockedHint`, `simulat
   function treatmentLockedHint(foodName: string): string | undefined {
     if (!editing) return undefined
     if (isTreatmentRowEditable(foodName)) return undefined
+    if (isRampControlled(foodName) && entry.checkedFoods[`evening-${foodName}`]) {
+      return "Locked — already given during this Reaction Ramp"
+    }
     return "Locked — outside this Reaction Ramp's date range"
   }
 ```
+
+**Fix (found during Task 7's review, confirmed by Project Owner 2026-09-09):** a ramp-controlled food's checkbox must be one-directional — checkable (to catch up a missed ramp dose) but never uncheckable once logged as checked, via the `entry.checkedFoods[...]` guard above. Without this, free toggling (check → uncheck → recheck) double-advances `advanceRampStepState`, since it has no regress counterpart and the original design didn't account for uncheck being newly possible (previously the whole row was edge-locked, making this unreachable). This also matches the original scoped intent exactly — "forgot to check yesterday's ramp dose" is about catching up a missed check, never about undoing one.
 
 Replace the two import blocks at the top of the file. Change:
 
@@ -707,6 +713,7 @@ import {
   applyCrossCategoryCredit,
   recomputeFoodProgressFromHistory,
   advanceRampStepState,
+  resolveRampAfterAdvance,
   formatDateOnly,
   todayDateString,
 } from "@/lib/schedule"
@@ -720,6 +727,7 @@ import {
   saveRecommendedGiven,
   fetchDoseLogDaysInRange,
   saveReactionRamp,
+  appendPreviousRamp,
 } from "@/lib/supabase"
 ```
 
@@ -780,6 +788,7 @@ Replace `commitSave` entirely:
         treatmentRows.filter(row => isRampControlled(row.name)).map(row => row.name)
       )
       if (activeRamp && rampControlledNames.size > 0) {
+        let rampChanged = false
         const nextTreatmentFoods = activeRamp.treatmentFoods.map(rf => {
           if (!rampControlledNames.has(rf.name)) return rf
           const row = treatmentRows.find(r => r.name === rf.name)
@@ -787,12 +796,34 @@ Replace `commitSave` entirely:
           const wasChecked = !!entry.checkedFoods[row.key]
           const nowChecked = !!draft[row.key]
           if (!nowChecked || wasChecked === nowChecked) return rf
+          rampChanged = true
           return { ...rf, ...advanceRampStepState(rf) }
         })
-        try {
-          await saveReactionRamp({ ...activeRamp, treatmentFoods: nextTreatmentFoods })
-        } catch {
-          // Save failed — non-critical, next load re-fetches truth
+        if (rampChanged) {
+          const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+            activeRamp, nextTreatmentFoods, activeRamp.maintenanceFoods, treatmentRampActive(activeRamp)
+          )
+          if (justFinishedTreatment) {
+            try {
+              await appendPreviousRamp({
+                startedAt: activeRamp.startedAt,
+                endedAt: new Date().toISOString(),
+                rampDayCount: nextRamp.rampDay,
+                treatmentFoods: nextRamp.treatmentFoods,
+                maintenanceFoods: nextRamp.maintenanceFoods,
+              })
+            } catch {
+              // History write failed — non-critical
+            }
+          }
+          const updatedRamp = fullyDone
+            ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
+            : nextRamp
+          try {
+            await saveReactionRamp(updatedRamp)
+          } catch {
+            // Save failed — non-critical, next load re-fetches truth
+          }
         }
       }
 
@@ -827,6 +858,8 @@ Replace `commitSave` entirely:
 ```
 
 Note: `advanceRampStepState` (`lib/schedule.ts:291`) operates on a ramp food's own shape (`currentStep`/`daysInStep`/`steps`), not on `FoodProgress` — the code above advances the matching entry in `activeRamp.treatmentFoods` directly and persists it via `saveReactionRamp`, mirroring the exact pattern `advanceProgressForDay` (`lib/schedule.ts:360-401`) already uses for the live/backfill case. `treatment_food_progress` for a ramp-controlled food is never written by this path — `recomputeFoodProgressFromHistory`'s `excludeFoodNames` set (passed as `rampControlledNames` below) leaves it untouched, exactly matching "ramp-controlled foods advance via ramp steps, not the replay."
+
+**Fix (found during Task 7's review, confirmed by Project Owner 2026-09-09):** the ramp block now also calls `resolveRampAfterAdvance` (gated on `rampChanged` — only when a ramp-controlled food actually advanced this save, mirroring the exact `Object.values(dCheckedFoods).some(Boolean)`-style gating the backfill loop already uses to avoid inflating `rampDay` on saves where nothing changed) and `appendPreviousRamp` when that advance just finished the ramp's treatment side — otherwise, completing a ramp's last step through a past-day edit would silently clear the ramp with no archived `previous_ramps` record, exactly mirroring `app/daily/page.tsx`'s existing live/backfill pattern (lines ~224-249) rather than inventing new ramp-completion logic. `activeRamp.maintenanceFoods` is passed through unchanged (`DayEditor` doesn't edit or advance maintenance-food ramp steps — pre-existing behavior, not something this task changes) — `resolveRampAfterAdvance`'s `fullyDone` check still requires those to already be `complete` for the ramp to actually clear.
 
 Add `saveReactionRamp` to the existing `@/lib/supabase` import, and `advanceRampStepState` to the existing `@/lib/schedule` import (both pre-existing exports — `saveReactionRamp` is already used by `app/settings/page.tsx` and `app/daily/page.tsx`).
 
