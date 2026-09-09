@@ -29,7 +29,7 @@ import {
   saveReactionRamp,
   appendPreviousRamp,
 } from "@/lib/supabase"
-import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance } from "@/lib/schedule"
+import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, positionFromIndex, MS_PER_DAY } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 type BannerInfo =
@@ -110,8 +110,6 @@ export default function DailyPage() {
           checkedFoods: {},
           cycleStartDate: todayDateString(),
           skipCount: 0,
-          floorWeek: 1,
-          floorDay: 1,
           recommendedFoodCounts: {},
         }
 
@@ -147,35 +145,21 @@ export default function DailyPage() {
         let finalCompletedPositions = positions
         let banner: BannerInfo = null
 
-        // Lazy auto-rollover: backfill every missed day between the floor and
-        // yesterday (inclusive), not just the single most recent one. Each
-        // missing day gets tagged with the calendar-projected position it
-        // represents (today's calendar position minus however many days back
-        // it is) — NOT the frozen FoodProgress position, which may not have
-        // moved at all during the gap. Iterates oldest-to-newest so ramp/
-        // FoodProgress state threads forward correctly, though a fully-
-        // unchecked day is a no-op for both (advanceProgressForDay only
-        // advances a food whose checkbox was actually checked).
+        // Lazy auto-rollover: backfill every missed day between cycle_start_date
+        // (inclusive) and yesterday, not just the single most recent one. Each
+        // missing day gets tagged with the calendar-derived (week, day) position
+        // implied by its distance from cycle_start_date — NOT the frozen
+        // FoodProgress position, which may not have moved at all during the gap.
+        // Iterates oldest-to-newest so ramp/FoodProgress state threads forward
+        // correctly, though a fully-unchecked day is a no-op for both
+        // (advanceProgressForDay only advances a food whose checkbox was
+        // actually checked).
         const yesterday = addDays(todayDateString(), -1)
-        const yesterdaySeq = (initialState.currentWeek - 1) * 7 + initialState.currentDay - 1
-        const floorSeq = (initialState.floorWeek - 1) * 7 + initialState.floorDay
-        if (
-          initialState.cycleStartDate < todayDateString() &&
-          yesterdaySeq > floorSeq
-        ) {
-          // Safety cap: a real multi-month gap shouldn't silently write hundreds
-          // of rows in one page load. floorSeq - 1 is the floor's own 0-based
-          // position index (floorSeq itself is positionIndexOf(floorWeek, floorDay) + 1),
-          // so the floor day itself is the earliest index eligible for backfill;
-          // this only narrows that further for an unusually large gap.
+        if (initialState.cycleStartDate <= yesterday) {
           const MAX_BACKFILL_DAYS = 60
-          const firstIdx = Math.max(floorSeq - 1, yesterdaySeq - MAX_BACKFILL_DAYS)
+          const earliestBackfillDate = addDays(yesterday, -(MAX_BACKFILL_DAYS - 1))
+          const rangeStart = initialState.cycleStartDate > earliestBackfillDate ? initialState.cycleStartDate : earliestBackfillDate
 
-          // One range fetch instead of one existence-check per day (this also
-          // gives every backfilled day the same correct local-calendar-date
-          // bucketing fetchDoseLogDaysInRange already uses, rather than the
-          // UTC-based fetchDateHasDayRecord this replaces).
-          const rangeStart = addDays(yesterday, firstIdx - (yesterdaySeq - 1))
           const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => null)
           if (existingDays !== null) {
           const existingDates = new Set(existingDays.map(d => formatDateOnly(new Date(d.completedAt))))
@@ -184,13 +168,15 @@ export default function DailyPage() {
           let gapLastDate: string | null = null
           let gapUncheckedNames: string[] = []
 
-          for (let idx = firstIdx; idx < yesterdaySeq; idx++) {
-            const dWeek = Math.floor(idx / 7) + 1
-            const dDay = (idx % 7) + 1
-            const dPosKey = `${dWeek}-${dDay}`
-            const dDate = addDays(yesterday, idx - (yesterdaySeq - 1))
-
+          for (let dDate = rangeStart; dDate <= yesterday; dDate = addDays(dDate, 1)) {
             if (existingDates.has(dDate)) continue
+
+            const dayIndex = Math.round(
+              (new Date(dDate + "T00:00:00").getTime() - new Date(initialState.cycleStartDate + "T00:00:00").getTime())
+                / MS_PER_DAY
+            )
+            const { week: dWeek, day: dDay } = positionFromIndex(Math.max(0, dayIndex - initialState.skipCount))
+            const dPosKey = `${dWeek}-${dDay}`
 
             const dCheckedFoods = initialState.completedDays?.[dPosKey] ?? {}
             const dEveningItems = getTreatmentFoodsForWeek(s, dWeek)
