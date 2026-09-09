@@ -135,20 +135,6 @@ export function getFurthestAheadPosition(
   return result
 }
 
-export function getFoodEdgeState(
-  fp: FoodProgress,
-  week: number,
-  day: number
-): { canAdvance: boolean; canRegress: boolean } {
-  const canAdvance = fp.week === week && fp.day === day
-  const prevIndex = positionIndexOf(fp.week, fp.day) - 1
-  const canRegress = prevIndex >= 0 && (() => {
-    const prev = positionFromIndex(prevIndex)
-    return prev.week === week && prev.day === day
-  })()
-  return { canAdvance, canRegress }
-}
-
 export function advanceFoodProgress(fp: FoodProgress, completedAt: string): FoodProgress {
   const newCompletedDays = fp.completedDays + 1
   return newCompletedDays >= 7
@@ -156,11 +142,31 @@ export function advanceFoodProgress(fp: FoodProgress, completedAt: string): Food
     : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt }
 }
 
-export function regressFoodProgress(fp: FoodProgress): FoodProgress {
-  const newCompletedDays = fp.completedDays - 1
-  return newCompletedDays < 0
-    ? { ...fp, week: fp.week - 1, day: 7, completedDays: 6, lastCompletedAt: null }
-    : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: null }
+export function recomputeFoodProgressFromHistory(
+  schedule: ParsedSchedule,
+  doseLogDays: DoseLogDay[],
+  currentProgress: Map<string, FoodProgress>,
+  excludeFoodNames: Set<string>
+): Map<string, FoodProgress> {
+  const sorted = [...doseLogDays].sort((a, b) =>
+    a.completedAt < b.completedAt ? -1 : a.completedAt > b.completedAt ? 1 : 0
+  )
+  const result = new Map<string, FoodProgress>()
+  for (const food of schedule.treatmentFoods) {
+    if (excludeFoodNames.has(food.name)) {
+      const existing = currentProgress.get(food.name)
+      if (existing) result.set(food.name, existing)
+      continue
+    }
+    let fp: FoodProgress = { foodName: food.name, week: 1, day: 1, completedDays: 0, lastCompletedAt: null }
+    for (const entry of sorted) {
+      if (entry.checkedFoods[`evening-${food.name}`]) {
+        fp = advanceFoodProgress(fp, entry.completedAt)
+      }
+    }
+    result.set(food.name, fp)
+  }
+  return result
 }
 
 export function parseFrequencyLow(freq: string): number {

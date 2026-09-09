@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, getFoodEdgeState, advanceFoodProgress, regressFoodProgress, classifyDoseLogDay } from "./schedule"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, advanceFoodProgress, classifyDoseLogDay, recomputeFoodProgressFromHistory } from "./schedule"
 import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress, DoseLogDay } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
@@ -527,34 +527,6 @@ describe("calculateBufferFromProgress — fliesToAppointments", () => {
   })
 })
 
-describe("getFoodEdgeState", () => {
-  it("canAdvance is true when the day matches the food's current (waiting-on) position exactly", () => {
-    const fp = makeFoodProgress({ week: 2, day: 3 })
-    expect(getFoodEdgeState(fp, 2, 3)).toEqual({ canAdvance: true, canRegress: false })
-  })
-
-  it("canRegress is true when the day matches the day immediately before the food's current position", () => {
-    const fp = makeFoodProgress({ week: 2, day: 3 })
-    expect(getFoodEdgeState(fp, 2, 2)).toEqual({ canAdvance: false, canRegress: true })
-  })
-
-  it("canRegress correctly crosses a week boundary backward", () => {
-    const fp = makeFoodProgress({ week: 2, day: 1, completedDays: 0 })
-    expect(getFoodEdgeState(fp, 1, 7)).toEqual({ canAdvance: false, canRegress: true })
-  })
-
-  it("neither is true for a day two or more steps away from the edge", () => {
-    const fp = makeFoodProgress({ week: 2, day: 3 })
-    expect(getFoodEdgeState(fp, 2, 1)).toEqual({ canAdvance: false, canRegress: false })
-    expect(getFoodEdgeState(fp, 3, 1)).toEqual({ canAdvance: false, canRegress: false })
-  })
-
-  it("a brand-new food (week 1, day 1, completedDays 0) can advance but never regress", () => {
-    const fp = makeFoodProgress({ week: 1, day: 1, completedDays: 0 })
-    expect(getFoodEdgeState(fp, 1, 1)).toEqual({ canAdvance: true, canRegress: false })
-  })
-})
-
 describe("advanceFoodProgress", () => {
   it("increments completedDays and day together mid-week", () => {
     const fp = makeFoodProgress({ week: 2, day: 3, completedDays: 2 })
@@ -566,34 +538,6 @@ describe("advanceFoodProgress", () => {
     const fp = makeFoodProgress({ week: 2, day: 7, completedDays: 6 })
     const result = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
     expect(result).toEqual({ ...fp, week: 3, day: 1, completedDays: 0, lastCompletedAt: "2026-09-01T00:00:00.000Z" })
-  })
-})
-
-describe("regressFoodProgress", () => {
-  it("decrements completedDays and day together mid-week", () => {
-    const fp = makeFoodProgress({ week: 2, day: 4, completedDays: 3 })
-    const result = regressFoodProgress(fp)
-    expect(result).toEqual({ ...fp, day: 3, completedDays: 2, lastCompletedAt: null })
-  })
-
-  it("rolls back into the previous week when completedDays would go below 0", () => {
-    const fp = makeFoodProgress({ week: 3, day: 1, completedDays: 0 })
-    const result = regressFoodProgress(fp)
-    expect(result).toEqual({ ...fp, week: 2, day: 7, completedDays: 6, lastCompletedAt: null })
-  })
-
-  it("is the exact inverse of advanceFoodProgress at a week boundary", () => {
-    const fp = makeFoodProgress({ week: 2, day: 7, completedDays: 6 })
-    const advanced = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
-    const regressed = regressFoodProgress(advanced)
-    expect(regressed).toEqual({ ...fp, lastCompletedAt: null })
-  })
-
-  it("is the exact inverse of advanceFoodProgress mid-week", () => {
-    const fp = makeFoodProgress({ week: 2, day: 3, completedDays: 2 })
-    const advanced = advanceFoodProgress(fp, "2026-09-01T00:00:00.000Z")
-    const regressed = regressFoodProgress(advanced)
-    expect(regressed).toEqual({ ...fp, lastCompletedAt: null })
   })
 })
 
@@ -685,5 +629,75 @@ describe("classifyDoseLogDay", () => {
       },
     })
     expect(classifyDoseLogDay(entry, classifierSchedule)).toBe("complete")
+  })
+})
+
+const replaySchedule: ParsedSchedule = {
+  maintenanceFoods: [],
+  weeklyFoods: [],
+  treatmentFoods: [
+    { name: "Walnut", weeks: [{ week: 1, dose: 30, unit: "mg", isFinal: false }, { week: 2, dose: 60, unit: "mg", isFinal: false }] },
+    { name: "Peanut", weeks: [{ week: 1, dose: 64, unit: "mg", isFinal: false }] },
+  ],
+}
+
+describe("recomputeFoodProgressFromHistory", () => {
+  it("replays a food checked every day, rolling over at week 7", () => {
+    const days = Array.from({ length: 8 }, (_, i) =>
+      makeDoseLogDay({
+        id: `d${i}`,
+        completedAt: `2026-09-0${i + 1}T19:00:00.000Z`,
+        checkedFoods: { "evening-Walnut": true },
+      })
+    )
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Walnut")).toEqual({ foodName: "Walnut", week: 2, day: 2, completedDays: 1, lastCompletedAt: "2026-09-08T19:00:00.000Z" })
+  })
+
+  it("a food never checked stays at week 1, day 1", () => {
+    const days = [makeDoseLogDay({ completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: {} })]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Peanut")).toEqual({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, lastCompletedAt: null })
+  })
+
+  it("skips unchecked/absent days for that food while still advancing a different food checked the same days", () => {
+    const days = [
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: { "evening-Walnut": true } }),
+      makeDoseLogDay({ id: "d2", completedAt: "2026-09-02T19:00:00.000Z", checkedFoods: {} }),
+      makeDoseLogDay({ id: "d3", completedAt: "2026-09-03T19:00:00.000Z", checkedFoods: { "evening-Walnut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Walnut")).toEqual({ foodName: "Walnut", week: 1, day: 3, completedDays: 2, lastCompletedAt: "2026-09-03T19:00:00.000Z" })
+    expect(result.get("Peanut")).toEqual({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, lastCompletedAt: null })
+  })
+
+  it("is order-independent of the input array — sorts by completedAt before replaying", () => {
+    const days = [
+      makeDoseLogDay({ id: "d2", completedAt: "2026-09-02T19:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Peanut")).toEqual({ foodName: "Peanut", week: 1, day: 3, completedDays: 2, lastCompletedAt: "2026-09-02T19:00:00.000Z" })
+  })
+
+  it("excluded (ramp-controlled) foods pass through unchanged from currentProgress, not reset to week 1 day 1", () => {
+    const currentProgress = new Map([["Walnut", { foodName: "Walnut", week: 3, day: 5, completedDays: 4, lastCompletedAt: "2026-08-20T00:00:00.000Z" }]])
+    const days = [makeDoseLogDay({ completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: { "evening-Walnut": true, "evening-Peanut": true } })]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set(["Walnut"]))
+    expect(result.get("Walnut")).toEqual(currentProgress.get("Walnut"))
+    expect(result.get("Peanut")).toEqual({ foodName: "Peanut", week: 1, day: 2, completedDays: 1, lastCompletedAt: "2026-09-01T19:00:00.000Z" })
+  })
+
+  it("reproduces the round 4/5 production scenario: one food never checked pins nothing else back", () => {
+    const days = Array.from({ length: 4 }, (_, i) =>
+      makeDoseLogDay({
+        id: `d${i}`,
+        completedAt: `2026-09-0${i + 1}T19:00:00.000Z`,
+        checkedFoods: { "evening-Walnut": true },
+      })
+    )
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Walnut")?.day).toBe(5)
+    expect(result.get("Peanut")).toEqual({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, lastCompletedAt: null })
   })
 })
