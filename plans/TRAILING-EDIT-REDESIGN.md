@@ -135,7 +135,7 @@ describe("recomputeFoodProgressFromHistory", () => {
       })
     )
     const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
-    expect(result.get("Walnut")).toEqual({ foodName: "Walnut", week: 2, day: 1, completedDays: 0, lastCompletedAt: "2026-09-08T19:00:00.000Z" })
+    expect(result.get("Walnut")).toEqual({ foodName: "Walnut", week: 2, day: 2, completedDays: 1, lastCompletedAt: "2026-09-08T19:00:00.000Z" })
   })
 
   it("a food never checked stays at week 1, day 1", () => {
