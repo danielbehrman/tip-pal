@@ -11,6 +11,7 @@ import {
   applyCrossCategoryCredit,
   recomputeFoodProgressFromHistory,
   advanceRampStepState,
+  resolveRampAfterAdvance,
   formatDateOnly,
   todayDateString,
 } from "@/lib/schedule"
@@ -24,6 +25,7 @@ import {
   saveRecommendedGiven,
   fetchDoseLogDaysInRange,
   saveReactionRamp,
+  appendPreviousRamp,
 } from "@/lib/supabase"
 import FoodItem from "@/components/FoodItem"
 import { buildMorningItems, MorningItem } from "./MorningSection"
@@ -123,6 +125,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
 
   function isTreatmentRowEditable(foodName: string): boolean {
     if (!isRampControlled(foodName)) return true
+    if (entry.checkedFoods[`evening-${foodName}`]) return false
     const start = rampStartDate()
     const entryDate = formatDateOnly(new Date(entry.completedAt))
     return start !== null && entryDate >= start && entryDate <= todayDateString()
@@ -131,6 +134,9 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
   function treatmentLockedHint(foodName: string): string | undefined {
     if (!editing) return undefined
     if (isTreatmentRowEditable(foodName)) return undefined
+    if (isRampControlled(foodName) && entry.checkedFoods[`evening-${foodName}`]) {
+      return "Locked — already given during this Reaction Ramp"
+    }
     return "Locked — outside this Reaction Ramp's date range"
   }
 
@@ -172,6 +178,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         treatmentRows.filter(row => isRampControlled(row.name)).map(row => row.name)
       )
       if (activeRamp && rampControlledNames.size > 0) {
+        let rampChanged = false
         const nextTreatmentFoods = activeRamp.treatmentFoods.map(rf => {
           if (!rampControlledNames.has(rf.name)) return rf
           const row = treatmentRows.find(r => r.name === rf.name)
@@ -179,12 +186,34 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
           const wasChecked = !!entry.checkedFoods[row.key]
           const nowChecked = !!draft[row.key]
           if (!nowChecked || wasChecked === nowChecked) return rf
+          rampChanged = true
           return { ...rf, ...advanceRampStepState(rf) }
         })
-        try {
-          await saveReactionRamp({ ...activeRamp, treatmentFoods: nextTreatmentFoods })
-        } catch {
-          // Save failed — non-critical, next load re-fetches truth
+        if (rampChanged) {
+          const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+            activeRamp, nextTreatmentFoods, activeRamp.maintenanceFoods, treatmentRampActive(activeRamp)
+          )
+          if (justFinishedTreatment) {
+            try {
+              await appendPreviousRamp({
+                startedAt: activeRamp.startedAt,
+                endedAt: new Date().toISOString(),
+                rampDayCount: nextRamp.rampDay,
+                treatmentFoods: nextRamp.treatmentFoods,
+                maintenanceFoods: nextRamp.maintenanceFoods,
+              })
+            } catch {
+              // History write failed — non-critical
+            }
+          }
+          const updatedRamp = fullyDone
+            ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
+            : nextRamp
+          try {
+            await saveReactionRamp(updatedRamp)
+          } catch {
+            // Save failed — non-critical, next load re-fetches truth
+          }
         }
       }
 
