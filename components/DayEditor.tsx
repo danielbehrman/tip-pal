@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react"
 import { DoseLogDay, ParsedSchedule, FoodProgress, ReactionRamp, FoodGroup } from "@/lib/types"
 import {
-  getFoodEdgeState,
-  advanceFoodProgress,
-  regressFoodProgress,
   getTreatmentFoodsForWeek,
   getMedicationSessions,
   getGlobalPosition,
   cycleStartDateForPosition,
   treatmentRampActive,
   applyCrossCategoryCredit,
+  recomputeFoodProgressFromHistory,
+  advanceRampStepState,
+  formatDateOnly,
+  todayDateString,
 } from "@/lib/schedule"
 import {
   updateDoseLogCheckedFoods,
@@ -21,6 +22,8 @@ import {
   saveDoseState,
   fetchReactionRamp,
   saveRecommendedGiven,
+  fetchDoseLogDaysInRange,
+  saveReactionRamp,
 } from "@/lib/supabase"
 import FoodItem from "@/components/FoodItem"
 import { buildMorningItems, MorningItem } from "./MorningSection"
@@ -55,7 +58,6 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
   const [activeRamp, setActiveRamp] = useState<ReactionRamp | null>(null)
   const [recommendedFoodCounts, setRecommendedFoodCounts] = useState<Record<string, Record<string, number>>>({})
   const [loadingProgress, setLoadingProgress] = useState(false)
-  const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
@@ -65,7 +67,6 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     setFoodProgress(null)
     setActiveRamp(null)
     setRecommendedFoodCounts({})
-    setConfirming(false)
     setSaveError(null)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry.id])
@@ -110,73 +111,31 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     }
   }
 
-  function isRampFrozen(foodName: string): boolean {
+  function rampStartDate(): string | null {
+    if (!treatmentRampActive(activeRamp) || !activeRamp) return null
+    return formatDateOnly(new Date(activeRamp.startedAt))
+  }
+
+  function isRampControlled(foodName: string): boolean {
     if (!treatmentRampActive(activeRamp)) return false
     return !!activeRamp?.treatmentFoods.some(f => f.name === foodName)
   }
 
-  function isTreatmentRowEditable(foodName: string, wasChecked: boolean): boolean {
-    if (!foodProgress) return false
-    if (isRampFrozen(foodName)) return false
-    const fp = foodProgress.get(foodName)
-    if (!fp) return false
-    const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
-    return wasChecked ? canRegress : canAdvance
+  function isTreatmentRowEditable(foodName: string): boolean {
+    if (!isRampControlled(foodName)) return true
+    const start = rampStartDate()
+    const entryDate = formatDateOnly(new Date(entry.completedAt))
+    return start !== null && entryDate >= start && entryDate <= todayDateString()
   }
 
-  // Explains why a treatment checkbox is locked: this app only lets a food's
-  // checked state change on the one day sitting at that food's own tracked
-  // edge (see getFoodEdgeState) — every other day is intentionally locked so
-  // editing can't silently corrupt position tracking. Without this hint a
-  // locked box just looks broken, especially once a food has stalled several
-  // real calendar days behind where its dose_log rows say "today" is.
-  function treatmentLockedHint(foodName: string, wasChecked: boolean): string | undefined {
-    if (!editing || !foodProgress) return undefined
-    if (isTreatmentRowEditable(foodName, wasChecked)) return undefined
-    if (isRampFrozen(foodName)) return "Locked — active during your Reaction Ramp"
-    const fp = foodProgress.get(foodName)
-    if (!fp) return "Not yet tracked for this food"
-    return `Edit Week ${fp.week} · Day ${fp.day} to change this`
+  function treatmentLockedHint(foodName: string): string | undefined {
+    if (!editing) return undefined
+    if (isTreatmentRowEditable(foodName)) return undefined
+    return "Locked — outside this Reaction Ramp's date range"
   }
 
   function toggle(key: string, val: boolean) {
     setDraft(prev => ({ ...prev, [key]: val }))
-  }
-
-  function simulateProgressChange(): { nextProgress: Map<string, FoodProgress>; changed: boolean } | null {
-    if (!foodProgress) return null
-    let nextProgress = foodProgress
-    let changed = false
-    for (const row of treatmentRows) {
-      const wasChecked = !!entry.checkedFoods[row.key]
-      const nowChecked = !!draft[row.key]
-      if (wasChecked === nowChecked) continue
-      if (isRampFrozen(row.name)) continue
-      const fp = nextProgress.get(row.name)
-      if (!fp) continue
-      const { canAdvance, canRegress } = getFoodEdgeState(fp, entry.week, entry.day)
-      if (nowChecked && canAdvance) {
-        const updated = new Map(nextProgress)
-        updated.set(row.name, advanceFoodProgress(fp, new Date().toISOString()))
-        nextProgress = updated
-        changed = true
-      } else if (!nowChecked && canRegress) {
-        const updated = new Map(nextProgress)
-        updated.set(row.name, regressFoodProgress(fp))
-        nextProgress = updated
-        changed = true
-      }
-    }
-    return { nextProgress, changed }
-  }
-
-  function willChangePosition(): boolean {
-    if (!foodProgress) return false
-    const result = simulateProgressChange()
-    if (!result || !result.changed) return false
-    const oldGlobal = getGlobalPosition(foodProgress)
-    const newGlobal = getGlobalPosition(result.nextProgress)
-    return newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day
   }
 
   async function commitSave() {
@@ -203,37 +162,49 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
           nowChecked,
           wasChecked
         )
-        if (updated) {
-          runningCounts = updated
-        }
+        if (updated) runningCounts = updated
       }
       if (runningCounts !== recommendedFoodCounts) {
-        // Deliberately not calling setRecommendedFoodCounts here: on success this
-        // component unmounts via onClose() below, so nothing reads the new value —
-        // and if a later step in this save throws, leaving the state at its
-        // original baseline means a retry recomputes the same net delta from the
-        // same starting point (idempotent) instead of double-applying it.
         saveRecommendedGiven(runningCounts).catch(() => {})
       }
 
+      const rampControlledNames = new Set(
+        treatmentRows.filter(row => isRampControlled(row.name)).map(row => row.name)
+      )
+      if (activeRamp && rampControlledNames.size > 0) {
+        const nextTreatmentFoods = activeRamp.treatmentFoods.map(rf => {
+          if (!rampControlledNames.has(rf.name)) return rf
+          const row = treatmentRows.find(r => r.name === rf.name)
+          if (!row) return rf
+          const wasChecked = !!entry.checkedFoods[row.key]
+          const nowChecked = !!draft[row.key]
+          if (!nowChecked || wasChecked === nowChecked) return rf
+          return { ...rf, ...advanceRampStepState(rf) }
+        })
+        try {
+          await saveReactionRamp({ ...activeRamp, treatmentFoods: nextTreatmentFoods })
+        } catch {
+          // Save failed — non-critical, next load re-fetches truth
+        }
+      }
+
       if (foodProgress) {
+        const existing = await fetchDoseState()
+        const cycleStartDate = existing?.cycleStartDate ?? formatDateOnly(new Date(entry.completedAt))
+        const cycleDays = await fetchDoseLogDaysInRange(cycleStartDate, todayDateString())
+        const recomputed = recomputeFoodProgressFromHistory(s, cycleDays, foodProgress, rampControlledNames)
+        await saveFoodProgress(recomputed)
+
         const oldGlobal = getGlobalPosition(foodProgress)
-        const result = simulateProgressChange()
-        if (result && result.changed) {
-          await saveFoodProgress(result.nextProgress)
-          const newGlobal = getGlobalPosition(result.nextProgress)
-          if (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) {
-            const existing = await fetchDoseState()
-            if (existing) {
-              await saveDoseState({
-                ...existing,
-                currentWeek: newGlobal.week,
-                currentDay: newGlobal.day,
-                cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-                skipCount: 0,
-              })
-            }
-          }
+        const newGlobal = getGlobalPosition(recomputed)
+        if (existing && (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day)) {
+          await saveDoseState({
+            ...existing,
+            currentWeek: newGlobal.week,
+            currentDay: newGlobal.day,
+            cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
+            skipCount: 0,
+          })
         }
       }
 
@@ -243,22 +214,16 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
       setSaveError("Save failed — please try again")
     } finally {
       setSaving(false)
-      setConfirming(false)
     }
   }
 
   function handleSaveTap() {
-    if (willChangePosition()) {
-      setConfirming(true)
-    } else {
-      commitSave()
-    }
+    commitSave()
   }
 
   function renderRow(row: Row) {
     const checked = !!draft[row.key]
-    const wasChecked = !!entry.checkedFoods[row.key]
-    const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name, wasChecked))
+    const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name))
     return (
       <FoodItem
         key={row.key}
@@ -271,7 +236,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         checked={checked}
         onChange={val => toggle(row.key, val)}
         disabled={!editable}
-        lockedHint={row.session === "evening" ? treatmentLockedHint(row.name, wasChecked) : undefined}
+        lockedHint={row.session === "evening" ? treatmentLockedHint(row.name) : undefined}
       />
     )
   }
@@ -345,34 +310,6 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         )}
         {saveError && <p className="text-sm" style={{ color: "#dc2626" }}>{saveError}</p>}
       </div>
-
-      {confirming && (
-        <div className="fixed inset-0 z-[80] flex items-end" style={{ background: "rgba(0,0,0,0.4)" }}>
-          <div className="bg-white w-full rounded-t-2xl px-6 pt-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
-            <p className="text-base font-semibold mb-5" style={{ color: "var(--color-text-primary)" }}>
-              This will change your current week/day position. Are you sure?
-            </p>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 py-3 rounded-xl text-sm font-semibold disabled:opacity-50"
-                style={{ background: "var(--color-primary-mid)", color: "#fff" }}
-                onClick={commitSave}
-                disabled={saving}
-              >
-                {saving ? "Saving…" : "Yes, save"}
-              </button>
-              <button
-                className="flex-1 py-3 rounded-xl text-sm font-semibold"
-                style={{ background: "var(--color-primary-border)", color: "var(--color-text-primary)" }}
-                onClick={() => setConfirming(false)}
-                disabled={saving}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
