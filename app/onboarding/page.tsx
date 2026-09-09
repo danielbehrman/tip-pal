@@ -147,8 +147,6 @@ export default function OnboardingPage() {
         completedDays: existingDoseState?.completedDays ?? {},
         cycleStartDate: cycleStartDateForPosition(globalPos.week, globalPos.day),
         skipCount: 0,
-        floorWeek: globalPos.week,
-        floorDay: globalPos.day,
       })
       router.replace("/daily")
     } catch (err) {

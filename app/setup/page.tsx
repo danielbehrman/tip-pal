@@ -56,8 +56,6 @@ export default function SetupPage() {
         checkedFoods: {},
         cycleStartDate: todayDateString(),
         skipCount: 0,
-        floorWeek: 1,
-        floorDay: 1,
       })
       router.push("/onboarding")
     } catch (err) {
