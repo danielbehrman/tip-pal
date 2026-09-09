@@ -668,7 +668,60 @@ Remove `isRampFrozen`, `isTreatmentRowEditable`, `treatmentLockedHint`, `simulat
   }
 ```
 
-Add `formatDateOnly, todayDateString` to the existing `lib/schedule` import at the top of the file.
+Replace the two import blocks at the top of the file. Change:
+
+```ts
+import {
+  getFoodEdgeState,
+  advanceFoodProgress,
+  regressFoodProgress,
+  getTreatmentFoodsForWeek,
+  getMedicationSessions,
+  getGlobalPosition,
+  cycleStartDateForPosition,
+  treatmentRampActive,
+  applyCrossCategoryCredit,
+} from "@/lib/schedule"
+import {
+  updateDoseLogCheckedFoods,
+  fetchFoodProgress,
+  saveFoodProgress,
+  fetchDoseState,
+  saveDoseState,
+  fetchReactionRamp,
+  saveRecommendedGiven,
+} from "@/lib/supabase"
+```
+
+to:
+
+```ts
+import {
+  getTreatmentFoodsForWeek,
+  getMedicationSessions,
+  getGlobalPosition,
+  cycleStartDateForPosition,
+  treatmentRampActive,
+  applyCrossCategoryCredit,
+  recomputeFoodProgressFromHistory,
+  advanceRampStepState,
+  formatDateOnly,
+  todayDateString,
+} from "@/lib/schedule"
+import {
+  updateDoseLogCheckedFoods,
+  fetchFoodProgress,
+  saveFoodProgress,
+  fetchDoseState,
+  saveDoseState,
+  fetchReactionRamp,
+  saveRecommendedGiven,
+  fetchDoseLogDaysInRange,
+  saveReactionRamp,
+} from "@/lib/supabase"
+```
+
+`getFoodEdgeState`/`regressFoodProgress` no longer exist after Task 2 — this file is their only external caller, so leaving the old import would fail to compile. `advanceFoodProgress` is dropped too: `DayEditor` no longer calls it directly once recompute happens via `recomputeFoodProgressFromHistory`.
 
 - [ ] **Step 2: Replace `handleSaveTap`/`commitSave`**
 
@@ -743,7 +796,7 @@ Replace `commitSave` entirely:
 
       if (foodProgress) {
         const existing = await fetchDoseState()
-        const cycleStartDate = existing?.cycleStartDate ?? entry.completedAt
+        const cycleStartDate = existing?.cycleStartDate ?? formatDateOnly(new Date(entry.completedAt))
         const cycleDays = await fetchDoseLogDaysInRange(cycleStartDate, todayDateString())
         const recomputed = recomputeFoodProgressFromHistory(s, cycleDays, foodProgress, rampControlledNames)
         await saveFoodProgress(recomputed)
@@ -777,15 +830,20 @@ Add `saveReactionRamp` to the existing `@/lib/supabase` import, and `advanceRamp
 
 - [ ] **Step 3: Update `renderRow`**
 
-Change:
+`renderRow` currently computes `wasChecked` only to pass it to the two functions below — it becomes unused once neither takes it. Change:
 
 ```ts
+  function renderRow(row: Row) {
+    const checked = !!draft[row.key]
+    const wasChecked = !!entry.checkedFoods[row.key]
     const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name, wasChecked))
 ```
 
 to:
 
 ```ts
+  function renderRow(row: Row) {
+    const checked = !!draft[row.key]
     const editable = editing && (row.session !== "evening" || isTreatmentRowEditable(row.name))
 ```
 
