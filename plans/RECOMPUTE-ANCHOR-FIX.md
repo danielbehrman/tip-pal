@@ -272,12 +272,28 @@ export async function seedFoodProgress(
 
 `todayDateString` is already imported in `lib/supabase.ts` (existing line: `import { getCalendarPosition, todayDateString, addDays, formatDateOnly } from "./schedule"`) — no import change needed for this step.
 
-- [ ] **Step 5: Type-check**
+- [ ] **Step 5: Fix `app/onboarding/page.tsx`'s throwaway preview map**
+
+Found during execution — a real gap this plan's original file list missed. `app/onboarding/page.tsx` builds a local, never-persisted `Map<string, FoodProgress>` purely to feed `getGlobalPosition` for a buffer-days preview on the confirmation step — `getGlobalPosition` only reads `.week`/`.day`, never anchor fields, so this is a pure type-satisfaction fix with zero behavioral risk. Change:
+
+```ts
+      positionEntries.map(e => [e.foodName, { foodName: e.foodName, week: e.week, day: e.day, completedDays: e.day - 1, lastCompletedAt: null }])
+```
+
+to:
+
+```ts
+      positionEntries.map(e => [e.foodName, { foodName: e.foodName, week: e.week, day: e.day, completedDays: e.day - 1, lastCompletedAt: null, anchorWeek: e.week, anchorDay: e.day, anchorDate: todayDateString() }])
+```
+
+mirroring `seedFoodProgress`'s convention for these same entries elsewhere in this file. Add `todayDateString` to this file's `@/lib/schedule` import if not already present.
+
+- [ ] **Step 6: Type-check**
 
 Run: `npx tsc --noEmit -p .`
-Expected: errors in every other file that constructs a `FoodProgress` without the 3 new required fields, or that references `FoodProgress` in a way TypeScript's structural typing flags. Expect errors in `app/settings/page.tsx` (Task 4) and `lib/schedule.test.ts` (Task 3) — these are fixed in later steps/tasks, not here. Confirm no *unexpected* errors outside those two files.
+Expected: errors in every other file that constructs a `FoodProgress` without the 3 new required fields. Expect errors in `app/settings/page.tsx` (Task 4) and `lib/schedule.ts`/`lib/schedule.test.ts` (Task 3 — `recomputeFoodProgressFromHistory` itself constructs a bare `FoodProgress` on its zero-history-init path, so it errors until that function is rewritten) — these are fixed in later steps/tasks, not here. Confirm no *unexpected* errors outside those files (in particular, `app/onboarding/page.tsx` should now be clean, after Step 5).
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add lib/types.ts lib/supabase.ts
