@@ -755,11 +755,13 @@ git commit -m "feat(dayeditor): show an informational note on a pre-anchor treat
 
 ---
 
-### Task 6: Production family manual anchor correction — **blocking, do not skip**
+### Task 6: Production family manual anchor correction — **blocking, do not skip, must run BEFORE deploy**
 
 **Files:** none (data correction, not a code change).
 
-This is not a subagent-executable step — it requires direct, verified judgment against the real family's actual history, per the design spec's blocking checklist item. Perform this directly (not via a dispatched implementer) after Tasks 1-5 are merged and deployed:
+**Critical ordering constraint, found during Task 3's review:** Task 1's migration already applied to production with the schema's defaults (`anchor_week=1, anchor_day=1, anchor_date=<the day the migration ran>`) for every existing `treatment_food_progress` row, including Peanut/Walnut's. That's fine while it's dormant — the still-deployed old code doesn't read these columns. But the moment the new code (Tasks 2-5) deploys and the family opens Trailing Edit, `recomputeFoodProgressFromHistory` will read those wrong defaults and produce something **worse than the original bug**: it rewinds to Week 1 Day 1 (the original bug) *and* newly excludes every `dose_log` entry dated before the migration ran (since `anchor_date` defaults to that day) — a combination the pre-fix code never produced. **This task must be completed and verified before Tasks 2-5's code is deployed to production — not "sometime before the ticket is marked done."** If code review/merge timing makes that ordering awkward, do this task first, immediately, even before finishing the rest of this plan's review.
+
+This is not a subagent-executable step — it requires direct, verified judgment against the real family's actual history, per the design spec's blocking checklist item. Perform this directly (not via a dispatched implementer):
 
 - [ ] **Step 1: Query the current state**
 
@@ -796,7 +798,7 @@ Expected: both clean.
 
 - [ ] **Step 3: Update `BRIEF.md`**
 
-Record this fix under the "Trailing Edit Redesign + Re-parse Redemotion" entry (or as its own dated addendum) — what C1 was, the anchor design, and the status of Task 6 (the blocking production correction). Update `## Current Status` per the project's standard rule. **Do not describe this ticket as fully complete unless Task 6 is confirmed done** — if Task 6 hasn't run yet, say so explicitly as the blocking remaining step.
+Record this fix under the "Trailing Edit Redesign + Re-parse Redemotion" entry (or as its own dated addendum) — what C1 was, the anchor design, and the status of Task 6 (the blocking production correction). Update `## Current Status` per the project's standard rule. **Do not describe this ticket as fully complete unless Task 6 is confirmed done** — if Task 6 hasn't run yet, say so explicitly as the blocking remaining step, and explicitly flag that **this code must not be deployed to production until Task 6 has run** (see Task 6's ordering note) — deploying first would leave the production family worse off than before this fix.
 
 - [ ] **Step 4: Commit**
 
