@@ -54,16 +54,18 @@ stays structurally the same, but the per-food seed changes:
 
 - For each non-excluded food, look up its current anchor from `currentProgress.get(food.name)` — `{ anchorWeek, anchorDay, anchorDate }`. Seed `fp = { foodName, week: anchorWeek, day: anchorDay, completedDays: anchorDay - 1, lastCompletedAt: null, anchorWeek, anchorDay, anchorDate }`.
 - Only replay `dose_log` entries whose date is `>= anchorDate` (not every entry in the passed-in `doseLogDays` range) — a day before the food's own anchor predates that food's declared starting point and must never count toward its position, even though it may be within the broader `[cycle_start_date, today]` editable range.
-- A food with **no** entry in `currentProgress` (shouldn't happen in practice — every treatment food gets seeded) falls back to `{week: 1, day: 1, completedDays: 0}` with `anchorDate` = the earliest date in `doseLogDays`, so it degrades to today's behavior rather than throwing.
+- A food with **no** entry in `currentProgress` (shouldn't happen in practice — every treatment food gets seeded) falls back to `{week: 1, day: 1, completedDays: 0}` with `anchorDate` = the earliest date in `doseLogDays`, so it degrades to today's behavior rather than throwing. **Confirmed intentional (Project Owner, 2026-09-09):** a silent degrade-safe default, not an oversight — no logging/alerting requirement added.
 - Excluded (ramp-controlled) foods are unchanged: passed through from `currentProgress` verbatim, exactly as today.
 
-### Known, accepted tradeoff
+### Known, accepted tradeoff — with an informational UI note (confirmed 2026-09-09)
 
-A family can still open a day before a food's anchor (but on/after `cycle_start_date`) in Trailing Edit — History's boundary is `cycle_start_date`-based, not per-food-anchor-based, and per-food lock granularity was explicitly declined (Project Owner, 2026-09-09) in favor of keeping this fix scoped. Checking a box on such a day persists to `dose_log` (so History shows what was recorded) but has no effect on that food's position, since the replay ignores dates before its anchor. This is consistent with "fill in past days" being explicitly out of scope for the parent ticket and "history is factual, never fabricated" — nothing was actually being tracked for that food before its anchor existed.
+A family can still open a day before a food's anchor (but on/after `cycle_start_date`) in Trailing Edit — History's boundary is `cycle_start_date`-based, not per-food-anchor-based, and per-food *lock* granularity was explicitly declined (Project Owner, 2026-09-09) in favor of keeping this fix scoped. Checking a box on such a day still persists to `dose_log` (so History shows what was recorded) and has no effect on that food's position, since the replay ignores dates before its anchor. This is consistent with "fill in past days" being explicitly out of scope for the parent ticket and "history is factual, never fabricated" — nothing was actually being tracked for that food before its anchor existed.
 
-### Migration note for the current production family
+**In scope, kept minimal:** when the day being edited in `DayEditor` falls before a specific food's `anchor_date`, that food's row shows a subtle inline note (e.g. "Before tracking started for this food") — informational only, not a lock, not a confirmation dialog. The checkbox stays toggleable and still persists to `dose_log` exactly as designed above; this exists purely so a parent isn't left wondering why checking a box didn't move the day/week counter. No new prevention logic, no new dialog — just a visible reason surfaced next to the existing (unchanged) behavior, reusing the same inline-hint pattern `DayEditor` already uses for the Reaction Ramp date-range lock (`treatmentLockedHint`), just non-blocking here.
 
-The migration cannot know Peanut/Walnut's true historical anchor date retroactively — it can only default new rows going forward. As a one-time, explicit follow-up (not part of this fix's automated migration, and not a schema change): after this ships, directly set `anchor_week`/`anchor_day`/`anchor_date` for the two existing rows to match their actual last-known-correct starting point, via a manual `UPDATE`, verified against the family's real history before running. This is a data-correction step for one specific family, not a design element — flagged here so it isn't forgotten, not specified further.
+### Migration note for the current production family — **blocking pre-resume checklist item** (confirmed 2026-09-09)
+
+The migration cannot know Peanut/Walnut's true historical anchor date retroactively — it can only default new rows going forward. Before this family resumes using Trailing Edit after this ships, the manual anchor correction for their two `treatment_food_progress` rows (`anchor_week`/`anchor_day`/`anchor_date`, set to match their actual last-known-correct starting point, verified against the family's real history) **must be applied and verified** — this is not a background follow-up note, it is a blocking item on this ticket's completion checklist. **Do not mark this ticket done until that manual correction is confirmed applied and verified.**
 
 ## Testing Strategy
 
@@ -73,6 +75,11 @@ The migration cannot know Peanut/Walnut's true historical anchor date retroactiv
 
 ## Out of Scope
 
-- Per-food checkbox locking on days before that food's anchor (declined in favor of the "persists but doesn't affect position" tradeoff above).
-- Retroactively correcting the current production family's anchor values (flagged as a manual follow-up, not built here).
+- Per-food checkbox *locking* on days before that food's anchor (declined in favor of the "persists but doesn't affect position" tradeoff above) — the informational inline note is in scope; a lock/prevention mechanism is not.
 - Any change to Reaction Ramp's own logic, `cycle_start_date`'s semantics, or any other part of the Trailing Edit Redesign already reviewed and approved.
+
+## Ticket Completion Checklist
+
+This ticket is not done until all of the following are true:
+- [ ] Implementation complete, reviewed clean (migration, type/schema changes, write-site updates, recompute changes, inline UI note).
+- [ ] **Production family manual anchor correction applied and verified** against Peanut/Walnut's actual history (see "Migration note" above) — blocking, not deferrable.
