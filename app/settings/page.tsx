@@ -526,6 +526,12 @@ export default function SettingsPage() {
               </>
             )}
             <RowDivider />
+            {/* Edit foods & doses */}
+            <Link href="/edit-foods" className="flex items-center justify-between px-4 py-3">
+              <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Edit foods &amp; doses</span>
+              <span style={{ color: "var(--color-text-muted)" }}>›</span>
+            </Link>
+            <RowDivider />
             {/* New food cycle */}
             <Link href="/new-cycle" className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>New food cycle</span>
