@@ -9,6 +9,7 @@ import {
   fetchDoseLogDaysInRange,
   fetchEarliestDoseLogDate,
   fetchFoodGroups,
+  fetchDoseState,
   deleteDoseLogDays,
   deleteAllDoseLogDays,
 } from "@/lib/supabase"
@@ -31,6 +32,7 @@ export default function HistoryPage() {
   const [deleting, setDeleting] = useState(false)
   const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
   const [editingDateStr, setEditingDateStr] = useState<string | null>(null)
+  const [cycleStartDate, setCycleStartDate] = useState<string | null>(null)
 
   async function loadMonth(target: { year: number; month: number }) {
     const start = `${target.year}-${String(target.month).padStart(2, "0")}-01`
@@ -54,10 +56,11 @@ export default function HistoryPage() {
         return
       }
       try {
-        const [s, earliestDate, groups] = await Promise.all([
+        const [s, earliestDate, groups, ds] = await Promise.all([
           fetchSchedule(),
           fetchEarliestDoseLogDate(),
           fetchFoodGroups().catch(() => []),
+          fetchDoseState().catch(() => null),
         ])
         if (!s) {
           router.replace("/setup")
@@ -65,6 +68,7 @@ export default function HistoryPage() {
         }
         setSchedule(s)
         setFoodGroups(groups)
+        setCycleStartDate(ds?.cycleStartDate ?? null)
         if (earliestDate) {
           const [y, m] = earliestDate.split("-").map(Number)
           setEarliestMonth({ year: y, month: m })
@@ -91,6 +95,7 @@ export default function HistoryPage() {
       router.push("/daily")
       return
     }
+    if (cycleStartDate && dateStr < cycleStartDate) return
     if (!entry) return
     setEditingEntry(entry)
     setEditingDateStr(dateStr)

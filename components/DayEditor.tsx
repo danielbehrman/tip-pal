@@ -174,7 +174,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
       }
 
       const rampControlledNames = new Set(
-        treatmentRows.filter(row => isRampControlled(row.name)).map(row => row.name)
+        treatmentRampActive(activeRamp) ? (activeRamp?.treatmentFoods.map(f => f.name) ?? []) : []
       )
       if (activeRamp && rampControlledNames.size > 0) {
         let rampChanged = false
@@ -220,7 +220,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         const existing = await fetchDoseState()
         const cycleStartDate = existing?.cycleStartDate ?? formatDateOnly(new Date(entry.completedAt))
         const cycleDays = await fetchDoseLogDaysInRange(cycleStartDate, todayDateString())
-        const recomputed = recomputeFoodProgressFromHistory(s, cycleDays, foodProgress, rampControlledNames)
+        const recomputed = recomputeFoodProgressFromHistory(fallbackSchedule, cycleDays, foodProgress, rampControlledNames)
         await saveFoodProgress(recomputed)
 
         const oldGlobal = getGlobalPosition(foodProgress)
