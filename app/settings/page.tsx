@@ -36,7 +36,7 @@ import { DoseState, ParsedSchedule, FoodGroup, FoodProgress, ReactionRamp } from
 import GroupsManager from "@/components/GroupsManager"
 import FoodPositionStepper from "@/components/FoodPositionStepper"
 import TravelDayToggle from "@/components/TravelDayToggle"
-import { getGlobalPosition, cycleStartDateForPosition } from "@/lib/schedule"
+import { getGlobalPosition } from "@/lib/schedule"
 
 const APP_VERSION = "0.1.0"
 
@@ -259,17 +259,16 @@ export default function SettingsPage() {
       await saveFoodProgress(nextProgress)
       const newGlobal = getGlobalPosition(nextProgress)
       if ((newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) && existingDoseState) {
-        // Deliberately not touching floorWeek/floorDay here — same fix as DayEditor's
-        // commitSave (round 2 dogfooding): pinning the floor to every position-changing
-        // correction walls off everything before it from ever being backfilled or
-        // opened in History again, with no way to recover those days once overwritten.
-        // The floor should only move on an actual new-cycle reset (archiveAndStartNewCycle).
+        // Deliberately not touching cycleStartDate here: pinning it to every
+        // position-changing correction walls off everything before it from ever
+        // being backfilled or opened in History again, with no way to recover
+        // those days once overwritten. cycleStartDate should only move on an
+        // actual new-cycle reset (archiveAndStartNewCycle) or onboarding.
         await saveDoseState({
           ...existingDoseState,
           currentWeek: newGlobal.week,
           currentDay: newGlobal.day,
           checkedFoods: {},
-          cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
         })
       }
       setSaved(true)

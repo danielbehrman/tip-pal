@@ -6,7 +6,6 @@ import {
   getTreatmentFoodsForWeek,
   getMedicationSessions,
   getGlobalPosition,
-  cycleStartDateForPosition,
   treatmentRampActive,
   applyCrossCategoryCredit,
   recomputeFoodProgressFromHistory,
@@ -231,8 +230,6 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
             ...existing,
             currentWeek: newGlobal.week,
             currentDay: newGlobal.day,
-            cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-            skipCount: 0,
           })
         }
       }
