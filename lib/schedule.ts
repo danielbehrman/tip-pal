@@ -158,8 +158,23 @@ export function recomputeFoodProgressFromHistory(
       if (existing) result.set(food.name, existing)
       continue
     }
-    let fp: FoodProgress = { foodName: food.name, week: 1, day: 1, completedDays: 0, lastCompletedAt: null }
+    const existing = currentProgress.get(food.name)
+    const anchorWeek = existing?.anchorWeek ?? 1
+    const anchorDay = existing?.anchorDay ?? 1
+    const anchorDate = existing?.anchorDate ?? (sorted.length > 0 ? formatDateOnly(new Date(sorted[0].completedAt)) : todayDateString())
+    let fp: FoodProgress = {
+      foodName: food.name,
+      week: anchorWeek,
+      day: anchorDay,
+      completedDays: anchorDay - 1,
+      lastCompletedAt: null,
+      anchorWeek,
+      anchorDay,
+      anchorDate,
+    }
     for (const entry of sorted) {
+      const entryDate = formatDateOnly(new Date(entry.completedAt))
+      if (entryDate < anchorDate) continue
       if (entry.checkedFoods[`evening-${food.name}`]) {
         fp = advanceFoodProgress(fp, entry.completedAt)
       }
