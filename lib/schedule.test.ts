@@ -765,6 +765,25 @@ describe("recomputeFoodProgressFromHistory", () => {
     })
   })
 
+  it("composes correctly when a non-Day-1 anchor crosses a week boundary", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-01" })],
+    ])
+    const days = Array.from({ length: 5 }, (_, i) =>
+      makeDoseLogDay({
+        id: `d${i}`,
+        completedAt: `2026-09-0${i + 1}T19:00:00.000Z`,
+        checkedFoods: { "evening-Peanut": true },
+      })
+    )
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 2, day: 1, completedDays: 0,
+      lastCompletedAt: "2026-09-05T19:00:00.000Z",
+      anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-01",
+    })
+  })
+
   it("excluded (ramp-controlled) foods pass through currentProgress unchanged, anchor included", () => {
     const currentProgress = new Map([
       ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 3, day: 5, completedDays: 4, lastCompletedAt: "2026-08-20T00:00:00.000Z", anchorWeek: 1, anchorDay: 1, anchorDate: "2026-08-01" })],
