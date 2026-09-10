@@ -226,6 +226,10 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         const oldGlobal = getGlobalPosition(foodProgress)
         const newGlobal = getGlobalPosition(recomputed)
         if (existing && (newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day)) {
+          // cycleStartDate deliberately not written here — it's the sole editable/
+          // backfillable boundary now; moving it on a routine correction would wall
+          // off everything before it. Only archiveAndStartNewCycle/onboarding may set
+          // it. See the same rule enforced in app/settings/page.tsx's saveFoodPosition.
           await saveDoseState({
             ...existing,
             currentWeek: newGlobal.week,
