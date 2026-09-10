@@ -708,7 +708,6 @@ import {
   getTreatmentFoodsForWeek,
   getMedicationSessions,
   getGlobalPosition,
-  cycleStartDateForPosition,
   treatmentRampActive,
   applyCrossCategoryCredit,
   recomputeFoodProgressFromHistory,
@@ -841,8 +840,6 @@ Replace `commitSave` entirely:
             ...existing,
             currentWeek: newGlobal.week,
             currentDay: newGlobal.day,
-            cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
-            skipCount: 0,
           })
         }
       }
@@ -856,6 +853,8 @@ Replace `commitSave` entirely:
     }
   }
 ```
+
+**Critical fix (found during Task 10's final regression pass, before this plan's original text ever shipped):** the `saveDoseState` call above deliberately does **not** include `cycleStartDate`/`skipCount`, even though the pre-Task-7 `DayEditor.tsx` (and this plan's own first draft of this exact block) did. Section 1 made `cycleStartDate` the *sole* editable/backfillable boundary, replacing `floor_week`/`floor_day`. Under the *old* model, having `DayEditor` update `cycleStartDate` on every position-changing save was harmless — `cycleStartDate` was just a calendar-math input, and `floor_week`/`floor_day` was the actual boundary, deliberately left untouched (round 2's fix). Copying that old pattern forward into the new model — where `cycleStartDate` **is** the boundary — would silently reintroduce the exact bug this whole redesign exists to eliminate, just relocated: every Trailing Edit save that changes the global position would push the boundary forward and permanently lock out everything before it. `currentWeek`/`currentDay` are kept in the write (harmless — a write-only cache per the original F0.1 design, confirmed unread by every code path including the push-reminder cron) but `cycleStartDate`/`skipCount` must never move here. This directly follows from the already-confirmed decision that "the only trigger that moves the edit boundary is starting a New Food Cycle (or initial onboarding) — routine corrections (Settings, DayEditor) never move it."
 
 Note: `advanceRampStepState` (`lib/schedule.ts:291`) operates on a ramp food's own shape (`currentStep`/`daysInStep`/`steps`), not on `FoodProgress` — the code above advances the matching entry in `activeRamp.treatmentFoods` directly and persists it via `saveReactionRamp`, mirroring the exact pattern `advanceProgressForDay` (`lib/schedule.ts:360-401`) already uses for the live/backfill case. `treatment_food_progress` for a ramp-controlled food is never written by this path — `recomputeFoodProgressFromHistory`'s `excludeFoodNames` set (passed as `rampControlledNames` below) leaves it untouched, exactly matching "ramp-controlled foods advance via ramp steps, not the replay."
 
@@ -1442,6 +1441,44 @@ git commit -m "feat(settings): add manual foods/doses edit screen"
 
 **Files:**
 - Modify: `BRIEF.md`
+- Modify: `app/settings/page.tsx` (Step 0 below — a real gap found during this task's own regression pass, not caught by any earlier task)
+
+- [ ] **Step 0: Fix Settings' `saveFoodPosition` — same `cycleStartDate` bug as Task 7's fix, never covered by any task**
+
+`app/settings/page.tsx`'s `saveFoodPosition` (used for a manual per-food position correction) was never touched by this plan — but it has updated `cycleStartDate` on every position-changing correction since before this plan started (that update was itself round 4's fix, replacing an even earlier bug — see `feedback_treatment_anchor` memory). That was harmless under the old `floor_week`/`floor_day` model. It is **not** harmless now: Section 1 made `cycleStartDate` the sole editable/backfillable boundary, so this function moving it forward on every correction reintroduces the exact "boundary advances on every correction, permanently walling off earlier days" bug this whole redesign exists to eliminate — just via a second code path Task 7 never touched. Same fix as Task 7's: stop writing `cycleStartDate`/`skipCount` here.
+
+Change (in `saveFoodPosition`):
+
+```ts
+      const newGlobal = getGlobalPosition(nextProgress)
+      if ((newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) && existingDoseState) {
+        await saveDoseState({
+          ...existingDoseState,
+          currentWeek: newGlobal.week,
+          currentDay: newGlobal.day,
+          checkedFoods: {},
+          cycleStartDate: cycleStartDateForPosition(newGlobal.week, newGlobal.day),
+        })
+      }
+```
+
+to:
+
+```ts
+      const newGlobal = getGlobalPosition(nextProgress)
+      if ((newGlobal.week !== oldGlobal.week || newGlobal.day !== oldGlobal.day) && existingDoseState) {
+        await saveDoseState({
+          ...existingDoseState,
+          currentWeek: newGlobal.week,
+          currentDay: newGlobal.day,
+          checkedFoods: {},
+        })
+      }
+```
+
+Remove `cycleStartDateForPosition` from this file's `@/lib/schedule` import if this was its only remaining use in the file (check first — `getGlobalPosition` is still used and must stay).
+
+Run `npx tsc --noEmit -p .` to confirm this doesn't break anything, then commit this fix on its own before proceeding to Step 1.
 
 - [ ] **Step 1: Full test suite**
 
