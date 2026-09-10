@@ -533,7 +533,7 @@ export default function SettingsPage() {
             </Link>
             <RowDivider />
             {/* Re-parse schedule */}
-            <Link href="/setup" className="flex items-center justify-between px-4 py-3">
+            <Link href="/re-parse" className="flex items-center justify-between px-4 py-3">
               <span className="text-sm" style={{ color: "var(--color-text-primary)" }}>Re-parse schedule</span>
               <span style={{ color: "var(--color-text-muted)" }}>›</span>
             </Link>
