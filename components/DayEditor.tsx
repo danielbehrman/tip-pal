@@ -139,6 +139,16 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     return "Locked — outside this Reaction Ramp's date range"
   }
 
+  function preAnchorNote(foodName: string): string | undefined {
+    if (!editing) return undefined
+    if (!isTreatmentRowEditable(foodName)) return undefined
+    const fp = foodProgress?.get(foodName)
+    if (!fp) return undefined
+    const entryDate = formatDateOnly(new Date(entry.completedAt))
+    if (entryDate < fp.anchorDate) return "Before tracking started for this food"
+    return undefined
+  }
+
   function toggle(key: string, val: boolean) {
     setDraft(prev => ({ ...prev, [key]: val }))
   }
@@ -267,6 +277,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         onChange={val => toggle(row.key, val)}
         disabled={!editable}
         lockedHint={row.session === "evening" ? treatmentLockedHint(row.name) : undefined}
+        infoNote={row.session === "evening" ? preAnchorNote(row.name) : undefined}
       />
     )
   }

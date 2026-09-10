@@ -18,6 +18,7 @@ interface FoodItemProps {
   disabled?: boolean
   weekBadge?: string
   lockedHint?: string
+  infoNote?: string
 }
 
 export default function FoodItem({
@@ -34,6 +35,7 @@ export default function FoodItem({
   disabled = false,
   weekBadge,
   lockedHint,
+  infoNote,
 }: FoodItemProps) {
   return (
     <FoodCard checked={checked} session={session}>
@@ -79,6 +81,11 @@ export default function FoodItem({
           {lockedHint && (
             <p style={{ fontSize: 11, color: "var(--color-primary-mid)", marginTop: 2 }}>
               {lockedHint}
+            </p>
+          )}
+          {infoNote && !lockedHint && (
+            <p style={{ fontSize: 11, color: "var(--color-text-muted)", fontStyle: "italic", marginTop: 2 }}>
+              {infoNote}
             </p>
           )}
         </div>
