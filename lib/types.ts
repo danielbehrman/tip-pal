@@ -90,6 +90,9 @@ export interface FoodProgress {
   day: number
   completedDays: number
   lastCompletedAt: string | null
+  anchorWeek: number
+  anchorDay: number
+  anchorDate: string
 }
 
 export interface RampStep {

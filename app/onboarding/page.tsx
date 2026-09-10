@@ -17,7 +17,7 @@ import {
   seedFoodProgress,
 } from "@/lib/supabase"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition } from "@/lib/schedule"
+import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition, todayDateString } from "@/lib/schedule"
 import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
 import TravelDayToggle from "@/components/TravelDayToggle"
 
@@ -162,7 +162,7 @@ export default function OnboardingPage() {
   const slowestPosition = (() => {
     if (positionEntries.length === 0) return { week: 1, day: 1 }
     const map = new Map(
-      positionEntries.map(e => [e.foodName, { foodName: e.foodName, week: e.week, day: e.day, completedDays: e.day - 1, lastCompletedAt: null }])
+      positionEntries.map(e => [e.foodName, { foodName: e.foodName, week: e.week, day: e.day, completedDays: e.day - 1, lastCompletedAt: null, anchorWeek: e.week, anchorDay: e.day, anchorDate: todayDateString() }])
     )
     return getGlobalPosition(map)
   })()
