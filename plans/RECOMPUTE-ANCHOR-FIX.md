@@ -806,3 +806,430 @@ Record this fix under the "Trailing Edit Redesign + Re-parse Redemotion" entry (
 git add BRIEF.md
 git commit -m "docs: record Recompute Anchor Fix (C1) completion"
 ```
+
+---
+
+## Addendum: Final cross-cutting review findings (I1, I2)
+
+The final cross-cutting whole-branch review (covering how this plan's 7 tasks compose with the C2 fix and the original Trailing Edit Redesign) found 2 Important findings, both approved by Project Owner for immediate fix:
+
+- **I1:** `app/history/page.tsx`'s `cycle_start_date` boundary guard (added for C2) fails **open** on a `fetchDoseState` error — `cycleStartDate` stays `null`, so the guard never fires and a pre-cycle day becomes clickable. Contradicts this project's established fail-closed precedent for this exact reconciliation subsystem (round 2 fix, commit `267c681`).
+- **I2:** `recomputeFoodProgressFromHistory`'s anchor comparison (`entryDate < anchorDate`, both date-only strings) has a same-day ordering gap. If an anchor is declared (seeded or corrected via Settings) on a calendar day that already has a `dose_log` entry for that same day, the date-only comparison can't tell whether the entry predates or postdates the anchor — a `dose_log` entry created *before* a same-day correction can get silently replayed again, double-counting a day. Fix: give the anchor a precise timestamp and compare directly against `entry.completedAt`.
+
+### Task 8: History's boundary guard fails closed on a fetch error (I1)
+
+**Files:**
+- Modify: `app/history/page.tsx`
+
+**Interfaces:**
+- Consumes: existing `fetchDoseState()` (`lib/supabase.ts`), unchanged.
+- Produces: no new exports — internal component state only.
+
+- [ ] **Step 1: Add a `boundaryLoaded` state and set it only on a successful boundary fetch**
+
+In `app/history/page.tsx`, add the state alongside `cycleStartDate`:
+
+```ts
+  const [cycleStartDate, setCycleStartDate] = useState<string | null>(null)
+  const [boundaryLoaded, setBoundaryLoaded] = useState(false)
+```
+
+In the `load()` function, change the `fetchDoseState()` entry in the `Promise.all` so a successful resolution (including a legitimate `null` — no `dose_state` row yet) marks the boundary as determined, while a rejection leaves `boundaryLoaded` `false`:
+
+```ts
+        const [s, earliestDate, groups, ds] = await Promise.all([
+          fetchSchedule(),
+          fetchEarliestDoseLogDate(),
+          fetchFoodGroups().catch(() => []),
+          fetchDoseState().then(result => { setBoundaryLoaded(true); return result }).catch(() => null),
+        ])
+```
+
+(This replaces the existing `fetchDoseState().catch(() => null)` line — only the fetch itself changes; `setCycleStartDate(ds?.cycleStartDate ?? null)` below it is unchanged.)
+
+- [ ] **Step 2: Refuse the click when the boundary was never determined**
+
+In `handleDayClick`, change the boundary check to fail closed:
+
+```ts
+  function handleDayClick(dateStr: string, entry: DoseLogDay | null) {
+    if (dateStr === todayDateString()) {
+      router.push("/daily")
+      return
+    }
+    if (!boundaryLoaded || (cycleStartDate && dateStr < cycleStartDate)) return
+    if (!entry) return
+    setEditingEntry(entry)
+    setEditingDateStr(dateStr)
+  }
+```
+
+- [ ] **Step 3: Type-check**
+
+Run: `npx tsc --noEmit -p .`
+Expected: clean, no new errors.
+
+- [ ] **Step 4: Manual verification**
+
+This is a UI-only change with no pure-function test coverage available (the guard depends on component state and a network call). Verify by reading the diff: confirm `boundaryLoaded` starts `false`, is set `true` only inside the `.then` (never inside `.catch`), and `handleDayClick`'s guard checks it before the `cycleStartDate` comparison. No behavior changes on the success path (a determined boundary still gates exactly as before).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add app/history/page.tsx
+git commit -m "fix(history): fail closed on the cycle boundary guard when the fetch errors"
+```
+
+---
+
+### Task 9: Precise-timestamp anchor to close the same-day ordering gap (I2)
+
+**Files:**
+- Create: `supabase/migrations/20260911_food_progress_anchor_at.sql`
+- Modify: `lib/types.ts`
+- Modify: `lib/supabase.ts`
+- Modify: `lib/schedule.ts`
+- Modify: `app/settings/page.tsx`
+- Modify: `app/onboarding/page.tsx`
+- Modify: `components/DayEditor.tsx`
+- Modify: `lib/schedule.test.ts`
+
+**Interfaces:**
+- Consumes: `FoodProgress` (`lib/types.ts`), `DoseLogDay.completedAt` (already an ISO timestamp string — see `lib/types.ts:63`).
+- Produces: `FoodProgress.anchorAt: string` (an ISO timestamp) **replaces** `FoodProgress.anchorDate: string` (date-only) everywhere. `recomputeFoodProgressFromHistory`'s signature is unchanged; only its internal seed/comparison logic changes.
+
+**Design note (read before starting):** `dose_log.completed_at` is always a real ISO timestamp — either the actual wall-clock moment a food was live-checked (`new Date().toISOString()`, see `app/daily/page.tsx:338`), or, for a backfilled day, local noon of the calendar day it represents (`app/daily/page.tsx:187-190`, `.toISOString()`). Either way it's a precise, sortable ISO string — the existing sort in `recomputeFoodProgressFromHistory` already relies on lexicographic ISO comparison (`a.completedAt < b.completedAt`). This task extends that same, already-established comparison style to the anchor itself, replacing the lossy date-only `anchorDate` field. The UI's informational pre-anchor note is a genuinely date-level concept ("was this calendar day before tracking started") and keeps comparing calendar dates — it just derives its date-only string from the new `anchorAt` timestamp instead of storing a separate date-only field.
+
+- [ ] **Step 1: Migration — add `anchor_at`, drop `anchor_date`**
+
+Create `supabase/migrations/20260911_food_progress_anchor_at.sql`:
+
+```sql
+-- Follow-up to 20260910_treatment_food_progress_anchor.sql (final cross-cutting
+-- review finding I2). anchor_date (date-only) can't disambiguate a same-day
+-- ordering question: whether a dose_log entry for a given calendar day was
+-- created before or after that day's anchor was declared (e.g. a Settings
+-- correction made after today's dose was already checked). anchor_at records
+-- the precise moment instead, compared directly against dose_log's
+-- completed_at timestamps.
+--
+-- Additive with a safe default (now() at apply time behaves exactly like the
+-- "current position, right now" anchor already in use) — anchor_date has
+-- never been read by any deployed code (this whole anchor mechanism has not
+-- shipped yet), so it's dropped here rather than carried forward.
+
+ALTER TABLE treatment_food_progress
+  ADD COLUMN IF NOT EXISTS anchor_at timestamptz NOT NULL DEFAULT now();
+
+ALTER TABLE treatment_food_progress
+  DROP COLUMN IF EXISTS anchor_date;
+```
+
+Apply this migration directly against production (same judgment call as Task 1 of this plan — additive-with-safe-default plus a drop of a column no deployed code reads, so it's safe regardless of deploy timing). After applying, re-query `treatment_food_progress` for family `00000000-0000-0000-0000-000000000001` and confirm both Peanut and Walnut rows now carry a non-null `anchor_at` (the `now()` default applied at migration time) and that `anchor_date` is gone. No manual `UPDATE` is needed — the `now()` default reproduces Task 6's original "current position, right now" choice with more precision than the date-only value it replaces.
+
+- [ ] **Step 2: Type**
+
+In `lib/types.ts`, change the `FoodProgress` interface:
+
+```ts
+export interface FoodProgress {
+  foodName: string
+  week: number
+  day: number
+  completedDays: number
+  lastCompletedAt: string | null
+  anchorWeek: number
+  anchorDay: number
+  anchorAt: string
+}
+```
+
+(Only the last field's name changes: `anchorDate: string` → `anchorAt: string`.)
+
+- [ ] **Step 3: `lib/supabase.ts` — fetch, save, seed**
+
+In `fetchFoodProgress`, change the select and the mapped field:
+
+```ts
+export async function fetchFoodProgress(): Promise<Map<string, FoodProgress>> {
+  const familyId = await getFamilyId()
+  const { data, error } = await getClient()
+    .from("treatment_food_progress")
+    .select("food_name, week, day, completed_days, last_completed_at, anchor_week, anchor_day, anchor_at")
+    .eq("family_id", familyId)
+  if (error) throw error
+  const map = new Map<string, FoodProgress>()
+  for (const row of data ?? []) {
+    map.set(row.food_name as string, {
+      foodName: row.food_name as string,
+      week: row.week as number,
+      day: row.day as number,
+      completedDays: row.completed_days as number,
+      lastCompletedAt: row.last_completed_at as string | null,
+      anchorWeek: row.anchor_week as number,
+      anchorDay: row.anchor_day as number,
+      anchorAt: row.anchor_at as string,
+    })
+  }
+  return map
+}
+```
+
+In `saveFoodProgress`, change the written column:
+
+```ts
+export async function saveFoodProgress(
+  progress: Map<string, FoodProgress>
+): Promise<void> {
+  const familyId = await getFamilyId()
+  const now = new Date().toISOString()
+  const rows = [...progress.values()].map(fp => ({
+    family_id: familyId,
+    food_name: fp.foodName,
+    week: fp.week,
+    day: fp.day,
+    completed_days: fp.completedDays,
+    last_completed_at: fp.lastCompletedAt,
+    anchor_week: fp.anchorWeek,
+    anchor_day: fp.anchorDay,
+    anchor_at: fp.anchorAt,
+    updated_at: now,
+  }))
+  const { error } = await getClient()
+    .from("treatment_food_progress")
+    .upsert(rows, { onConflict: "family_id,food_name" })
+  if (error) throw error
+}
+```
+
+In `seedFoodProgress`, drop the now-unused `today` const and set `anchorAt` to a precise timestamp:
+
+```ts
+export async function seedFoodProgress(
+  entries: { foodName: string; week: number; day: number }[]
+): Promise<Map<string, FoodProgress>> {
+  const anchorAt = new Date().toISOString()
+  const progress = new Map<string, FoodProgress>()
+  for (const entry of entries) {
+    progress.set(entry.foodName, {
+      foodName: entry.foodName,
+      week: entry.week,
+      day: entry.day,
+      completedDays: entry.day - 1,
+      lastCompletedAt: null,
+      anchorWeek: entry.week,
+      anchorDay: entry.day,
+      anchorAt,
+    })
+  }
+  await saveFoodProgress(progress)
+  return progress
+}
+```
+
+- [ ] **Step 4: `lib/schedule.ts` — `recomputeFoodProgressFromHistory`**
+
+Replace the function body:
+
+```ts
+export function recomputeFoodProgressFromHistory(
+  schedule: ParsedSchedule,
+  doseLogDays: DoseLogDay[],
+  currentProgress: Map<string, FoodProgress>,
+  excludeFoodNames: Set<string>
+): Map<string, FoodProgress> {
+  const sorted = [...doseLogDays].sort((a, b) =>
+    a.completedAt < b.completedAt ? -1 : a.completedAt > b.completedAt ? 1 : 0
+  )
+  const result = new Map<string, FoodProgress>()
+  for (const food of schedule.treatmentFoods) {
+    if (excludeFoodNames.has(food.name)) {
+      const existing = currentProgress.get(food.name)
+      if (existing) result.set(food.name, existing)
+      continue
+    }
+    const existing = currentProgress.get(food.name)
+    const anchorWeek = existing?.anchorWeek ?? 1
+    const anchorDay = existing?.anchorDay ?? 1
+    const anchorAt = existing?.anchorAt ?? (sorted.length > 0 ? sorted[0].completedAt : new Date().toISOString())
+    let fp: FoodProgress = {
+      foodName: food.name, week: anchorWeek, day: anchorDay,
+      completedDays: anchorDay - 1, lastCompletedAt: null,
+      anchorWeek, anchorDay, anchorAt,
+    }
+    for (const entry of sorted) {
+      if (entry.completedAt < anchorAt) continue
+      if (entry.checkedFoods[`evening-${food.name}`]) {
+        fp = advanceFoodProgress(fp, entry.completedAt)
+      }
+    }
+    result.set(food.name, fp)
+  }
+  return result
+}
+```
+
+(The only logic change: the `entryDate`/`formatDateOnly` date-only comparison is replaced by a direct `entry.completedAt < anchorAt` ISO-timestamp comparison — same lexicographic-comparison style the function's own sort already uses. The fallback anchor for a food with no `currentProgress` entry now uses the earliest entry's exact timestamp, `sorted[0].completedAt`, instead of just its calendar date.)
+
+- [ ] **Step 5: `app/settings/page.tsx` — `saveFoodPosition`**
+
+Change the anchor fields it declares:
+
+```ts
+    const updatedFp: FoodProgress = {
+      ...fp,
+      week: newWeek,
+      day: newDay,
+      completedDays: newDay - 1,
+      anchorWeek: newWeek,
+      anchorDay: newDay,
+      anchorAt: new Date().toISOString(),
+    }
+```
+
+Check whether `todayDateString` (currently imported from `@/lib/schedule` alongside `getGlobalPosition`) is still used elsewhere in this file after this change — if this was its only use, remove it from the import list; if `getGlobalPosition` is still used, keep that import.
+
+- [ ] **Step 6: `app/onboarding/page.tsx` — throwaway preview map**
+
+Find the `getGlobalPosition` preview map entry that currently sets `anchorDate: todayDateString()` and change it to `anchorAt: new Date().toISOString()`. (This map is never persisted — it exists only to satisfy `FoodProgress`'s type for a preview computation — so no other behavior changes.)
+
+- [ ] **Step 7: `components/DayEditor.tsx` — `preAnchorNote`**
+
+The UI note is a calendar-day concept and should stay that way — derive the date-only comparison from the new timestamp field:
+
+```ts
+  function preAnchorNote(foodName: string): string | undefined {
+    if (!editing) return undefined
+    if (!isTreatmentRowEditable(foodName)) return undefined
+    const fp = foodProgress?.get(foodName)
+    if (!fp) return undefined
+    const entryDate = formatDateOnly(new Date(entry.completedAt))
+    const anchorDate = formatDateOnly(new Date(fp.anchorAt))
+    if (entryDate < anchorDate) return "Before tracking started for this food"
+    return undefined
+  }
+```
+
+- [ ] **Step 8: Update `lib/schedule.test.ts`**
+
+First, change the `makeFoodProgress` default helper:
+
+```ts
+function makeFoodProgress(overrides: Partial<FoodProgress> = {}): FoodProgress {
+  return {
+    foodName: "Cashew",
+    week: 1,
+    day: 3,
+    completedDays: 2,
+    lastCompletedAt: null,
+    anchorWeek: 1,
+    anchorDay: 1,
+    anchorAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  }
+}
+```
+
+Then mechanically replace every remaining `anchorDate: "YYYY-MM-DD"` literal with `anchorAt: "YYYY-MM-DDT00:00:00.000Z"` (midnight of the same date — preserves every existing test's pass/fail outcome exactly, since every existing anchor date in this suite is either strictly before, or on the same day at-or-before, every dose_log entry it's compared against at 19:00 that day). This applies to every occurrence in the `advanceProgressForDay` describe block (lines ~309, 329, 406, 435 — pure pass-through, value is irrelevant there) and every occurrence in the `recomputeFoodProgressFromHistory` describe block (lines ~662, 675, 681, 687, 698-699, 714-715, 726, 730, 736, 746, 752, 764, 770, 783, 789) **except** the final test ("a food with no currentProgress entry falls back to Week 1 Day 1, anchored at the earliest dose_log date"), which needs its expected value changed to the full timestamp instead of a date-only string:
+
+```ts
+  it("a food with no currentProgress entry falls back to Week 1 Day 1, anchored at the earliest dose_log date", () => {
+    const days = [makeDoseLogDay({ completedAt: "2026-09-03T19:00:00.000Z", checkedFoods: { "evening-Peanut": true } })]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, new Map(), new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 2, completedDays: 1,
+      lastCompletedAt: "2026-09-03T19:00:00.000Z",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-03T19:00:00.000Z",
+    })
+  })
+```
+
+(The fallback now anchors at the earliest entry's exact timestamp, `sorted[0].completedAt`, not just its calendar date — so the expected `anchorAt` is the full `"2026-09-03T19:00:00.000Z"`, matching the single dose_log entry's own `completedAt` exactly.)
+
+Finally, add two new tests at the end of the `recomputeFoodProgressFromHistory` describe block — these are the actual regression coverage for I2's fix, and would fail against the pre-fix date-only comparison:
+
+```ts
+  it("ignores a same-day dose_log entry created before the anchor was declared (I2 same-day ordering fix)", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T18:00:00.000Z",
+      })],
+    ])
+    const days = [
+      // Checked earlier the same day, BEFORE the anchor was declared (e.g. a
+      // Settings correction made later that day) — already reflected in the
+      // corrected position, must not be replayed again.
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-05T09:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 6, completedDays: 5, lastCompletedAt: null,
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T18:00:00.000Z",
+    })
+  })
+
+  it("counts a same-day dose_log entry created after the anchor was declared (I2 same-day ordering fix)", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T09:00:00.000Z",
+      })],
+    ])
+    const days = [
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-05T18:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 7, completedDays: 6,
+      lastCompletedAt: "2026-09-05T18:00:00.000Z",
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T09:00:00.000Z",
+    })
+  })
+```
+
+- [ ] **Step 9: Run the full suite**
+
+Run: `npm test`
+Expected: all tests pass, including the 2 new I2 regression tests.
+
+- [ ] **Step 10: Type-check and build**
+
+Run: `npx tsc --noEmit -p .` then `npm run build`
+Expected: both clean. Grep the repo for any remaining `anchorDate`/`anchor_date` reference (`grep -rn "anchorDate\|anchor_date" --include="*.ts" --include="*.tsx" .`) — expect zero matches.
+
+- [ ] **Step 11: Commit**
+
+```bash
+git add supabase/migrations/20260911_food_progress_anchor_at.sql lib/types.ts lib/supabase.ts lib/schedule.ts app/settings/page.tsx app/onboarding/page.tsx components/DayEditor.tsx lib/schedule.test.ts
+git commit -m "fix(schedule): switch the food-progress anchor to a precise timestamp
+
+Closes a same-day ordering gap: a date-only anchor couldn't tell whether a
+dose_log entry for a given calendar day predated or postdated that day's
+anchor declaration, so a same-day correction could silently double-count
+an already-reflected day. anchor_at (timestamptz) replaces anchor_date,
+compared directly against dose_log's completed_at."
+```
+
+---
+
+### Task 10: Final regression pass and BRIEF.md update (I1 + I2)
+
+**Files:**
+- Modify: `BRIEF.md`
+
+- [ ] **Step 1: Full test suite, type-check, build**
+
+Run: `npm test`, `npx tsc --noEmit -p .`, `npm run build`.
+Expected: all clean.
+
+- [ ] **Step 2: Update `BRIEF.md`**
+
+Record I1 and I2 as fixed under the "Trailing Edit Redesign + Re-parse Redemotion" entry (alongside C1/C2). Update `## Current Status` per the project's standard rule — this is the point where the whole ticket (Trailing Edit Redesign + C1 + C2 + I1 + I2) is ready for Project Owner review and merge, pending Project Owner's own UI sign-off per this project's standing gate rule.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add BRIEF.md
+git commit -m "docs: record I1/I2 fixes from the final cross-cutting review"
+```
