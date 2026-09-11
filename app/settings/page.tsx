@@ -36,7 +36,7 @@ import { DoseState, ParsedSchedule, FoodGroup, FoodProgress, ReactionRamp } from
 import GroupsManager from "@/components/GroupsManager"
 import FoodPositionStepper from "@/components/FoodPositionStepper"
 import TravelDayToggle from "@/components/TravelDayToggle"
-import { getGlobalPosition, todayDateString } from "@/lib/schedule"
+import { getGlobalPosition } from "@/lib/schedule"
 
 const APP_VERSION = "0.1.0"
 
@@ -255,7 +255,7 @@ export default function SettingsPage() {
       completedDays: newDay - 1,
       anchorWeek: newWeek,
       anchorDay: newDay,
-      anchorDate: todayDateString(),
+      anchorAt: new Date().toISOString(),
     }
     const nextProgress = new Map(foodProgress)
     nextProgress.set(foodName, updatedFp)

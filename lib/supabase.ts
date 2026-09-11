@@ -623,7 +623,7 @@ export async function fetchFoodProgress(): Promise<Map<string, FoodProgress>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("treatment_food_progress")
-    .select("food_name, week, day, completed_days, last_completed_at, anchor_week, anchor_day, anchor_date")
+    .select("food_name, week, day, completed_days, last_completed_at, anchor_week, anchor_day, anchor_at")
     .eq("family_id", familyId)
   if (error) throw error
   const map = new Map<string, FoodProgress>()
@@ -636,7 +636,7 @@ export async function fetchFoodProgress(): Promise<Map<string, FoodProgress>> {
       lastCompletedAt: row.last_completed_at as string | null,
       anchorWeek: row.anchor_week as number,
       anchorDay: row.anchor_day as number,
-      anchorDate: row.anchor_date as string,
+      anchorAt: row.anchor_at as string,
     })
   }
   return map
@@ -656,7 +656,7 @@ export async function saveFoodProgress(
     last_completed_at: fp.lastCompletedAt,
     anchor_week: fp.anchorWeek,
     anchor_day: fp.anchorDay,
-    anchor_date: fp.anchorDate,
+    anchor_at: fp.anchorAt,
     updated_at: now,
   }))
   const { error } = await getClient()
@@ -668,7 +668,7 @@ export async function saveFoodProgress(
 export async function seedFoodProgress(
   entries: { foodName: string; week: number; day: number }[]
 ): Promise<Map<string, FoodProgress>> {
-  const today = todayDateString()
+  const anchorAt = new Date().toISOString()
   const progress = new Map<string, FoodProgress>()
   for (const entry of entries) {
     progress.set(entry.foodName, {
@@ -679,7 +679,7 @@ export async function seedFoodProgress(
       lastCompletedAt: null,
       anchorWeek: entry.week,
       anchorDay: entry.day,
-      anchorDate: today,
+      anchorAt,
     })
   }
   await saveFoodProgress(progress)

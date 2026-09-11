@@ -145,7 +145,8 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     const fp = foodProgress?.get(foodName)
     if (!fp) return undefined
     const entryDate = formatDateOnly(new Date(entry.completedAt))
-    if (entryDate < fp.anchorDate) return "Before tracking started for this food"
+    const anchorDate = formatDateOnly(new Date(fp.anchorAt))
+    if (entryDate < anchorDate) return "Before tracking started for this food"
     return undefined
   }
 

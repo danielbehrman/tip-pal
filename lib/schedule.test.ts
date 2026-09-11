@@ -284,7 +284,7 @@ function makeFoodProgress(overrides: Partial<FoodProgress> = {}): FoodProgress {
     lastCompletedAt: null,
     anchorWeek: 1,
     anchorDay: 1,
-    anchorDate: "2026-01-01",
+    anchorAt: "2026-01-01T00:00:00.000Z",
     ...overrides,
   }
 }
@@ -306,7 +306,7 @@ describe("advanceProgressForDay", () => {
       lastCompletedAt: "2026-08-15T12:00:00.000Z",
       anchorWeek: 1,
       anchorDay: 1,
-      anchorDate: "2026-01-01",
+      anchorAt: "2026-01-01T00:00:00.000Z",
     })
     expect(result.updatedRampTreatmentFoods).toEqual(ramp.treatmentFoods)
   })
@@ -326,7 +326,7 @@ describe("advanceProgressForDay", () => {
       lastCompletedAt: "2026-08-15T12:00:00.000Z",
       anchorWeek: 1,
       anchorDay: 1,
-      anchorDate: "2026-01-01",
+      anchorAt: "2026-01-01T00:00:00.000Z",
     })
   })
 
@@ -403,7 +403,7 @@ describe("advanceProgressForDay", () => {
       lastCompletedAt: "2026-08-15T12:00:00.000Z",
       anchorWeek: 1,
       anchorDay: 1,
-      anchorDate: "2026-01-01",
+      anchorAt: "2026-01-01T00:00:00.000Z",
     })
     expect(result.updatedRampTreatmentFoods).toEqual([])
     expect(result.updatedRampMaintenanceFoods).toEqual([])
@@ -432,7 +432,7 @@ describe("advanceProgressForDay", () => {
       lastCompletedAt: "2026-08-15T12:00:00.000Z",
       anchorWeek: 1,
       anchorDay: 1,
-      anchorDate: "2026-01-01",
+      anchorAt: "2026-01-01T00:00:00.000Z",
     })
     expect(result.updatedRampTreatmentFoods).toEqual(ramp.treatmentFoods)
   })
@@ -659,7 +659,7 @@ const replaySchedule: ParsedSchedule = {
 describe("recomputeFoodProgressFromHistory", () => {
   it("replays a food checked every day from its anchor, rolling over at week 7", () => {
     const currentProgress = new Map([
-      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01" })],
+      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z" })],
     ])
     const days = Array.from({ length: 8 }, (_, i) =>
       makeDoseLogDay({
@@ -672,19 +672,19 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Walnut")).toEqual({
       foodName: "Walnut", week: 2, day: 2, completedDays: 1,
       lastCompletedAt: "2026-09-08T19:00:00.000Z",
-      anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z",
     })
   })
 
   it("a food never checked stays exactly at its anchor, not Week 1 Day 1", () => {
     const currentProgress = new Map([
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 2, day: 3, completedDays: 2, anchorWeek: 2, anchorDay: 3, anchorDate: "2026-09-01" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 2, day: 3, completedDays: 2, anchorWeek: 2, anchorDay: 3, anchorAt: "2026-09-01T00:00:00.000Z" })],
     ])
     const days = [makeDoseLogDay({ completedAt: "2026-09-02T19:00:00.000Z", checkedFoods: {} })]
     const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 2, day: 3, completedDays: 2, lastCompletedAt: null,
-      anchorWeek: 2, anchorDay: 3, anchorDate: "2026-09-01",
+      anchorWeek: 2, anchorDay: 3, anchorAt: "2026-09-01T00:00:00.000Z",
     })
   })
 
@@ -695,8 +695,8 @@ describe("recomputeFoodProgressFromHistory", () => {
     // from scratch), so they're left at makeFoodProgress's defaults here rather
     // than set to a value that would be misleading to a reader.
     const currentProgress = new Map([
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-02" })],
-      ["Walnut", makeFoodProgress({ foodName: "Walnut", anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-02" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", anchorWeek: 1, anchorDay: 3, anchorAt: "2026-09-02T00:00:00.000Z" })],
+      ["Walnut", makeFoodProgress({ foodName: "Walnut", anchorWeek: 1, anchorDay: 3, anchorAt: "2026-09-02T00:00:00.000Z" })],
     ])
     const days = [
       makeDoseLogDay({ id: "d1", completedAt: "2026-09-03T19:00:00.000Z", checkedFoods: { "evening-Walnut": true } }),
@@ -711,8 +711,8 @@ describe("recomputeFoodProgressFromHistory", () => {
 
   it("skips unchecked/absent days for that food while still advancing a different food checked the same days", () => {
     const currentProgress = new Map([
-      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01" })],
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01" })],
+      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z" })],
     ])
     const days = [
       makeDoseLogDay({ id: "d1", completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: { "evening-Walnut": true } }),
@@ -723,17 +723,17 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Walnut")).toEqual({
       foodName: "Walnut", week: 1, day: 3, completedDays: 2,
       lastCompletedAt: "2026-09-03T19:00:00.000Z",
-      anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z",
     })
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 1, day: 1, completedDays: 0, lastCompletedAt: null,
-      anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z",
     })
   })
 
   it("is order-independent of the input array — sorts by completedAt before replaying", () => {
     const currentProgress = new Map([
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 1, day: 1, completedDays: 0, anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z" })],
     ])
     const days = [
       makeDoseLogDay({ id: "d2", completedAt: "2026-09-02T19:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
@@ -743,13 +743,13 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 1, day: 3, completedDays: 2,
       lastCompletedAt: "2026-09-02T19:00:00.000Z",
-      anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-01",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-01T00:00:00.000Z",
     })
   })
 
   it("ignores dose_log entries dated before the food's anchor date", () => {
     const currentProgress = new Map([
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 2, day: 1, completedDays: 0, anchorWeek: 2, anchorDay: 1, anchorDate: "2026-09-05" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", week: 2, day: 1, completedDays: 0, anchorWeek: 2, anchorDay: 1, anchorAt: "2026-09-05T00:00:00.000Z" })],
     ])
     const days = [
       // Before the anchor — a leftover/phantom-window entry, must not count.
@@ -761,13 +761,13 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 2, day: 2, completedDays: 1,
       lastCompletedAt: "2026-09-05T19:00:00.000Z",
-      anchorWeek: 2, anchorDay: 1, anchorDate: "2026-09-05",
+      anchorWeek: 2, anchorDay: 1, anchorAt: "2026-09-05T00:00:00.000Z",
     })
   })
 
   it("composes correctly when a non-Day-1 anchor crosses a week boundary", () => {
     const currentProgress = new Map([
-      ["Peanut", makeFoodProgress({ foodName: "Peanut", anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-01" })],
+      ["Peanut", makeFoodProgress({ foodName: "Peanut", anchorWeek: 1, anchorDay: 3, anchorAt: "2026-09-01T00:00:00.000Z" })],
     ])
     const days = Array.from({ length: 5 }, (_, i) =>
       makeDoseLogDay({
@@ -780,13 +780,13 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 2, day: 1, completedDays: 0,
       lastCompletedAt: "2026-09-05T19:00:00.000Z",
-      anchorWeek: 1, anchorDay: 3, anchorDate: "2026-09-01",
+      anchorWeek: 1, anchorDay: 3, anchorAt: "2026-09-01T00:00:00.000Z",
     })
   })
 
   it("excluded (ramp-controlled) foods pass through currentProgress unchanged, anchor included", () => {
     const currentProgress = new Map([
-      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 3, day: 5, completedDays: 4, lastCompletedAt: "2026-08-20T00:00:00.000Z", anchorWeek: 1, anchorDay: 1, anchorDate: "2026-08-01" })],
+      ["Walnut", makeFoodProgress({ foodName: "Walnut", week: 3, day: 5, completedDays: 4, lastCompletedAt: "2026-08-20T00:00:00.000Z", anchorWeek: 1, anchorDay: 1, anchorAt: "2026-08-01T00:00:00.000Z" })],
     ])
     const days = [makeDoseLogDay({ completedAt: "2026-09-01T19:00:00.000Z", checkedFoods: { "evening-Walnut": true, "evening-Peanut": true } })]
     const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set(["Walnut"]))
@@ -799,7 +799,45 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 1, day: 2, completedDays: 1,
       lastCompletedAt: "2026-09-03T19:00:00.000Z",
-      anchorWeek: 1, anchorDay: 1, anchorDate: "2026-09-03",
+      anchorWeek: 1, anchorDay: 1, anchorAt: "2026-09-03T19:00:00.000Z",
+    })
+  })
+
+  it("ignores a same-day dose_log entry created before the anchor was declared (I2 same-day ordering fix)", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T18:00:00.000Z",
+      })],
+    ])
+    const days = [
+      // Checked earlier the same day, BEFORE the anchor was declared (e.g. a
+      // Settings correction made later that day) — already reflected in the
+      // corrected position, must not be replayed again.
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-05T09:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 6, completedDays: 5, lastCompletedAt: null,
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T18:00:00.000Z",
+    })
+  })
+
+  it("counts a same-day dose_log entry created after the anchor was declared (I2 same-day ordering fix)", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T09:00:00.000Z",
+      })],
+    ])
+    const days = [
+      makeDoseLogDay({ id: "d1", completedAt: "2026-09-05T18:00:00.000Z", checkedFoods: { "evening-Peanut": true } }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 7, completedDays: 6,
+      lastCompletedAt: "2026-09-05T18:00:00.000Z",
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T09:00:00.000Z",
     })
   })
 })
