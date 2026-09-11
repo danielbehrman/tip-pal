@@ -432,22 +432,28 @@ export default function SettingsPage() {
             {/* Auto-derived program day */}
             {foodProgress.size > 0 && (() => {
               const globalPos = getGlobalPosition(foodProgress)
+              const positions = [...foodProgress.values()]
+              const allInSync = positions.every(p => p.week === positions[0].week && p.day === positions[0].day)
               let drivingFood: string | null = null
-              let minIdx = Infinity
-              for (const fp of foodProgress.values()) {
-                const idx = (fp.week - 1) * 7 + (fp.day - 1)
-                if (idx < minIdx) {
-                  minIdx = idx
-                  drivingFood = fp.foodName
+              if (!allInSync) {
+                let minIdx = Infinity
+                for (const fp of foodProgress.values()) {
+                  const idx = (fp.week - 1) * 7 + (fp.day - 1)
+                  if (idx < minIdx) {
+                    minIdx = idx
+                    drivingFood = fp.foodName
+                  }
                 }
               }
               return (
                 <div className="flex items-center justify-between px-4 py-3">
                   <div>
                     <p className="text-sm" style={{ color: "var(--color-text-primary)" }}>Program day (auto)</p>
-                    <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
-                      Based on {drivingFood} — your furthest-behind food
-                    </p>
+                    {!allInSync && (
+                      <p className="text-xs mt-0.5" style={{ color: "var(--color-text-muted)" }}>
+                        Based on {drivingFood} — your furthest-behind food
+                      </p>
+                    )}
                   </div>
                   <span className="text-sm font-semibold" style={{ color: "var(--color-text-primary)" }}>
                     Week {globalPos.week}, Day {globalPos.day}
@@ -498,6 +504,9 @@ export default function SettingsPage() {
               isBadged={foodName => {
                 const fp = foodProgress.get(foodName)
                 if (!fp) return false
+                const positions = [...foodProgress.values()]
+                const allInSync = positions.every(p => p.week === positions[0].week && p.day === positions[0].day)
+                if (allInSync) return false
                 const globalPos = getGlobalPosition(foodProgress)
                 return fp.week === globalPos.week && fp.day === globalPos.day
               }}
