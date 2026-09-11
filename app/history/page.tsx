@@ -33,6 +33,7 @@ export default function HistoryPage() {
   const [editingEntry, setEditingEntry] = useState<DoseLogDay | null>(null)
   const [editingDateStr, setEditingDateStr] = useState<string | null>(null)
   const [cycleStartDate, setCycleStartDate] = useState<string | null>(null)
+  const [boundaryLoaded, setBoundaryLoaded] = useState(false)
 
   async function loadMonth(target: { year: number; month: number }) {
     const start = `${target.year}-${String(target.month).padStart(2, "0")}-01`
@@ -60,7 +61,7 @@ export default function HistoryPage() {
           fetchSchedule(),
           fetchEarliestDoseLogDate(),
           fetchFoodGroups().catch(() => []),
-          fetchDoseState().catch(() => null),
+          fetchDoseState().then(result => { setBoundaryLoaded(true); return result }).catch(() => null),
         ])
         if (!s) {
           router.replace("/setup")
@@ -95,7 +96,7 @@ export default function HistoryPage() {
       router.push("/daily")
       return
     }
-    if (cycleStartDate && dateStr < cycleStartDate) return
+    if (!boundaryLoaded || (cycleStartDate && dateStr < cycleStartDate)) return
     if (!entry) return
     setEditingEntry(entry)
     setEditingDateStr(dateStr)
