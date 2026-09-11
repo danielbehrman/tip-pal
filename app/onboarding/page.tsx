@@ -17,7 +17,7 @@ import {
   seedFoodProgress,
 } from "@/lib/supabase"
 import { ParsedSchedule, DoseState } from "@/lib/types"
-import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition, todayDateString } from "@/lib/schedule"
+import { cycleStartDateForPosition, calculateBufferFromProgress, getGlobalPosition } from "@/lib/schedule"
 import FoodPositionStepper, { FoodPositionEntry } from "@/components/FoodPositionStepper"
 import TravelDayToggle from "@/components/TravelDayToggle"
 
