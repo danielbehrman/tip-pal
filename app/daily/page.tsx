@@ -235,7 +235,7 @@ export default function DailyPage() {
               }
 
               const nextDayRecords = new Map(finalDayRecords)
-              nextDayRecords.set(dPosKey, { date: dDayDate, skipped: dIsSkipped })
+              nextDayRecords.set(dPosKey, { date: dDayDate, skipped: dIsSkipped, checkedFoods: dCheckedFoods })
               finalDayRecords = nextDayRecords
 
               const nextCompletedPositions = new Set(finalCompletedPositions)
@@ -423,7 +423,7 @@ export default function DailyPage() {
 
     setDayRecords(prev => {
       const next = new Map(prev)
-      next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false })
+      next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false, checkedFoods })
       return next
     })
   }

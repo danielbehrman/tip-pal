@@ -312,7 +312,7 @@ export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("week, day, completed_at, is_skipped")
+    .select("week, day, completed_at, is_skipped, checked_foods")
     .eq("family_id", familyId)
     .eq("session", "day")
     .order("completed_at", { ascending: true })
@@ -323,6 +323,7 @@ export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
     map.set(`${row.week as number}-${row.day as number}`, {
       date: row.completed_at as string,
       skipped: row.is_skipped as boolean,
+      checkedFoods: (row.checked_foods ?? {}) as Record<string, boolean>,
     })
   }
   return map

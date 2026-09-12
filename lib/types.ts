@@ -82,6 +82,7 @@ export interface DoseState {
 export interface DayRecord {
   date: string
   skipped: boolean
+  checkedFoods: Record<string, boolean>
 }
 
 export interface FoodProgress {

@@ -176,7 +176,15 @@ export default function DailyView({
       const nextTargetDate = addDays(todayDateString(), nextSeq - anchorSeq)
       if (nextTargetDate < prev.cycleStartDate) return prev
       const completedDays = { ...(prev.completedDays ?? {}), [`${prev.currentWeek}-${prev.currentDay}`]: prev.checkedFoods }
-      const restored = completedDays[`${nextWeek}-${nextDay}`] ?? {}
+      const nextPosKey = `${nextWeek}-${nextDay}`
+      // A past day (anything but the live treatment anchor) is already logged —
+      // dose_log (via dayRecords) is the single source of truth for it, since
+      // History/DayEditor write there directly and never touch completedDays.
+      // completedDays only tracks this session's in-progress, not-yet-logged
+      // checkboxes for the current anchor day.
+      const restored = nextSeq === anchorSeq
+        ? (completedDays[nextPosKey] ?? {})
+        : (dayRecords.get(nextPosKey)?.checkedFoods ?? completedDays[nextPosKey] ?? {})
       return { ...prev, currentWeek: nextWeek, currentDay: nextDay, checkedFoods: restored, completedDays }
     })
   }
