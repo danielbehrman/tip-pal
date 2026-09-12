@@ -61,6 +61,8 @@ export default function DailyPage() {
   const recommendedFoodCountsRef = useRef<Record<string, Record<string, number>>>({})
   const [reactionRamp, setReactionRamp] = useState<ReactionRamp | null>(null)
   const reactionRampRef = useRef<ReactionRamp | null>(null)
+  const [completingDay, setCompletingDay] = useState(false)
+  const completingDayRef = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -330,6 +332,11 @@ export default function DailyPage() {
   }
 
   async function handleCompleteDay() {
+    // Guards against a fast repeat tap firing this async handler again before
+    // the first call's writes land — each call reads foodProgressRef fresh, so
+    // a second concurrent call would advance an already-advancing position by
+    // a further, duplicate day rather than being a no-op.
+    if (completingDayRef.current) return
     const current = doseStateRef.current
     if (!current || !hydrated) return
 
@@ -339,6 +346,9 @@ export default function DailyPage() {
     const currentSchedule = schedule!
 
     if (foodProgress.size === 0 && currentSchedule.treatmentFoods.length > 0) return
+
+    completingDayRef.current = true
+    setCompletingDay(true)
 
     const ramp = reactionRampRef.current
     const wasTreatmentRampActive = treatmentRampActive(ramp)
@@ -411,7 +421,9 @@ export default function DailyPage() {
     }
     setDoseState(prev => {
       if (!prev) return prev
-      return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day }
+      // checkedFoods resets — the new current day starts fresh, not pre-filled
+      // with the day just completed.
+      return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day, checkedFoods: {} }
     })
     setTreatmentAnchor(newGlobal)
 
@@ -426,6 +438,9 @@ export default function DailyPage() {
       next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false, checkedFoods })
       return next
     })
+
+    completingDayRef.current = false
+    setCompletingDay(false)
   }
 
   async function handleSkipMorning() {
@@ -450,6 +465,7 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCompleteDay={handleCompleteDay}
+      completingDay={completingDay}
       onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
       fliesToAppointments={fliesToAppointments}

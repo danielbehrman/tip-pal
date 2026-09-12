@@ -15,6 +15,7 @@ interface EveningSectionProps {
   onCheck: (key: string, val: boolean) => void
   onSkipMorning: () => void
   onCompleteDayTap: () => void
+  completingDay: boolean
   isFutureDay: boolean
   isPastDay: boolean
   isCurrentTreatmentDay: boolean
@@ -35,6 +36,7 @@ export default function EveningSection({
   onCheck,
   onSkipMorning,
   onCompleteDayTap,
+  completingDay,
   isFutureDay,
   isPastDay,
   isCurrentTreatmentDay,
@@ -140,8 +142,8 @@ export default function EveningSection({
           {/* Complete Day — always enabled; confirm dialog handles partial/zero checks */}
           {showActions && (
             <div className="mt-4">
-              <CTAButton onClick={handleCompleteDayTap}>
-                Complete Day
+              <CTAButton onClick={handleCompleteDayTap} disabled={completingDay}>
+                {completingDay ? "Saving…" : "Complete Day"}
               </CTAButton>
             </div>
           )}
