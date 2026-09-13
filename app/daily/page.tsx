@@ -279,6 +279,7 @@ export default function DailyPage() {
         setFoodProgress(progress)
         foodProgressRef.current = progress
         setTreatmentAnchor({ week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay })
+        treatmentAnchorRef.current = { week: stateWithGlobalPos.currentWeek, day: stateWithGlobalPos.currentDay }
         recommendedFoodCountsRef.current = initialState.recommendedFoodCounts ?? {}
         setAppointmentDate(apptDate)
         setFliesToAppointments(flies)
@@ -303,6 +304,7 @@ export default function DailyPage() {
 
   const doseStateRef = useRef<DoseState | null>(null)
   const saveDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const treatmentAnchorRef = useRef<{ week: number; day: number } | null>(null)
 
   function handleStateChange(updater: (prev: DoseState) => DoseState) {
     if (!hydrated) return
@@ -312,15 +314,18 @@ export default function DailyPage() {
       doseStateRef.current = next
       if (saveDebounceRef.current) clearTimeout(saveDebounceRef.current)
       saveDebounceRef.current = setTimeout(() => {
-        if (doseStateRef.current) {
-          // Only save checkboxes — position (week/day) is never written by navigation.
-          // Position is derived live from cycle_start_date/skip_count (see lib/schedule.ts
-          // getCalendarPosition) and written only by onboarding, Settings, and Skip Day.
-          saveCheckedState(
-            doseStateRef.current.checkedFoods,
-            doseStateRef.current.completedDays ?? {}
-          ).catch(() => {})
-        }
+        const state = doseStateRef.current
+        const anchor = treatmentAnchorRef.current
+        if (!state || !anchor) return
+        // checked_foods/completed_days must only ever reflect the live, editable
+        // anchor day. Navigating the Today tab's arrows also routes through this
+        // handler (to restore/cache what's shown), so without this guard, merely
+        // *viewing* a past day and closing the app there persists that day's
+        // (correctly, read-only) checked state as if it were today's in-progress
+        // state — the exact "yesterday prepopulated today" bug. Position
+        // (week/day) itself is never written here either way — see below.
+        if (state.currentWeek !== anchor.week || state.currentDay !== anchor.day) return
+        saveCheckedState(state.checkedFoods, state.completedDays ?? {}).catch(() => {})
       }, 150)
       return next
     })
@@ -350,97 +355,104 @@ export default function DailyPage() {
     completingDayRef.current = true
     setCompletingDay(true)
 
-    const ramp = reactionRampRef.current
-    const wasTreatmentRampActive = treatmentRampActive(ramp)
-
-    const { updatedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
-      advanceProgressForDay(currentSchedule, checkedFoods, foodProgress, ramp, completedAt)
-
-    // Log uses the global position BEFORE advancement (the position just completed)
-    const globalBefore = getGlobalPosition(foodProgress)
-
+    // Everything that can advance state lives in this try/finally — an
+    // uncaught throw here must still release the guard above, or a single
+    // unexpected error would silently and permanently disable Complete Day
+    // for the rest of the session (every future tap a silent no-op).
     try {
-      await saveFoodProgress(updatedProgress)
-    } catch {
-      // Save failed — continue; local state still reflects progress
-    }
+      const ramp = reactionRampRef.current
+      const wasTreatmentRampActive = treatmentRampActive(ramp)
 
-    const isSkipped =
-      currentSchedule.treatmentFoods.length > 0 &&
-      !currentSchedule.treatmentFoods.some(food => !!checkedFoods[`evening-${food.name}`])
+      const { updatedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
+        advanceProgressForDay(currentSchedule, checkedFoods, foodProgress, ramp, completedAt)
 
-    try {
-      await saveDoseLog(
-        globalBefore.week,
-        globalBefore.day,
-        checkedFoods,
-        completedAt,
-        currentSchedule,
-        isSkipped,
-        ramp?.active ?? false
-      )
-    } catch {
-      // Log failed — local state still reflects the checked foods either way
-    }
+      // Log uses the global position BEFORE advancement (the position just completed)
+      const globalBefore = getGlobalPosition(foodProgress)
 
-    let updatedRamp: ReactionRamp | null = null
-    if (ramp) {
-      const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
-        ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActive
-      )
-      if (justFinishedTreatment) {
+      try {
+        await saveFoodProgress(updatedProgress)
+      } catch {
+        // Save failed — continue; local state still reflects progress
+      }
+
+      const isSkipped =
+        currentSchedule.treatmentFoods.length > 0 &&
+        !currentSchedule.treatmentFoods.some(food => !!checkedFoods[`evening-${food.name}`])
+
+      try {
+        await saveDoseLog(
+          globalBefore.week,
+          globalBefore.day,
+          checkedFoods,
+          completedAt,
+          currentSchedule,
+          isSkipped,
+          ramp?.active ?? false
+        )
+      } catch {
+        // Log failed — local state still reflects the checked foods either way
+      }
+
+      let updatedRamp: ReactionRamp | null = null
+      if (ramp) {
+        const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+          ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActive
+        )
+        if (justFinishedTreatment) {
+          try {
+            await appendPreviousRamp({
+              startedAt: ramp.startedAt,
+              endedAt: completedAt,
+              rampDayCount: nextRamp.rampDay,
+              treatmentFoods: nextRamp.treatmentFoods,
+              maintenanceFoods: nextRamp.maintenanceFoods,
+            })
+          } catch {
+            // History write failed — non-critical, ramp state itself still updates below
+          }
+        }
+        updatedRamp = fullyDone
+          ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
+          : nextRamp
         try {
-          await appendPreviousRamp({
-            startedAt: ramp.startedAt,
-            endedAt: completedAt,
-            rampDayCount: nextRamp.rampDay,
-            treatmentFoods: nextRamp.treatmentFoods,
-            maintenanceFoods: nextRamp.maintenanceFoods,
-          })
+          await saveReactionRamp(updatedRamp)
         } catch {
-          // History write failed — non-critical, ramp state itself still updates below
+          // Save failed — local state still reflects today's advancement
         }
       }
-      updatedRamp = fullyDone
-        ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
-        : nextRamp
-      try {
-        await saveReactionRamp(updatedRamp)
-      } catch {
-        // Save failed — local state still reflects today's advancement
+
+      const newGlobal = getGlobalPosition(updatedProgress)
+
+      setFoodProgress(updatedProgress)
+      foodProgressRef.current = updatedProgress
+      if (ramp) {
+        setReactionRamp(updatedRamp)
+        reactionRampRef.current = updatedRamp
       }
+      setDoseState(prev => {
+        if (!prev) return prev
+        // checkedFoods resets — the new current day starts fresh, not pre-filled
+        // with the day just completed.
+        return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day, checkedFoods: {} }
+      })
+      setTreatmentAnchor(newGlobal)
+      treatmentAnchorRef.current = newGlobal
+
+      setCompletedPositions(prev => {
+        const next = new Set(prev)
+        next.add(`${globalBefore.week}-${globalBefore.day}`)
+        return next
+      })
+
+      setDayRecords(prev => {
+        const next = new Map(prev)
+        next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false, checkedFoods })
+        return next
+      })
+    } finally {
+      completingDayRef.current = false
+      setCompletingDay(false)
     }
-
-    const newGlobal = getGlobalPosition(updatedProgress)
-
-    setFoodProgress(updatedProgress)
-    foodProgressRef.current = updatedProgress
-    if (ramp) {
-      setReactionRamp(updatedRamp)
-      reactionRampRef.current = updatedRamp
-    }
-    setDoseState(prev => {
-      if (!prev) return prev
-      // checkedFoods resets — the new current day starts fresh, not pre-filled
-      // with the day just completed.
-      return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day, checkedFoods: {} }
-    })
-    setTreatmentAnchor(newGlobal)
-
-    setCompletedPositions(prev => {
-      const next = new Set(prev)
-      next.add(`${globalBefore.week}-${globalBefore.day}`)
-      return next
-    })
-
-    setDayRecords(prev => {
-      const next = new Map(prev)
-      next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false, checkedFoods })
-      return next
-    })
-
-    completingDayRef.current = false
-    setCompletingDay(false)
   }
 
   async function handleSkipMorning() {
