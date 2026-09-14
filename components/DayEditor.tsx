@@ -156,7 +156,14 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     setSaving(true)
     setSaveError(null)
     try {
-      await updateDoseLogCheckedFoods(entry.id, draft)
+      // is_skipped must be recomputed here, not just left at whatever the row
+      // already had — Today's "Skipped" label (components/DailyView.tsx, via
+      // dayRecords) reads this column directly rather than recomputing status
+      // live from checked_foods the way History's calendar does, so a
+      // trailing-edit correction that only wrote checked_foods left it stuck
+      // permanently wrong.
+      const isSkipped = treatmentRows.length > 0 && !treatmentRows.some(row => draft[row.key])
+      await updateDoseLogCheckedFoods(entry.id, draft, isSkipped)
 
       // Cross-category recommended-food credit: compute as a single net delta
       // from the immutable entry.checkedFoods baseline vs. the final draft at

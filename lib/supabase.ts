@@ -383,12 +383,13 @@ export async function fetchEarliestDoseLogDate(): Promise<string | null> {
 
 export async function updateDoseLogCheckedFoods(
   id: string,
-  checkedFoods: Record<string, boolean>
+  checkedFoods: Record<string, boolean>,
+  isSkipped: boolean
 ): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()
     .from("dose_log")
-    .update({ checked_foods: checkedFoods })
+    .update({ checked_foods: checkedFoods, is_skipped: isSkipped })
     .eq("id", id)
     .eq("family_id", familyId)
   if (error) throw error
