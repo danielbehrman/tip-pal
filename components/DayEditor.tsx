@@ -126,8 +126,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     if (!isRampControlled(foodName)) return true
     if (entry.checkedFoods[`evening-${foodName}`]) return false
     const start = rampStartDate()
-    const entryDate = formatDateOnly(new Date(entry.completedAt))
-    return start !== null && entryDate >= start && entryDate <= todayDateString()
+    return start !== null && entry.doseDate >= start && entry.doseDate <= todayDateString()
   }
 
   function treatmentLockedHint(foodName: string): string | undefined {
@@ -234,7 +233,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
 
       if (foodProgress) {
         const existing = await fetchDoseState()
-        const cycleStartDate = existing?.cycleStartDate ?? formatDateOnly(new Date(entry.completedAt))
+        const cycleStartDate = existing?.cycleStartDate ?? entry.doseDate
         const cycleDays = await fetchDoseLogDaysInRange(cycleStartDate, todayDateString())
         const recomputed = recomputeFoodProgressFromHistory(fallbackSchedule, cycleDays, foodProgress, rampControlledNames)
         await saveFoodProgress(recomputed)
@@ -295,7 +294,7 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
         style={{ background: "var(--color-primary)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 1.25rem)" }}
       >
         <button onClick={onClose} className="text-white" aria-label="Close">‹ Close</button>
-        <h1 className="text-base font-semibold text-white">{formatEntryDate(entry.completedAt)}</h1>
+        <h1 className="text-base font-semibold text-white">{formatEntryDate(entry.doseDate + "T00:00:00")}</h1>
         {editing ? (
           <button onClick={handleSaveTap} disabled={saving} className="text-white font-semibold disabled:opacity-50">
             {saving ? "Saving…" : "Save"}

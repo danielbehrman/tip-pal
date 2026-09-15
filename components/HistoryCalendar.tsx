@@ -1,7 +1,7 @@
 "use client"
 
 import { ParsedSchedule, DoseLogDay } from "@/lib/types"
-import { classifyDoseLogDay, DayStatus, todayDateString, formatDateOnly } from "@/lib/schedule"
+import { classifyDoseLogDay, DayStatus, todayDateString } from "@/lib/schedule"
 
 interface HistoryCalendarProps {
   schedule: ParsedSchedule
@@ -66,7 +66,7 @@ export default function HistoryCalendar({
   const todayStr = todayDateString()
 
   const byDate = new Map<string, DoseLogDay>()
-  for (const d of monthDays) byDate.set(formatDateOnly(new Date(d.completedAt)), d)
+  for (const d of monthDays) byDate.set(d.doseDate, d)
 
   const atEarliest = year === earliestMonth.year && m === earliestMonth.month
   const atCurrentMonth = (() => {
