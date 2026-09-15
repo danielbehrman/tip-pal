@@ -231,32 +231,6 @@ export async function saveFliesToAppointments(value: boolean): Promise<void> {
   if (error) throw error
 }
 
-export async function saveDoseLog(
-  week: number,
-  day: number,
-  checkedFoods: Record<string, boolean>,
-  completedAt: string,
-  scheduleSnapshot: object,
-  isSkipped: boolean,
-  rampActive: boolean
-): Promise<void> {
-  const familyId = await getFamilyId()
-  const { error } = await getClient()
-    .from("dose_log")
-    .insert({
-      family_id: familyId,
-      week,
-      day,
-      session: "day",
-      checked_foods: checkedFoods,
-      completed_at: completedAt,
-      is_skipped: isSkipped,
-      schedule_snapshot: scheduleSnapshot,
-      ramp_active: rampActive,
-    })
-  if (error) throw error
-}
-
 export async function fetchCompletedPositions(): Promise<Set<string>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
