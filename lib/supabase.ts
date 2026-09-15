@@ -231,26 +231,6 @@ export async function saveFliesToAppointments(value: boolean): Promise<void> {
   if (error) throw error
 }
 
-export async function saveSkipLog(
-  week: number,
-  day: number,
-  session: "morning" | "evening"
-): Promise<void> {
-  const familyId = await getFamilyId()
-  const { error } = await getClient()
-    .from("dose_log")
-    .insert({
-      family_id: familyId,
-      week,
-      day,
-      session,
-      checked_foods: {},
-      completed_at: new Date().toISOString(),
-      is_skipped: true,
-    })
-  if (error) throw error
-}
-
 export async function saveDoseLog(
   week: number,
   day: number,
@@ -273,22 +253,6 @@ export async function saveDoseLog(
       is_skipped: isSkipped,
       schedule_snapshot: scheduleSnapshot,
       ramp_active: rampActive,
-    })
-  if (error) throw error
-}
-
-export async function saveSkipMorning(week: number, day: number): Promise<void> {
-  const familyId = await getFamilyId()
-  const { error } = await getClient()
-    .from("dose_log")
-    .insert({
-      family_id: familyId,
-      week,
-      day,
-      session: "morning",
-      is_skipped: true,
-      checked_foods: {},
-      completed_at: new Date().toISOString(),
     })
   if (error) throw error
 }

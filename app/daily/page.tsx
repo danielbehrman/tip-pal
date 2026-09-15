@@ -8,7 +8,6 @@ import {
   fetchDoseState,
   saveDoseState,
   saveCheckedState,
-  saveSkipMorning,
   fetchCompletedPositions,
   fetchDayRecords,
   fetchDoseLogDaysInRange,
@@ -355,16 +354,6 @@ export default function DailyPage() {
     saveRecommendedGiven(updated).catch(() => {})
   }
 
-  async function handleSkipMorning() {
-    if (!hydrated || !treatmentAnchor) return
-    const { week, day } = treatmentAnchor
-    try {
-      await saveSkipMorning(week, day)
-    } catch {
-      // Silent — informational log, failure is non-critical
-    }
-  }
-
   if (!schedule || !doseState || !treatmentAnchor) return null
 
   const isAppointmentDay = !!appointmentDate && appointmentDate === todayDateString()
@@ -377,7 +366,6 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCheckPersist={handleCheckPersist}
-      onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
       fliesToAppointments={fliesToAppointments}
       familyName={familyName}

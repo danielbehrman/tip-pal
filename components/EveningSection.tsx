@@ -10,7 +10,6 @@ interface EveningSectionProps {
   currentWeek: number
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
-  onSkipMorning: () => void
   isFutureDay: boolean
   isPastDay: boolean
   isCurrentTreatmentDay: boolean
@@ -29,7 +28,6 @@ export default function EveningSection({
   currentWeek,
   checkedFoods,
   onCheck,
-  onSkipMorning,
   isFutureDay,
   isPastDay,
   isCurrentTreatmentDay,
@@ -43,8 +41,6 @@ export default function EveningSection({
 
   // Count: treatment foods + medications
   const itemCount = treatmentFoods.length + eveningMeds.length
-
-  const showActions = isCurrentTreatmentDay && !isFutureDay && !isSkipped
 
   return (
     <section className="mb-6">
@@ -112,19 +108,6 @@ export default function EveningSection({
               />
             )
           })}
-
-          {/* Skip morning — informational log only */}
-          {showActions && (
-            <div className="mt-3 flex flex-col items-center gap-1">
-              <button
-                className="text-sm underline"
-                style={{ color: "var(--color-text-muted)" }}
-                onClick={onSkipMorning}
-              >
-                Skip morning
-              </button>
-            </div>
-          )}
         </>
       )}
     </section>
