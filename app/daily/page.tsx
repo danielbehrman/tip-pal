@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress, ReactionRamp } from "@/lib/types"
+import { ParsedSchedule, DoseState, DayRecord, FoodGroup, FoodProgress, ReactionRamp, DoseLogDay } from "@/lib/types"
 import {
   fetchSchedule,
   fetchDoseState,
@@ -88,7 +88,7 @@ export default function DailyPage() {
           router.replace("/setup")
           return
         }
-        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, rawRamp, flies] = await Promise.all([
+        const [ds, apptDate, name, positions, records, groups, vNum, rawProgress, photoUrl, rawRamp, flies, todayLog] = await Promise.all([
           fetchDoseState(),
           fetchAppointmentDate().catch(() => null),
           fetchFamilyName().catch(() => null),
@@ -100,6 +100,7 @@ export default function DailyPage() {
           fetchChildPhotoUrl().catch(() => null),
           fetchReactionRamp().catch(() => null),
           fetchFliesToAppointments().catch(() => false),
+          fetchDoseLogDaysInRange(todayDateString(), todayDateString()).catch(() => []),
         ])
         if (!name) {
           router.replace("/onboarding")
@@ -136,10 +137,15 @@ export default function DailyPage() {
           ? getGlobalPosition(progress)
           : { week: initialState.currentWeek, day: initialState.currentDay }
 
+        // checkedFoods must reflect only today's actual dose_log row, never
+        // dose_state.checked_foods (a single persistent field with no date
+        // scoping) — otherwise yesterday's ticked boxes show as already-checked
+        // on a new day, and upsertCheckedFood never fires for it.
         const stateWithGlobalPos: DoseState = {
           ...initialState,
           currentWeek: globalPos.week,
           currentDay: globalPos.day,
+          checkedFoods: todayLog[0]?.checkedFoods ?? {},
         }
 
         let finalDayRecords = records
@@ -161,7 +167,17 @@ export default function DailyPage() {
           const earliestFinalizeDate = addDays(yesterday, -(MAX_FINALIZE_DAYS - 1))
           const rangeStart = initialState.cycleStartDate > earliestFinalizeDate ? initialState.cycleStartDate : earliestFinalizeDate
 
+          // Fetched once, before the ensure loop below, so the loop can skip
+          // dates that already have a row instead of calling ensureDoseLogDay
+          // (a blocking RPC) for all up to 60 dates on every single load — and
+          // reused as-is (plus locally-appended synthetic entries for rows the
+          // loop just created) for everything downstream, so this range is
+          // only ever fetched from the server once per load.
+          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch((): DoseLogDay[] => [])
+          const existingDoseDates = new Set(existingDays.map(d => d.doseDate))
+
           for (let dDate = rangeStart; dDate <= yesterday; dDate = addDays(dDate, 1)) {
+            if (existingDoseDates.has(dDate)) continue
             const dayIndex = Math.round(
               (new Date(dDate + "T00:00:00").getTime() - new Date(initialState.cycleStartDate + "T00:00:00").getTime())
                 / MS_PER_DAY
@@ -169,15 +185,26 @@ export default function DailyPage() {
             const { week: dWeek, day: dDay } = positionFromIndex(Math.max(0, dayIndex - initialState.skipCount))
             try {
               await ensureDoseLogDay(dDate, dWeek, dDay, s)
+              existingDoseDates.add(dDate)
+              existingDays.push({
+                id: `pending-${dDate}`,
+                week: dWeek,
+                day: dDay,
+                completedAt: new Date(dDate + "T12:00:00Z").toISOString(),
+                doseDate: dDate,
+                rampFinalized: false,
+                checkedFoods: {},
+                scheduleSnapshot: s,
+                morningSkipped: false,
+                eveningSkipped: false,
+              })
             } catch {
-              // Ensure failed (network, etc.) — next load retries; skip ramp
-              // finalization for this date this run rather than risk acting
-              // on a row that may not exist.
-              continue
+              // Ensure failed (network, etc.) — the row was never created, so
+              // it won't appear in existingDays and nothing below processes
+              // it this run; next load will retry ensuring it.
             }
           }
 
-          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => [])
           const unfinalizedRampDays = existingDays
             .filter(d => !d.rampFinalized)
             .sort((a, b) => (a.doseDate < b.doseDate ? -1 : a.doseDate > b.doseDate ? 1 : 0))
@@ -205,7 +232,10 @@ export default function DailyPage() {
             // increment ramp_day, or a family who simply didn't open the app
             // for a stretch would see their ramp silently advance regardless.
             if (ramp && Object.values(entry.checkedFoods).some(Boolean)) {
-              const recordedAt = new Date().toISOString()
+              // The day being finalized, not "now" — this flows into
+              // PreviousRamp.endedAt, the archived clinical record of when a
+              // ramp actually finished.
+              const recordedAt = new Date(entry.doseDate + "T00:00:00").toISOString()
               const { updatedRamp, justFinishedTreatment, finishedEntry } =
                 finalizeDayRamp(s, entry.checkedFoods, ramp, recordedAt)
               if (justFinishedTreatment && finishedEntry) {
