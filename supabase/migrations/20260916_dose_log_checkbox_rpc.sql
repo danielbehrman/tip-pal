@@ -74,8 +74,14 @@ BEGIN
     RAISE EXCEPTION 'No family found for authenticated user';
   END IF;
 
+  -- Noon UTC of the calendar date this row represents, not now() — a gap
+  -- row must carry a timestamp that actually falls within the day it
+  -- represents, or both the anchor-gate in recomputeFoodProgressFromHistory
+  -- and the calendar lookup in HistoryCalendar.tsx get the wrong answer for
+  -- it (a pre-anchor backfilled day would wrongly stop being excluded once
+  -- trailing-edited, and the calendar would collapse it onto today's cell).
   INSERT INTO dose_log (family_id, dose_date, week, day, session, checked_foods, completed_at, is_skipped, ramp_finalized, schedule_snapshot)
-  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', '{}'::jsonb, now(), true, false, p_schedule_snapshot)
+  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', '{}'::jsonb, (p_dose_date::timestamp + time '12:00') AT TIME ZONE 'UTC', true, false, p_schedule_snapshot)
   ON CONFLICT (family_id, dose_date) WHERE session = 'day'
   DO NOTHING;
 END;
