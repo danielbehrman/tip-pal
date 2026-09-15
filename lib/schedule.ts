@@ -142,6 +142,16 @@ export function advanceFoodProgress(fp: FoodProgress, completedAt: string): Food
     : { ...fp, day: newCompletedDays + 1, completedDays: newCompletedDays, lastCompletedAt: completedAt }
 }
 
+// A gap-filled row (ensure_dose_log_day) is stamped with noon UTC of its own
+// dose_date, and a later trailing edit (updateDoseLogCheckedFoods) never
+// touches completed_at — so this exact instant surviving unchanged is how
+// we tell "this timestamp is a synthetic placeholder, ignore it for
+// same-day precision" from "this timestamp reflects a real tap," which a
+// same-day anchor comparison needs to distinguish (see c9993fa).
+export function isSyntheticGapTimestamp(entry: { doseDate: string; completedAt: string }): boolean {
+  return new Date(entry.completedAt).getTime() === new Date(`${entry.doseDate}T12:00:00Z`).getTime()
+}
+
 export function recomputeFoodProgressFromHistory(
   schedule: ParsedSchedule,
   doseLogDays: DoseLogDay[],
@@ -162,13 +172,15 @@ export function recomputeFoodProgressFromHistory(
     const anchorWeek = existing?.anchorWeek ?? 1
     const anchorDay = existing?.anchorDay ?? 1
     const anchorAt = existing?.anchorAt ?? (sorted.length > 0 ? sorted[0].completedAt : new Date().toISOString())
+    const anchorDate = formatDateOnly(new Date(anchorAt))
     let fp: FoodProgress = {
       foodName: food.name, week: anchorWeek, day: anchorDay,
       completedDays: anchorDay - 1, lastCompletedAt: null,
       anchorWeek, anchorDay, anchorAt,
     }
     for (const entry of sorted) {
-      if (entry.completedAt < anchorAt) continue
+      if (entry.doseDate < anchorDate) continue
+      if (entry.doseDate === anchorDate && !isSyntheticGapTimestamp(entry) && entry.completedAt < anchorAt) continue
       if (entry.checkedFoods[`evening-${food.name}`]) {
         fp = advanceFoodProgress(fp, entry.completedAt)
       }

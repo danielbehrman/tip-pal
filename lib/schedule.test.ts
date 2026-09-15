@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, finalizeDayRamp, calculateBufferFromProgress, todayDateString, addDays, advanceFoodProgress, classifyDoseLogDay, recomputeFoodProgressFromHistory } from "./schedule"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, finalizeDayRamp, calculateBufferFromProgress, todayDateString, addDays, advanceFoodProgress, classifyDoseLogDay, recomputeFoodProgressFromHistory, formatDateOnly, isSyntheticGapTimestamp } from "./schedule"
 import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress, DoseLogDay } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
@@ -616,12 +616,18 @@ const classifierSchedule: ParsedSchedule = {
 }
 
 function makeDoseLogDay(overrides: Partial<DoseLogDay> = {}): DoseLogDay {
+  const completedAt = overrides.completedAt ?? "2026-09-01T12:00:00.000Z"
   return {
     id: "day-1",
     week: 1,
     day: 3,
-    completedAt: "2026-09-01T12:00:00.000Z",
-    doseDate: "2026-09-01",
+    completedAt,
+    // Derived from completedAt (not a fixed literal) so the fixture stays
+    // self-consistent with recomputeFoodProgressFromHistory's doseDate-based
+    // anchor gate regardless of the host machine's local timezone — see
+    // isSyntheticGapTimestamp tests below for cases that deliberately set
+    // doseDate and completedAt to diverge.
+    doseDate: formatDateOnly(new Date(completedAt)),
     rampFinalized: true,
     checkedFoods: {},
     scheduleSnapshot: classifierSchedule,
@@ -706,6 +712,20 @@ const replaySchedule: ParsedSchedule = {
     { name: "Peanut", weeks: [{ week: 1, dose: 64, unit: "mg", isFinal: false }] },
   ],
 }
+
+describe("isSyntheticGapTimestamp", () => {
+  it("is true for the exact noon-UTC synthetic stamp ensure_dose_log_day writes", () => {
+    expect(isSyntheticGapTimestamp({ doseDate: "2026-09-12", completedAt: "2026-09-12T12:00:00.000Z" })).toBe(true)
+  })
+
+  it("is true for the same instant rendered with a different ISO offset (Postgres vs JS format mismatch)", () => {
+    expect(isSyntheticGapTimestamp({ doseDate: "2026-09-12", completedAt: "2026-09-12T12:00:00+00:00" })).toBe(true)
+  })
+
+  it("is false for a genuine same-day tap timestamp", () => {
+    expect(isSyntheticGapTimestamp({ doseDate: "2026-09-12", completedAt: "2026-09-12T09:15:00.000Z" })).toBe(false)
+  })
+})
 
 describe("recomputeFoodProgressFromHistory", () => {
   it("replays a food checked every day from its anchor, rolling over at week 7", () => {
@@ -889,6 +909,51 @@ describe("recomputeFoodProgressFromHistory", () => {
       foodName: "Peanut", week: 1, day: 7, completedDays: 6,
       lastCompletedAt: "2026-09-05T18:00:00.000Z",
       anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-05T09:00:00.000Z",
+    })
+  })
+
+  it("counts a gap-filled day on the anchor's own date once trailing-edited (I-A fix)", () => {
+    // Gap-filled by ensure_dose_log_day (synthetic noon-UTC stamp), later
+    // trailing-edited via DayEditor — which never touches completed_at. Must
+    // still count once the anchor lands on this same calendar day.
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-12T18:00:00.000Z",
+      })],
+    ])
+    const days = [
+      makeDoseLogDay({
+        id: "d1", doseDate: "2026-09-12", completedAt: "2026-09-12T12:00:00.000Z",
+        checkedFoods: { "evening-Peanut": true },
+      }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 7, completedDays: 6,
+      lastCompletedAt: "2026-09-12T12:00:00.000Z",
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-12T18:00:00.000Z",
+    })
+  })
+
+  it("counts a gap-filled, trailing-edited day clearly after the anchor's date (baseline)", () => {
+    const currentProgress = new Map([
+      ["Peanut", makeFoodProgress({
+        foodName: "Peanut", week: 1, day: 6, completedDays: 5,
+        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-01T18:00:00.000Z",
+      })],
+    ])
+    const days = [
+      makeDoseLogDay({
+        id: "d1", doseDate: "2026-09-12", completedAt: "2026-09-12T12:00:00.000Z",
+        checkedFoods: { "evening-Peanut": true },
+      }),
+    ]
+    const result = recomputeFoodProgressFromHistory(replaySchedule, days, currentProgress, new Set())
+    expect(result.get("Peanut")).toEqual({
+      foodName: "Peanut", week: 1, day: 7, completedDays: 6,
+      lastCompletedAt: "2026-09-12T12:00:00.000Z",
+      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-01T18:00:00.000Z",
     })
   })
 })

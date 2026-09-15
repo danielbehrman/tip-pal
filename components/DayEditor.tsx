@@ -13,6 +13,7 @@ import {
   resolveRampAfterAdvance,
   formatDateOnly,
   todayDateString,
+  isSyntheticGapTimestamp,
 } from "@/lib/schedule"
 import {
   updateDoseLogCheckedFoods,
@@ -143,7 +144,9 @@ export default function DayEditor({ entry, fallbackSchedule, onClose, onSaved, f
     if (!isTreatmentRowEditable(foodName)) return undefined
     const fp = foodProgress?.get(foodName)
     if (!fp) return undefined
-    if (entry.completedAt < fp.anchorAt) return "Before tracking started for this food"
+    const anchorDate = formatDateOnly(new Date(fp.anchorAt))
+    if (entry.doseDate < anchorDate) return "Before tracking started for this food"
+    if (entry.doseDate === anchorDate && !isSyntheticGapTimestamp(entry) && entry.completedAt < fp.anchorAt) return "Before tracking started for this food"
     return undefined
   }
 
