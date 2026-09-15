@@ -384,6 +384,54 @@ export async function updateDoseLogCheckedFoods(
   if (error) throw error
 }
 
+export async function upsertCheckedFood(
+  doseDate: string,
+  key: string,
+  value: boolean,
+  week: number,
+  day: number,
+  scheduleSnapshot: object
+): Promise<void> {
+  const { error } = await getClient().rpc("upsert_checked_food", {
+    p_dose_date: doseDate,
+    p_key: key,
+    p_value: value,
+    p_week: week,
+    p_day: day,
+    p_schedule_snapshot: scheduleSnapshot,
+  })
+  if (error) throw error
+}
+
+export async function ensureDoseLogDay(
+  doseDate: string,
+  week: number,
+  day: number,
+  scheduleSnapshot: object
+): Promise<void> {
+  const { error } = await getClient().rpc("ensure_dose_log_day", {
+    p_dose_date: doseDate,
+    p_week: week,
+    p_day: day,
+    p_schedule_snapshot: scheduleSnapshot,
+  })
+  if (error) throw error
+}
+
+// Plain UPDATE, not an RPC — no merge semantics needed, this just flips
+// one boolean once nightly finalization has applied ramp advancement for
+// this calendar day, so a later re-run treats it as already-processed.
+export async function markRampFinalized(doseDate: string): Promise<void> {
+  const familyId = await getFamilyId()
+  const { error } = await getClient()
+    .from("dose_log")
+    .update({ ramp_finalized: true })
+    .eq("family_id", familyId)
+    .eq("dose_date", doseDate)
+    .eq("session", "day")
+  if (error) throw error
+}
+
 export async function deleteDoseLogDays(ids: string[]): Promise<void> {
   const familyId = await getFamilyId()
   const { error } = await getClient()
