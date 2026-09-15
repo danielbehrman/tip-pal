@@ -839,7 +839,13 @@ In `app/daily/page.tsx`, replace the entire block from `// Lazy auto-rollover: b
               gapUncheckedNames = dUncheckedNames
             }
 
-            if (ramp) {
+            // Gated on "was anything actually checked this day," matching the
+            // old lazy-rollover code's own established rule (commit 267c681,
+            // "gate ramp advance on actual checks") — an entirely-unchecked
+            // gap day (nothing tapped, not even a real completion) must not
+            // increment ramp_day, or a family who simply didn't open the app
+            // for a stretch would see their ramp silently advance regardless.
+            if (ramp && Object.values(entry.checkedFoods).some(Boolean)) {
               const recordedAt = new Date().toISOString()
               const { updatedRamp, justFinishedTreatment, finishedEntry } =
                 finalizeDayRamp(s, entry.checkedFoods, ramp, recordedAt)
