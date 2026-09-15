@@ -463,7 +463,7 @@ Expected: the function body selects only `week, day`, no date column. No change 
 
 **Interfaces:**
 - Consumes: `dose_log_family_dose_date_day_idx` (Task 3 — the migration is committed, but note this RPC migration is safe to apply to production independently and *before* Task 3's constraint is applied, since `ON CONFLICT ... WHERE session = 'day'` against a not-yet-existing partial index simply won't have a matching index to conflict on; Postgres will raise `no unique or exclusion constraint matching the ON CONFLICT specification` at the *first actual call*, not at function-creation time — so this migration itself is safe to apply anytime, but the functions won't work correctly until Task 3's index exists. Sequence Task 3 before actually wiring the app to call these in Task 8-9, not necessarily before creating the SQL functions themselves).
-- Produces: `upsertCheckedFood(doseDate, key, value, week, day)`, `ensureDoseLogDay(doseDate, week, day)`, and `markRampFinalized(doseDate)` in `lib/supabase.ts`, consumed by Tasks 8-9.
+- Produces: `upsertCheckedFood(doseDate, key, value, week, day, scheduleSnapshot)`, `ensureDoseLogDay(doseDate, week, day, scheduleSnapshot)`, and `markRampFinalized(doseDate)` in `lib/supabase.ts`, consumed by Tasks 8-9. `scheduleSnapshot` is written only on first-insert of a day's row (never on conflict) — see Step 1's SQL comment for why this must not be dropped.
 
 - [ ] **Step 1: Write the migration**
 
@@ -484,12 +484,22 @@ Expected: the function body selects only `week, day`, no date column. No change 
 -- runtime — safe to create this function before that index exists, but it
 -- will error on first real call until it does.
 
+-- p_schedule_snapshot is written only on first-insert, never on the
+-- DO UPDATE branch — DayEditor.tsx and classifyDoseLogDay both fall back to
+-- *today's current* schedule when a row's schedule_snapshot is null
+-- (`entry.scheduleSnapshot ?? fallbackSchedule`), so a row created by this
+-- function without one would silently show the wrong historical doses for
+-- any day logged before a later schedule re-parse. Must be captured at the
+-- moment this calendar day first gets any data, and never overwritten by a
+-- later re-parse mid-day, matching how the old saveDoseLog (single insert
+-- per day, at the old Complete Day's tap) always set it exactly once.
 CREATE OR REPLACE FUNCTION upsert_checked_food(
   p_dose_date date,
   p_key text,
   p_value boolean,
   p_week integer,
-  p_day integer
+  p_day integer,
+  p_schedule_snapshot jsonb
 ) RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -502,8 +512,8 @@ BEGIN
     RAISE EXCEPTION 'No family found for authenticated user';
   END IF;
 
-  INSERT INTO dose_log (family_id, dose_date, week, day, session, checked_foods, completed_at, is_skipped, ramp_finalized)
-  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', jsonb_build_object(p_key, p_value), now(), false, false)
+  INSERT INTO dose_log (family_id, dose_date, week, day, session, checked_foods, completed_at, is_skipped, ramp_finalized, schedule_snapshot)
+  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', jsonb_build_object(p_key, p_value), now(), false, false, p_schedule_snapshot)
   ON CONFLICT (family_id, dose_date) WHERE session = 'day'
   DO UPDATE SET
     checked_foods = dose_log.checked_foods || jsonb_build_object(p_key, p_value),
@@ -515,10 +525,13 @@ $$;
 -- with zero taps, without ever overwriting a row that already has real
 -- checked_foods from live writes. Plain "insert if absent" — no merge
 -- needed, so DO NOTHING is correct here (unlike upsert_checked_food above).
+-- Same schedule_snapshot rule as above: set only on the insert this
+-- function performs, never touched again after.
 CREATE OR REPLACE FUNCTION ensure_dose_log_day(
   p_dose_date date,
   p_week integer,
-  p_day integer
+  p_day integer,
+  p_schedule_snapshot jsonb
 ) RETURNS void
 LANGUAGE plpgsql
 SECURITY INVOKER
@@ -531,15 +544,15 @@ BEGIN
     RAISE EXCEPTION 'No family found for authenticated user';
   END IF;
 
-  INSERT INTO dose_log (family_id, dose_date, week, day, session, checked_foods, completed_at, is_skipped, ramp_finalized)
-  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', '{}'::jsonb, now(), true, false)
+  INSERT INTO dose_log (family_id, dose_date, week, day, session, checked_foods, completed_at, is_skipped, ramp_finalized, schedule_snapshot)
+  VALUES (v_family_id, p_dose_date, p_week, p_day, 'day', '{}'::jsonb, now(), true, false, p_schedule_snapshot)
   ON CONFLICT (family_id, dose_date) WHERE session = 'day'
   DO NOTHING;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION upsert_checked_food(date, text, boolean, integer, integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION ensure_dose_log_day(date, integer, integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION upsert_checked_food(date, text, boolean, integer, integer, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION ensure_dose_log_day(date, integer, integer, jsonb) TO authenticated;
 ```
 
 - [ ] **Step 2: Add the `lib/supabase.ts` wrappers**
@@ -550,7 +563,8 @@ export async function upsertCheckedFood(
   key: string,
   value: boolean,
   week: number,
-  day: number
+  day: number,
+  scheduleSnapshot: object
 ): Promise<void> {
   const { error } = await getClient().rpc("upsert_checked_food", {
     p_dose_date: doseDate,
@@ -558,15 +572,22 @@ export async function upsertCheckedFood(
     p_value: value,
     p_week: week,
     p_day: day,
+    p_schedule_snapshot: scheduleSnapshot,
   })
   if (error) throw error
 }
 
-export async function ensureDoseLogDay(doseDate: string, week: number, day: number): Promise<void> {
+export async function ensureDoseLogDay(
+  doseDate: string,
+  week: number,
+  day: number,
+  scheduleSnapshot: object
+): Promise<void> {
   const { error } = await getClient().rpc("ensure_dose_log_day", {
     p_dose_date: doseDate,
     p_week: week,
     p_day: day,
+    p_schedule_snapshot: scheduleSnapshot,
   })
   if (error) throw error
 }
@@ -788,7 +809,7 @@ In `app/daily/page.tsx`, replace the entire block from `// Lazy auto-rollover: b
             )
             const { week: dWeek, day: dDay } = positionFromIndex(Math.max(0, dayIndex - initialState.skipCount))
             try {
-              await ensureDoseLogDay(dDate, dWeek, dDay)
+              await ensureDoseLogDay(dDate, dWeek, dDay, s)
             } catch {
               // Ensure failed (network, etc.) — next load retries; skip ramp
               // finalization for this date this run rather than risk acting
@@ -896,7 +917,9 @@ In `app/daily/page.tsx`, replace the entire block from `// Lazy auto-rollover: b
         }
 ```
 
-Import `ensureDoseLogDay`, `markRampFinalized`, and `finalizeDayRamp` at the top of `app/daily/page.tsx` (from `@/lib/supabase` and `@/lib/schedule` respectively) alongside the existing imports. `DoseLogDay.rampFinalized` (Task 4) and `markRampFinalized` (Task 6) already exist by this point in the plan — this step's code uses them directly with no follow-up patch needed.
+Import `ensureDoseLogDay` and `markRampFinalized` from `@/lib/supabase`, and `finalizeDayRamp` and `recomputeFoodProgressFromHistory` from `@/lib/schedule`, at the top of `app/daily/page.tsx` alongside the existing imports — `recomputeFoodProgressFromHistory` is used by this step's code (`progress = recomputeFoodProgressFromHistory(s, allCycleDays, progress, new Set())`) but was never imported by the pre-existing code (the old backfill loop only ever called the incremental `advanceProgressForDay`, already in the existing import list). `DoseLogDay.rampFinalized` (Task 4) and `markRampFinalized` (Task 6) already exist by this point in the plan — this step's code uses them directly with no follow-up patch needed.
+
+Once this task lands, `advanceProgressForDay` (in the existing `@/lib/schedule` import list) is still used by `handleCompleteDay`, which Task 10 removes — Task 10 must drop this now-fully-unused import at that point (this project's `tsconfig.json` has no `noUnusedLocals`, so `tsc` won't catch a stray unused import on its own; verify by grep, not by trusting the type-checker).
 
 - [ ] **Step 2: Type-check**
 
@@ -936,9 +959,9 @@ git commit -m "feat(daily): nightly finalization replaces gap-only lazy backfill
 
 ```ts
   function handleCheckPersist(key: string, val: boolean) {
-    if (!hydrated || !treatmentAnchor) return
+    if (!hydrated || !treatmentAnchor || !schedule) return
     const doseDate = todayDateString()
-    upsertCheckedFood(doseDate, key, val, treatmentAnchor.week, treatmentAnchor.day).catch(() => {
+    upsertCheckedFood(doseDate, key, val, treatmentAnchor.week, treatmentAnchor.day, schedule).catch(() => {
       // Write failed — local state still reflects the tap; the checkbox
       // will appear checked in this session even if the server write
       // didn't land. Matches this codebase's existing fire-and-forget
@@ -1008,7 +1031,7 @@ git commit -m "feat(daily): checkbox taps write live via upsertCheckedFood, not 
 
 - [ ] **Step 1: Remove from `app/daily/page.tsx`**
 
-Delete: the `handleCompleteDay` function in its entirety (including its `try`/`finally` guard block), the `completingDay`/`completingDayRef` state and ref declarations, and the `onCompleteDay={handleCompleteDay}` / `completingDay={completingDay}` props passed to `<DailyView>`.
+Delete: the `handleCompleteDay` function in its entirety (including its `try`/`finally` guard block), the `completingDay`/`completingDayRef` state and ref declarations, and the `onCompleteDay={handleCompleteDay}` / `completingDay={completingDay}` props passed to `<DailyView>`. `handleCompleteDay` was the only remaining caller of `advanceProgressForDay` in this file (Task 8 moved the backfill/finalization path onto `recomputeFoodProgressFromHistory`/`finalizeDayRamp` instead) — confirm with `grep -n "advanceProgressForDay" app/daily/page.tsx` that nothing else calls it, then remove it from the `@/lib/schedule` import list too. This project's `tsconfig.json` has no `noUnusedLocals`, so a stray unused import won't fail `tsc` — verify by grep, not by trusting the type-check step below to catch it.
 
 - [ ] **Step 2: Remove from `components/DailyView.tsx`**
 
