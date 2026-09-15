@@ -14,6 +14,7 @@ interface DailyViewProps {
   schedule: ParsedSchedule
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
+  onCheckPersist: (key: string, val: boolean) => void
   onCompleteDay: () => void
   completingDay: boolean
   onSkipMorning: () => void
@@ -75,6 +76,7 @@ export default function DailyView({
   schedule,
   doseState,
   onStateChange,
+  onCheckPersist,
   onCompleteDay,
   completingDay,
   onSkipMorning,
@@ -193,6 +195,7 @@ export default function DailyView({
 
   function handleCheck(key: string, val: boolean) {
     onStateChange(prev => ({ ...prev, checkedFoods: { ...prev.checkedFoods, [key]: val } }))
+    onCheckPersist(key, val)
 
     const wasChecked = !!checkedFoods[key]
     const updatedCounts = applyCrossCategoryCredit(

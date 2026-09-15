@@ -30,6 +30,7 @@ import {
   appendPreviousRamp,
   ensureDoseLogDay,
   markRampFinalized,
+  upsertCheckedFood,
 } from "@/lib/supabase"
 import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, positionFromIndex, MS_PER_DAY, finalizeDayRamp, recomputeFoodProgressFromHistory } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
@@ -341,6 +342,17 @@ export default function DailyPage() {
     })
   }
 
+  function handleCheckPersist(key: string, val: boolean) {
+    if (!hydrated || !treatmentAnchor || !schedule) return
+    const doseDate = todayDateString()
+    upsertCheckedFood(doseDate, key, val, treatmentAnchor.week, treatmentAnchor.day, schedule).catch(() => {
+      // Write failed — local state still reflects the tap; the checkbox
+      // will appear checked in this session even if the server write
+      // didn't land. Matches this codebase's existing fire-and-forget
+      // error handling for every other live-save path (e.g. saveCheckedState).
+    })
+  }
+
   function handleCrossCategoryCredit(updated: Record<string, Record<string, number>>) {
     recommendedFoodCountsRef.current = updated
     saveRecommendedGiven(updated).catch(() => {})
@@ -486,6 +498,7 @@ export default function DailyPage() {
       schedule={schedule}
       doseState={doseState}
       onStateChange={handleStateChange}
+      onCheckPersist={handleCheckPersist}
       onCompleteDay={handleCompleteDay}
       completingDay={completingDay}
       onSkipMorning={handleSkipMorning}
