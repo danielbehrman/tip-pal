@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, calculateBufferFromProgress, todayDateString, addDays, advanceFoodProgress, classifyDoseLogDay, recomputeFoodProgressFromHistory } from "./schedule"
+import { applyCrossCategoryCredit, treatmentRampDone, treatmentRampActive, advanceRampStepState, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, finalizeDayRamp, calculateBufferFromProgress, todayDateString, addDays, advanceFoodProgress, classifyDoseLogDay, recomputeFoodProgressFromHistory } from "./schedule"
 import { RecommendedFood, ReactionRamp, RampTreatmentFood, RampMaintenanceFood, ParsedSchedule, FoodProgress, DoseLogDay } from "./types"
 
 const recommendedFoods: RecommendedFood[] = [
@@ -508,6 +508,55 @@ describe("resolveRampAfterAdvance", () => {
     const inactiveRamp = makeRamp({ active: false, rampDay: 3 })
     const inactiveResult = resolveRampAfterAdvance(inactiveRamp, inactiveRamp.treatmentFoods, inactiveRamp.maintenanceFoods, false)
     expect(inactiveResult.nextRamp.rampDay).toBe(3)
+  })
+})
+
+describe("finalizeDayRamp", () => {
+  it("returns updatedRamp: null and justFinishedTreatment: false when there is no active ramp", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const result = finalizeDayRamp(schedule, { "evening-Peanut Gelatin": true }, null, "2026-08-15T19:00:00.000Z")
+    expect(result.updatedRamp).toBeNull()
+    expect(result.justFinishedTreatment).toBe(false)
+    expect(result.finishedEntry).toBeNull()
+  })
+
+  it("advances a ramp-controlled food's step when its evening checkbox was checked that day", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const ramp = makeRamp({
+      treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 0 })],
+    })
+    const result = finalizeDayRamp(schedule, { "evening-Peanut Gelatin": true }, ramp, "2026-08-15T19:00:00.000Z")
+    expect(result.updatedRamp?.treatmentFoods[0]).toEqual(
+      expect.objectContaining({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 1, complete: false })
+    )
+  })
+
+  it("leaves the ramp untouched when nothing relevant was checked that day", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const ramp = makeRamp({
+      treatmentFoods: [makeTreatmentFood({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 2 })],
+    })
+    const result = finalizeDayRamp(schedule, {}, ramp, "2026-08-15T19:00:00.000Z")
+    expect(result.updatedRamp?.treatmentFoods[0]).toEqual(
+      expect.objectContaining({ name: "Peanut Gelatin", currentStep: 0, daysInStep: 2 })
+    )
+    expect(result.justFinishedTreatment).toBe(false)
+  })
+
+  it("reports justFinishedTreatment and a finishedEntry when the day's advance completes the treatment side", () => {
+    const schedule = makeSchedule(["Peanut Gelatin"])
+    const ramp = makeRamp({
+      startedAt: "2026-08-01T00:00:00.000Z",
+      rampDay: 6,
+      treatmentFoods: [
+        makeTreatmentFood({ name: "Peanut Gelatin", currentStep: 1, daysInStep: 6, steps: [{ dose: 5, unit: "ml", days: 3 }, { dose: 10, unit: "ml", days: 7 }] }),
+      ],
+      maintenanceFoods: [],
+    })
+    const result = finalizeDayRamp(schedule, { "evening-Peanut Gelatin": true }, ramp, "2026-08-15T19:00:00.000Z")
+    expect(result.justFinishedTreatment).toBe(true)
+    expect(result.finishedEntry).not.toBeNull()
+    expect(result.finishedEntry?.startedAt).toBe("2026-08-01T00:00:00.000Z")
   })
 })
 

@@ -1,4 +1,4 @@
-import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood, RampStep, RampTreatmentFood, RampMaintenanceFood, ReactionRamp, RampDoseOverride, DoseLogDay } from "./types"
+import { ParsedSchedule, TreatmentFood, TreatmentWeek, FoodProgress, RecommendedFood, RampStep, RampTreatmentFood, RampMaintenanceFood, ReactionRamp, RampDoseOverride, DoseLogDay, PreviousRamp } from "./types"
 
 export const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -444,6 +444,54 @@ export function resolveRampAfterAdvance(
   const justFinishedTreatment = wasTreatmentRampActive && treatmentRampDone(nextRamp)
   const fullyDone = treatmentRampDone(nextRamp) && nextRamp.maintenanceFoods.every(f => f.complete)
   return { nextRamp, justFinishedTreatment, fullyDone }
+}
+
+export interface FinalizeDayRampResult {
+  updatedRamp: ReactionRamp | null
+  justFinishedTreatment: boolean
+  finishedEntry: PreviousRamp | null
+}
+
+// Advances a ramp's step/daysInStep state by exactly one calendar day, given that
+// day's checked foods — the same per-day advancement handleCompleteDay performs live,
+// extracted so nightly finalization can replay missed days one at a time. Unlike
+// treatment position (safely re-derivable via recomputeFoodProgressFromHistory), ramp
+// state is incremental and must be advanced in order, day by day. Calls
+// advanceProgressForDay with an empty foodProgress Map deliberately: this function only
+// needs the ramp-side output (updatedRampTreatmentFoods/updatedRampMaintenanceFoods),
+// and advanceProgressForDay's foodProgress handling is independent of and unaffected by
+// the ramp branch — see the guard at its `if (!fp) continue` line.
+export function finalizeDayRamp(
+  schedule: ParsedSchedule,
+  checkedFoods: Record<string, boolean>,
+  ramp: ReactionRamp | null,
+  completedAt: string
+): FinalizeDayRampResult {
+  if (!ramp) return { updatedRamp: null, justFinishedTreatment: false, finishedEntry: null }
+
+  const wasTreatmentRampActive = treatmentRampActive(ramp)
+  const { updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
+    advanceProgressForDay(schedule, checkedFoods, new Map(), ramp, completedAt)
+
+  const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
+    ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActive
+  )
+
+  const finishedEntry: PreviousRamp | null = justFinishedTreatment
+    ? {
+        startedAt: ramp.startedAt,
+        endedAt: completedAt,
+        rampDayCount: nextRamp.rampDay,
+        treatmentFoods: nextRamp.treatmentFoods,
+        maintenanceFoods: nextRamp.maintenanceFoods,
+      }
+    : null
+
+  const updatedRamp = fullyDone
+    ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
+    : nextRamp
+
+  return { updatedRamp, justFinishedTreatment, finishedEntry }
 }
 
 export type DayStatus = "complete" | "treatment-complete" | "treatment-partial" | "treatment-missed" | "none-scheduled"
