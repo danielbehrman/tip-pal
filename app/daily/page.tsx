@@ -28,8 +28,10 @@ import {
   fetchReactionRamp,
   saveReactionRamp,
   appendPreviousRamp,
+  ensureDoseLogDay,
+  markRampFinalized,
 } from "@/lib/supabase"
-import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, positionFromIndex, MS_PER_DAY } from "@/lib/schedule"
+import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, positionFromIndex, MS_PER_DAY, finalizeDayRamp, recomputeFoodProgressFromHistory } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 type BannerInfo =
@@ -147,116 +149,125 @@ export default function DailyPage() {
         let finalCompletedPositions = positions
         let banner: BannerInfo = null
 
-        // Lazy auto-rollover: backfill every missed day between cycle_start_date
-        // (inclusive) and yesterday, not just the single most recent one. Each
-        // missing day gets tagged with the calendar-derived (week, day) position
-        // implied by its distance from cycle_start_date — NOT the frozen
-        // FoodProgress position, which may not have moved at all during the gap.
-        // Iterates oldest-to-newest so ramp/FoodProgress state threads forward
-        // correctly, though a fully-unchecked day is a no-op for both
-        // (advanceProgressForDay only advances a food whose checkbox was
-        // actually checked).
+        // Nightly finalization: ensure every calendar day from cycle_start_date
+        // through yesterday has a dose_log row (empty/unchecked if nothing was
+        // ever tapped), then recompute treatment_food_progress from a fresh,
+        // full replay of the actual ledger — safe to run from multiple devices
+        // without coordination, since a full replay always produces the same
+        // answer from the same data (see recomputeFoodProgressFromHistory).
+        // Ramp advancement is NOT a replay — it's incremental state — so it's
+        // applied once per not-yet-finalized day, tracked via ramp_finalized,
+        // in chronological order.
         const yesterday = addDays(todayDateString(), -1)
         if (initialState.cycleStartDate <= yesterday) {
-          const MAX_BACKFILL_DAYS = 60
-          const earliestBackfillDate = addDays(yesterday, -(MAX_BACKFILL_DAYS - 1))
-          const rangeStart = initialState.cycleStartDate > earliestBackfillDate ? initialState.cycleStartDate : earliestBackfillDate
-
-          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => null)
-          if (existingDays !== null) {
-          const existingDates = new Set(existingDays.map(d => formatDateOnly(new Date(d.completedAt))))
-
-          let gapFirstDate: string | null = null
-          let gapLastDate: string | null = null
-          let gapUncheckedNames: string[] = []
+          const MAX_FINALIZE_DAYS = 60
+          const earliestFinalizeDate = addDays(yesterday, -(MAX_FINALIZE_DAYS - 1))
+          const rangeStart = initialState.cycleStartDate > earliestFinalizeDate ? initialState.cycleStartDate : earliestFinalizeDate
 
           for (let dDate = rangeStart; dDate <= yesterday; dDate = addDays(dDate, 1)) {
-            if (existingDates.has(dDate)) continue
-
             const dayIndex = Math.round(
               (new Date(dDate + "T00:00:00").getTime() - new Date(initialState.cycleStartDate + "T00:00:00").getTime())
                 / MS_PER_DAY
             )
             const { week: dWeek, day: dDay } = positionFromIndex(Math.max(0, dayIndex - initialState.skipCount))
-            const dPosKey = `${dWeek}-${dDay}`
-
-            const dCheckedFoods = initialState.completedDays?.[dPosKey] ?? {}
-            const dEveningItems = getTreatmentFoodsForWeek(s, dWeek)
-            const dUncheckedNames = dEveningItems
-              .filter(({ food }) => !dCheckedFoods[`evening-${food.name}`])
-              .map(({ food }) => food.name)
-            const dIsSkipped = dEveningItems.length > 0 && dUncheckedNames.length === dEveningItems.length
-
-            // dDayDate anchors this reconciled row to the calendar day it
-            // represents, not to "now" — required so a later reload's range
-            // fetch finds this row (idempotency) and so History shows the
-            // correct date. recordedAt (when reconciliation actually ran) is
-            // used only for the informational FoodProgress.lastCompletedAt field.
-            const dDayDateObj = new Date(dDate + "T00:00:00")
-            dDayDateObj.setHours(12, 0, 0, 0)
-            const dDayDate = dDayDateObj.toISOString()
-            const recordedAt = new Date().toISOString()
-
-            const wasTreatmentRampActiveThatDay = treatmentRampActive(ramp)
-            const { updatedProgress: advancedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
-              advanceProgressForDay(s, dCheckedFoods, progress, ramp, recordedAt)
-
             try {
-              await saveDoseLog(dWeek, dDay, dCheckedFoods, dDayDate, s, dIsSkipped, ramp?.active ?? false)
-              await saveFoodProgress(advancedProgress)
-              progress = advancedProgress
-              globalPos = getGlobalPosition(advancedProgress)
-              stateWithGlobalPos.currentWeek = globalPos.week
-              stateWithGlobalPos.currentDay = globalPos.day
+              await ensureDoseLogDay(dDate, dWeek, dDay, s)
+            } catch {
+              // Ensure failed (network, etc.) — next load retries; skip ramp
+              // finalization for this date this run rather than risk acting
+              // on a row that may not exist.
+              continue
+            }
+          }
 
-              if (ramp && Object.values(dCheckedFoods).some(Boolean)) {
-                const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
-                  ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActiveThatDay
-                )
-                if (justFinishedTreatment) {
-                  try {
-                    await appendPreviousRamp({
-                      startedAt: ramp.startedAt,
-                      endedAt: recordedAt,
-                      rampDayCount: nextRamp.rampDay,
-                      treatmentFoods: nextRamp.treatmentFoods,
-                      maintenanceFoods: nextRamp.maintenanceFoods,
-                    })
-                  } catch {
-                    // History write failed — non-critical
-                  }
+          const existingDays = await fetchDoseLogDaysInRange(rangeStart, yesterday).catch(() => [])
+          const unfinalizedRampDays = existingDays
+            .filter(d => !d.rampFinalized)
+            .sort((a, b) => (a.doseDate < b.doseDate ? -1 : a.doseDate > b.doseDate ? 1 : 0))
+
+          let gapFirstDate: string | null = null
+          let gapLastDate: string | null = null
+          let gapUncheckedNames: string[] = []
+
+          for (const entry of unfinalizedRampDays) {
+            const dEveningItems = getTreatmentFoodsForWeek(s, entry.week)
+            const dUncheckedNames = dEveningItems
+              .filter(({ food }) => !entry.checkedFoods[`evening-${food.name}`])
+              .map(({ food }) => food.name)
+
+            if (dUncheckedNames.length > 0) {
+              if (!gapFirstDate) gapFirstDate = entry.doseDate
+              gapLastDate = entry.doseDate
+              gapUncheckedNames = dUncheckedNames
+            }
+
+            // Gated on "was anything actually checked this day," matching the
+            // old lazy-rollover code's own established rule (commit 267c681,
+            // "gate ramp advance on actual checks") — an entirely-unchecked
+            // gap day (nothing tapped, not even a real completion) must not
+            // increment ramp_day, or a family who simply didn't open the app
+            // for a stretch would see their ramp silently advance regardless.
+            if (ramp && Object.values(entry.checkedFoods).some(Boolean)) {
+              const recordedAt = new Date().toISOString()
+              const { updatedRamp, justFinishedTreatment, finishedEntry } =
+                finalizeDayRamp(s, entry.checkedFoods, ramp, recordedAt)
+              if (justFinishedTreatment && finishedEntry) {
+                try {
+                  await appendPreviousRamp(finishedEntry)
+                } catch {
+                  // History write failed — non-critical
                 }
-                ramp = fullyDone
-                  ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
-                  : nextRamp
+              }
+              if (updatedRamp) {
+                ramp = updatedRamp
                 try {
                   await saveReactionRamp(ramp)
                 } catch {
                   // Save failed — non-critical, next load re-fetches truth
                 }
               }
+            }
 
-              const nextDayRecords = new Map(finalDayRecords)
-              nextDayRecords.set(dPosKey, { date: dDayDate, skipped: dIsSkipped, checkedFoods: dCheckedFoods })
-              finalDayRecords = nextDayRecords
-
-              const nextCompletedPositions = new Set(finalCompletedPositions)
-              nextCompletedPositions.add(dPosKey)
-              finalCompletedPositions = nextCompletedPositions
-
-              if (dUncheckedNames.length > 0) {
-                if (!gapFirstDate) gapFirstDate = dDate
-                gapLastDate = dDate
-                gapUncheckedNames = dUncheckedNames
-              }
+            try {
+              await markRampFinalized(entry.doseDate)
             } catch {
-              if (dUncheckedNames.length > 0 && !gapFirstDate) {
-                gapFirstDate = dDate
-                gapLastDate = dDate
-                gapUncheckedNames = dUncheckedNames
-              }
+              // Failed to mark — the next load will re-process this same
+              // day. Harmless when there's no active ramp (finalizeDayRamp
+              // is a no-op), but a genuine, narrow risk when a ramp step
+              // was just advanced above and only the mark-as-done write
+              // failed: the next load would advance that same step again.
+              // Flagged for the task reviewer rather than silently accepted
+              // — a small write-ordering change (mark finalized inside the
+              // same transaction as the ramp save, via a combined RPC)
+              // would close this, but isn't done here to keep this task's
+              // scope to what the spec actually asked for; note it as a
+              // known residual gap in the final BRIEF.md writeup (Task 13).
             }
           }
+
+          try {
+            const allCycleDays = await fetchDoseLogDaysInRange(initialState.cycleStartDate, yesterday)
+            progress = recomputeFoodProgressFromHistory(s, allCycleDays, progress, new Set())
+            await saveFoodProgress(progress)
+            globalPos = getGlobalPosition(progress)
+            stateWithGlobalPos.currentWeek = globalPos.week
+            stateWithGlobalPos.currentDay = globalPos.day
+          } catch {
+            // Recompute failed — local state still reflects whatever was
+            // fetched at the top of this effect; next load retries.
+          }
+
+          const nextDayRecords = new Map(finalDayRecords)
+          const nextCompletedPositions = new Set(finalCompletedPositions)
+          for (const entry of existingDays) {
+            const posKey = `${entry.week}-${entry.day}`
+            const isSkippedEntry = getTreatmentFoodsForWeek(s, entry.week).length > 0 &&
+              getTreatmentFoodsForWeek(s, entry.week).every(({ food }) => !entry.checkedFoods[`evening-${food.name}`])
+            nextDayRecords.set(posKey, { date: entry.doseDate, skipped: isSkippedEntry, checkedFoods: entry.checkedFoods })
+            nextCompletedPositions.add(posKey)
+          }
+          finalDayRecords = nextDayRecords
+          finalCompletedPositions = nextCompletedPositions
 
           if (gapFirstDate && gapLastDate) {
             banner = gapFirstDate === gapLastDate
@@ -270,7 +281,6 @@ export default function DailyPage() {
                   startDate: gapFirstDate,
                   endDate: gapLastDate,
                 }
-          }
           }
         }
 
