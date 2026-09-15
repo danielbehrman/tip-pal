@@ -57,7 +57,7 @@ async function main() {
 
   const { data: rows, error } = await client
     .from("dose_log")
-    .select("id, completed_at, dose_date")
+    .select("id, family_id, session, completed_at, dose_date")
     .order("completed_at", { ascending: true })
   if (error) {
     console.error("Fetch failed:", error.message)
@@ -68,27 +68,55 @@ async function main() {
 
   let updated = 0
   let skipped = 0
+  // family_id -> dose_date -> [row ids], scoped to session='day' rows only —
+  // the same scope as dose_log_family_dose_date_day_idx (the partial unique
+  // index Task 3 leaves dormant until this backfill is verified clean), so
+  // any group with more than one id here is exactly what that index would
+  // hard-fail on if applied. This is the shape the 2026-09-14 incident left:
+  // two fragmented 'day' rows for one real evening.
+  const dayRowsByFamilyAndDate = new Map()
   for (const row of rows) {
     const computedDoseDate = formatDateOnly(new Date(row.completed_at))
     if (row.dose_date === computedDoseDate) {
       skipped++
-      continue
-    }
-    console.log(`${row.id}: completed_at=${row.completed_at} -> dose_date=${computedDoseDate} (was ${row.dose_date ?? "null"})`)
-    if (apply) {
-      const { error: updateError } = await client
-        .from("dose_log")
-        .update({ dose_date: computedDoseDate })
-        .eq("id", row.id)
-      if (updateError) {
-        console.error(`  FAILED to update ${row.id}:`, updateError.message)
-        process.exit(1)
+    } else {
+      console.log(`${row.id}: completed_at=${row.completed_at} -> dose_date=${computedDoseDate} (was ${row.dose_date ?? "null"})`)
+      if (apply) {
+        const { error: updateError } = await client
+          .from("dose_log")
+          .update({ dose_date: computedDoseDate })
+          .eq("id", row.id)
+        if (updateError) {
+          console.error(`  FAILED to update ${row.id}:`, updateError.message)
+          process.exit(1)
+        }
       }
+      updated++
     }
-    updated++
+
+    if (row.session !== "day") continue
+    const familyKey = dayRowsByFamilyAndDate.get(row.family_id) ?? new Map()
+    dayRowsByFamilyAndDate.set(row.family_id, familyKey)
+    const ids = familyKey.get(computedDoseDate) ?? []
+    ids.push(row.id)
+    familyKey.set(computedDoseDate, ids)
   }
 
   console.log(`${apply ? "Updated" : "Would update"}: ${updated}. Already correct: ${skipped}.`)
+
+  let collisionCount = 0
+  for (const [familyId, byDate] of dayRowsByFamilyAndDate) {
+    for (const [doseDate, ids] of byDate) {
+      if (ids.length <= 1) continue
+      collisionCount++
+      console.log(`COLLISION: family_id=${familyId} dose_date=${doseDate} rows=${ids.join(", ")}`)
+    }
+  }
+  if (collisionCount > 0) {
+    console.log(`${collisionCount} dose_date collision(s) found — resolve these before applying the NOT NULL/unique index migration (20260915_dose_log_dose_date_constraint.sql).`)
+  } else {
+    console.log("No dose_date collisions found among session='day' rows.")
+  }
 }
 
 main()
