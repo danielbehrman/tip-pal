@@ -916,10 +916,17 @@ describe("recomputeFoodProgressFromHistory", () => {
     // Gap-filled by ensure_dose_log_day (synthetic noon-UTC stamp), later
     // trailing-edited via DayEditor — which never touches completed_at. Must
     // still count once the anchor lands on this same calendar day.
+    //
+    // anchorAt is built from local Date components (not a fixed UTC literal)
+    // so it resolves to Sep 12 on every host timezone the suite might run
+    // under — a fixed "...T18:00:00.000Z" resolves to Sep 13 at UTC+6 and
+    // beyond, which would make anchorDate diverge from the row's doseDate
+    // and silently flip this test's outcome depending on machine geography.
+    const anchorAt = new Date(2026, 8, 12, 18, 0, 0).toISOString()
     const currentProgress = new Map([
       ["Peanut", makeFoodProgress({
         foodName: "Peanut", week: 1, day: 6, completedDays: 5,
-        anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-12T18:00:00.000Z",
+        anchorWeek: 1, anchorDay: 6, anchorAt,
       })],
     ])
     const days = [
@@ -932,7 +939,7 @@ describe("recomputeFoodProgressFromHistory", () => {
     expect(result.get("Peanut")).toEqual({
       foodName: "Peanut", week: 1, day: 7, completedDays: 6,
       lastCompletedAt: "2026-09-12T12:00:00.000Z",
-      anchorWeek: 1, anchorDay: 6, anchorAt: "2026-09-12T18:00:00.000Z",
+      anchorWeek: 1, anchorDay: 6, anchorAt,
     })
   })
 
