@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient, Session } from "@supabase/supabase-js"
 import { ParsedSchedule, DoseState, DoseLogDay, DayRecord, FoodGroup, FoodProgress, ReactionRamp, PreviousRamp } from "./types"
-import { getCalendarPosition, todayDateString, addDays, formatDateOnly } from "./schedule"
+import { getCalendarPosition, todayDateString } from "./schedule"
 
 // Captured at module evaluation time so Turbopack can inline them as literals
 // during static export builds — process.env is not available at runtime in Capacitor.
@@ -312,16 +312,17 @@ export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("week, day, completed_at, is_skipped, checked_foods")
+    .select("week, day, dose_date, is_skipped, checked_foods")
     .eq("family_id", familyId)
     .eq("session", "day")
-    .order("completed_at", { ascending: true })
+    .order("dose_date", { ascending: true })
   if (error) throw error
   const map = new Map<string, DayRecord>()
   for (const row of data ?? []) {
-    // ascending order: last row per position wins (most recent) — see Design Note above
+    // ascending order: last row per position wins (most recent) — matches
+    // the pre-existing "last write wins" convention this map has always used.
     map.set(`${row.week as number}-${row.day as number}`, {
-      date: row.completed_at as string,
+      date: row.dose_date as string,
       skipped: row.is_skipped as boolean,
       checkedFoods: (row.checked_foods ?? {}) as Record<string, boolean>,
     })
@@ -331,39 +332,27 @@ export async function fetchDayRecords(): Promise<Map<string, DayRecord>> {
 
 export async function fetchDoseLogDaysInRange(startDate: string, endDate: string): Promise<DoseLogDay[]> {
   const familyId = await getFamilyId()
-  // Widen the query bounds by a day on each side to catch rows whose UTC
-  // completed_at falls just outside [startDate, endDate] but whose LOCAL
-  // calendar date (the public contract of this function) falls within it —
-  // e.g. a dose logged at 6:30pm PDT has a UTC completed_at on the next day.
-  const queryStart = addDays(startDate, -1)
-  const queryEnd = addDays(endDate, 1)
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("id, week, day, session, checked_foods, completed_at, is_skipped, schedule_snapshot")
+    .select("id, week, day, session, checked_foods, completed_at, dose_date, ramp_finalized, is_skipped, schedule_snapshot")
     .eq("family_id", familyId)
-    .gte("completed_at", `${queryStart}T00:00:00.000Z`)
-    .lte("completed_at", `${queryEnd}T23:59:59.999Z`)
-    .order("completed_at", { ascending: false })
+    .eq("session", "day")
+    .gte("dose_date", startDate)
+    .lte("dose_date", endDate)
+    .order("dose_date", { ascending: false })
   if (error) throw error
   if (!data) return []
-  const dayRows = data.filter(r => {
-    if (r.session !== "day") return false
-    const localDate = formatDateOnly(new Date(r.completed_at as string))
-    return localDate >= startDate && localDate <= endDate
-  })
-  return dayRows.map(dayRow => ({
+  return data.map(dayRow => ({
     id: dayRow.id as string,
     week: dayRow.week as number,
     day: dayRow.day as number,
     completedAt: dayRow.completed_at as string,
+    doseDate: dayRow.dose_date as string,
+    rampFinalized: dayRow.ramp_finalized as boolean,
     checkedFoods: (dayRow.checked_foods ?? {}) as Record<string, boolean>,
     scheduleSnapshot: (dayRow.schedule_snapshot ?? null) as ParsedSchedule | null,
-    morningSkipped: data.some(
-      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "morning" && r.is_skipped
-    ),
-    eveningSkipped: data.some(
-      r => r.week === dayRow.week && r.day === dayRow.day && r.session === "evening" && r.is_skipped
-    ),
+    morningSkipped: false,
+    eveningSkipped: false,
   }))
 }
 
@@ -371,14 +360,14 @@ export async function fetchEarliestDoseLogDate(): Promise<string | null> {
   const familyId = await getFamilyId()
   const { data, error } = await getClient()
     .from("dose_log")
-    .select("completed_at")
+    .select("dose_date")
     .eq("family_id", familyId)
     .eq("session", "day")
-    .order("completed_at", { ascending: true })
+    .order("dose_date", { ascending: true })
     .limit(1)
   if (error) throw error
   if (!data || data.length === 0) return null
-  return formatDateOnly(new Date(data[0].completed_at as string))
+  return data[0].dose_date as string
 }
 
 export async function updateDoseLogCheckedFoods(
