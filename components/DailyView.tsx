@@ -15,8 +15,6 @@ interface DailyViewProps {
   doseState: DoseState
   onStateChange: (updater: (prev: DoseState) => DoseState) => void
   onCheckPersist: (key: string, val: boolean) => void
-  onCompleteDay: () => void
-  completingDay: boolean
   onSkipMorning: () => void
   appointmentDate: string | null
   fliesToAppointments: boolean
@@ -77,8 +75,6 @@ export default function DailyView({
   doseState,
   onStateChange,
   onCheckPersist,
-  onCompleteDay,
-  completingDay,
   onSkipMorning,
   appointmentDate,
   fliesToAppointments,
@@ -471,8 +467,6 @@ export default function DailyView({
               checkedFoods={checkedFoods}
               onCheck={handleCheck}
               onSkipMorning={onSkipMorning}
-              onCompleteDayTap={onCompleteDay}
-              completingDay={completingDay}
               isFutureDay={isFutureDay}
               isPastDay={isPastDay}
               isCurrentTreatmentDay={isCurrentTreatmentDay}

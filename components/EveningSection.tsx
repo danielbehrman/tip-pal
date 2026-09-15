@@ -1,12 +1,9 @@
 "use client"
 
-import { useState } from "react"
 import { ParsedSchedule, FoodProgress, Medication, RampDoseOverride } from "@/lib/types"
 import { getMedicationSessions, getTreatmentFoodEntry, foodsAreInSync } from "@/lib/schedule"
 import FoodItem from "./FoodItem"
 import SectionHeader from "./ui/SectionHeader"
-import CTAButton from "./ui/CTAButton"
-import CompleteDayConfirm from "./CompleteDayConfirm"
 
 interface EveningSectionProps {
   schedule: ParsedSchedule
@@ -14,8 +11,6 @@ interface EveningSectionProps {
   checkedFoods: Record<string, boolean>
   onCheck: (key: string, val: boolean) => void
   onSkipMorning: () => void
-  onCompleteDayTap: () => void
-  completingDay: boolean
   isFutureDay: boolean
   isPastDay: boolean
   isCurrentTreatmentDay: boolean
@@ -35,8 +30,6 @@ export default function EveningSection({
   checkedFoods,
   onCheck,
   onSkipMorning,
-  onCompleteDayTap,
-  completingDay,
   isFutureDay,
   isPastDay,
   isCurrentTreatmentDay,
@@ -52,25 +45,6 @@ export default function EveningSection({
   const itemCount = treatmentFoods.length + eveningMeds.length
 
   const showActions = isCurrentTreatmentDay && !isFutureDay && !isSkipped
-
-  const [showConfirm, setShowConfirm] = useState(false)
-
-  const uncheckedTreatmentFoods = treatmentFoods.filter(
-    food => !checkedFoods[`evening-${food.name}`]
-  ).map(food => food.name)
-
-  function handleCompleteDayTap() {
-    if (uncheckedTreatmentFoods.length === 0) {
-      onCompleteDayTap()
-      return
-    }
-    setShowConfirm(true)
-  }
-
-  function handleConfirm() {
-    setShowConfirm(false)
-    onCompleteDayTap()
-  }
 
   return (
     <section className="mb-6">
@@ -139,15 +113,6 @@ export default function EveningSection({
             )
           })}
 
-          {/* Complete Day — always enabled; confirm dialog handles partial/zero checks */}
-          {showActions && (
-            <div className="mt-4">
-              <CTAButton onClick={handleCompleteDayTap} disabled={completingDay}>
-                {completingDay ? "Saving…" : "Complete Day"}
-              </CTAButton>
-            </div>
-          )}
-
           {/* Skip morning — informational log only */}
           {showActions && (
             <div className="mt-3 flex flex-col items-center gap-1">
@@ -161,14 +126,6 @@ export default function EveningSection({
             </div>
           )}
         </>
-      )}
-      {showConfirm && (
-        <CompleteDayConfirm
-          unchecked={uncheckedTreatmentFoods}
-          noneChecked={uncheckedTreatmentFoods.length === treatmentFoods.length}
-          onConfirm={handleConfirm}
-          onCancel={() => setShowConfirm(false)}
-        />
       )}
     </section>
   )

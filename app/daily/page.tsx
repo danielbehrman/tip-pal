@@ -8,7 +8,6 @@ import {
   fetchDoseState,
   saveDoseState,
   saveCheckedState,
-  saveDoseLog,
   saveSkipMorning,
   fetchCompletedPositions,
   fetchDayRecords,
@@ -32,7 +31,7 @@ import {
   markRampFinalized,
   upsertCheckedFood,
 } from "@/lib/supabase"
-import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, treatmentRampActive, getRampOverrides, advanceProgressForDay, resolveRampAfterAdvance, positionFromIndex, MS_PER_DAY, finalizeDayRamp, recomputeFoodProgressFromHistory } from "@/lib/schedule"
+import { todayDateString, addDays, formatDateOnly, getTreatmentFoodsForWeek, getGlobalPosition, getRampOverrides, positionFromIndex, MS_PER_DAY, finalizeDayRamp, recomputeFoodProgressFromHistory } from "@/lib/schedule"
 import DailyView from "@/components/DailyView"
 
 type BannerInfo =
@@ -64,8 +63,6 @@ export default function DailyPage() {
   const recommendedFoodCountsRef = useRef<Record<string, Record<string, number>>>({})
   const [reactionRamp, setReactionRamp] = useState<ReactionRamp | null>(null)
   const reactionRampRef = useRef<ReactionRamp | null>(null)
-  const [completingDay, setCompletingDay] = useState(false)
-  const completingDayRef = useRef(false)
 
   useEffect(() => {
     async function load() {
@@ -358,125 +355,6 @@ export default function DailyPage() {
     saveRecommendedGiven(updated).catch(() => {})
   }
 
-  async function handleCompleteDay() {
-    // Guards against a fast repeat tap firing this async handler again before
-    // the first call's writes land — each call reads foodProgressRef fresh, so
-    // a second concurrent call would advance an already-advancing position by
-    // a further, duplicate day rather than being a no-op.
-    if (completingDayRef.current) return
-    const current = doseStateRef.current
-    if (!current || !hydrated) return
-
-    const { checkedFoods } = current
-    const foodProgress = foodProgressRef.current
-    const completedAt = new Date().toISOString()
-    const currentSchedule = schedule!
-
-    if (foodProgress.size === 0 && currentSchedule.treatmentFoods.length > 0) return
-
-    completingDayRef.current = true
-    setCompletingDay(true)
-
-    // Everything that can advance state lives in this try/finally — an
-    // uncaught throw here must still release the guard above, or a single
-    // unexpected error would silently and permanently disable Complete Day
-    // for the rest of the session (every future tap a silent no-op).
-    try {
-      const ramp = reactionRampRef.current
-      const wasTreatmentRampActive = treatmentRampActive(ramp)
-
-      const { updatedProgress, updatedRampTreatmentFoods, updatedRampMaintenanceFoods } =
-        advanceProgressForDay(currentSchedule, checkedFoods, foodProgress, ramp, completedAt)
-
-      // Log uses the global position BEFORE advancement (the position just completed)
-      const globalBefore = getGlobalPosition(foodProgress)
-
-      try {
-        await saveFoodProgress(updatedProgress)
-      } catch {
-        // Save failed — continue; local state still reflects progress
-      }
-
-      const isSkipped =
-        currentSchedule.treatmentFoods.length > 0 &&
-        !currentSchedule.treatmentFoods.some(food => !!checkedFoods[`evening-${food.name}`])
-
-      try {
-        await saveDoseLog(
-          globalBefore.week,
-          globalBefore.day,
-          checkedFoods,
-          completedAt,
-          currentSchedule,
-          isSkipped,
-          ramp?.active ?? false
-        )
-      } catch {
-        // Log failed — local state still reflects the checked foods either way
-      }
-
-      let updatedRamp: ReactionRamp | null = null
-      if (ramp) {
-        const { nextRamp, justFinishedTreatment, fullyDone } = resolveRampAfterAdvance(
-          ramp, updatedRampTreatmentFoods, updatedRampMaintenanceFoods, wasTreatmentRampActive
-        )
-        if (justFinishedTreatment) {
-          try {
-            await appendPreviousRamp({
-              startedAt: ramp.startedAt,
-              endedAt: completedAt,
-              rampDayCount: nextRamp.rampDay,
-              treatmentFoods: nextRamp.treatmentFoods,
-              maintenanceFoods: nextRamp.maintenanceFoods,
-            })
-          } catch {
-            // History write failed — non-critical, ramp state itself still updates below
-          }
-        }
-        updatedRamp = fullyDone
-          ? { active: false, startedAt: "", rampDay: 0, startedAtWeek: 0, startedAtDay: 0, treatmentFoods: [], maintenanceFoods: [] }
-          : nextRamp
-        try {
-          await saveReactionRamp(updatedRamp)
-        } catch {
-          // Save failed — local state still reflects today's advancement
-        }
-      }
-
-      const newGlobal = getGlobalPosition(updatedProgress)
-
-      setFoodProgress(updatedProgress)
-      foodProgressRef.current = updatedProgress
-      if (ramp) {
-        setReactionRamp(updatedRamp)
-        reactionRampRef.current = updatedRamp
-      }
-      setDoseState(prev => {
-        if (!prev) return prev
-        // checkedFoods resets — the new current day starts fresh, not pre-filled
-        // with the day just completed.
-        return { ...prev, currentWeek: newGlobal.week, currentDay: newGlobal.day, checkedFoods: {} }
-      })
-      setTreatmentAnchor(newGlobal)
-      treatmentAnchorRef.current = newGlobal
-
-      setCompletedPositions(prev => {
-        const next = new Set(prev)
-        next.add(`${globalBefore.week}-${globalBefore.day}`)
-        return next
-      })
-
-      setDayRecords(prev => {
-        const next = new Map(prev)
-        next.set(`${globalBefore.week}-${globalBefore.day}`, { date: completedAt, skipped: false, checkedFoods })
-        return next
-      })
-    } finally {
-      completingDayRef.current = false
-      setCompletingDay(false)
-    }
-  }
-
   async function handleSkipMorning() {
     if (!hydrated || !treatmentAnchor) return
     const { week, day } = treatmentAnchor
@@ -499,8 +377,6 @@ export default function DailyPage() {
       doseState={doseState}
       onStateChange={handleStateChange}
       onCheckPersist={handleCheckPersist}
-      onCompleteDay={handleCompleteDay}
-      completingDay={completingDay}
       onSkipMorning={handleSkipMorning}
       appointmentDate={appointmentDate}
       fliesToAppointments={fliesToAppointments}
