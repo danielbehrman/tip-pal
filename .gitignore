@@ -11,3 +11,4 @@ out/
 supabase/.temp/
 .env*
 .superpowers/
+.DS_Store
