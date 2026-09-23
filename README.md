@@ -2,13 +2,13 @@
 
 A daily dosing assistant for families in food allergy tolerance induction programs.
 
-**Live app:** [tippal.behrman.dev](https://tippal.behrman.dev) — currently in active dogfooding. Core features are working but the app is under active development and not yet feature complete. Use with that in mind.
+**Live app:** [tippal.behrman.dev](https://tippal.behrman.dev) — in active daily use. The core dosing, tracking, and history features are complete and stable. Native iOS app is in TestFlight beta ahead of App Store submission.
 
 ---
 
 ## Status
 
-Tip Pal is in active development. Phase 2 (core dosing, shared state, push notifications) is complete and in use. Several critical features are still in progress, including App Store distribution, new food cycle management, and emergency medication expiry tracking. The app works and is being used daily, but expect rough edges and missing features.
+Tip Pal's core feature set is complete and in daily use by real families managing an active treatment program. Dosing, tracking, per-food progress, history/editing, reaction handling, and new-cycle management are all built and stable. The native iOS app is currently in TestFlight beta; App Store submission is the near-term focus. Android/Google Play is a future possibility, not yet scheduled.
 
 If you self-host or use the live app, feedback is welcome.
 
@@ -33,25 +33,30 @@ An AI reads your plan of care and builds a structured schedule: morning maintena
 - **AI-powered schedule parsing** — paste your plan of care notes directly from the clinic. No manual data entry.
 - **Morning and evening dose views** — separated clearly, with prep notes inline
 - **CAPPED food labels** — exact doses flagged visually throughout
-- **Complete Day gate** — requires all evening treatment foods checked before advancing
-- **Skip session logging** — morning and evening skips recorded separately
-- **Completion-based week advancement** — 7 complete days auto-advances the week
-- **Appointment date and buffer days** — see how many days remain before your next visit
-- **Trailing 3-day edit** — correct checkbox state for recent completed days
+- **Live auto-save** — check off a food and it's saved immediately, no "Complete Day" button required. Position and progress recompute automatically overnight from your actual dosing history, so nothing is lost if you close the app mid-session or two people are checking things off from different devices at once.
+- **Independent per-food tracking** — each treatment food advances on its own schedule based on what's actually been checked; the week/day shown is always your furthest-behind food
+- **Food grouping** — check off composite foods (like a mixed-seed jam) as a single item, with the option to expand and adjust individual components on days that differ
+- **Recommended foods tracking** — 3–5x/week targets tracked separately, credited automatically when a matching food is checked anywhere else in the app
+- **Reaction Ramp** — if a reaction happens mid-cycle, enter your clinic's ramp-back plan and the app freezes your position, overrides doses to match the ramp, and resumes automatically once it's complete
+- **New food cycle flow** — start a new cycle after a clinic visit with a guided review of what's changing, without losing dosing history
+- **Travel Day Buffer** — families who fly to appointments get an extra travel day automatically factored into their buffer-day calculation
+- **History calendar with full-cycle editing** — browse any day in your current cycle, edit checkboxes for any day, and see your position and buffer recompute accurately from the correction
+- **Appointment date and buffer days** — see how many days of cushion remain before your next visit
 - **Full dose history** — chronological log of every session, useful at clinic appointments
-- **Shared real-time state** — both parents see the same schedule and checkboxes
-- **Push notifications** — configurable morning and evening dose reminders
-- **"[Family Name]'s Tip Pal"** — personalized during onboarding
+- **Shared state** — both parents see the same schedule and checkboxes
+- **Push notifications** — configurable morning and evening dose reminders (web push; native push notifications coming post-launch)
+- **"[Child's Name]'s Tip Pal"** — personalized during onboarding
 
 ---
 
 ## What's Coming
 
-- **App Store and Google Play** — native iOS and Android apps
-- **New food cycle flow** — start a new cycle after a clinic visit without losing history
+- **App Store (near-term)** — iOS app is in TestFlight beta now, moving toward public App Store submission
+- **Native push notifications** — reminders delivered through the native app instead of web push, first release after App Store launch
 - **Emergency medication expiry tracker** — scenario kit and EpiPen expiration dates with advance warnings
-- **Recommended foods view** — track 3 to 5x weekly frequency targets
-- **Food grouping** — check off composite foods as a single item
+- **Google Play / Android** — under consideration, not yet scheduled
+- **Digital Food Passport** — a visual, stamp-style record of every food cleared at a challenge visit
+- **Household invite flow** — join a family's account without manual setup
 
 ---
 
